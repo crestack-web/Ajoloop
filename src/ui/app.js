@@ -152,7 +152,7 @@ function render(){
 
 function createView(){const f=UI.form;const prev=defaultAvatar(f.gender);
  return `<div class="title">
-<img class="logo-hero" src="/logo.jpg" alt="AjoLoop" width="280" height="auto">
+<img class="logo-hero" src="/logo.png" alt="AjoLoop" width="280" height="auto">
 <h1>Build your circle</h1><p>Create your character — look that feels like you and your culture. Then build trust in your community.</p>
 <div class="card flat">
 <div class="av-preview">${renderAvatar(UI.avForm||prev,96)}</div>
@@ -166,7 +166,7 @@ function createView(){const f=UI.form;const prev=defaultAvatar(f.gender);
 function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length;
  const area=(p.home&&p.home.done)?p.home.area:(p.area||'Set home area');
  const dueAjo=G.ajos.some(a=>a.status==='active'&&a.members.includes('player')&&!cyc(a,'player')&&!(a.cycle===0&&a.host==='player')&&G.day>=dueDay(a)-1);
- return `<header class="hud"><div class="r1"><div class="day"><img class="logo-hud" src="/logo.jpg" alt="AjoLoop">
+ return `<header class="hud"><div class="r1"><div class="day"><img class="logo-hud" src="/logo.png" alt="AjoLoop">
  <span style="display:block;font-weight:800;font-size:15px">${esc(p.name)}</span>
  <span class="muted" style="font-size:12px;font-weight:700">📍 ${esc(area)}</span></div>
  <div class="center"><span class="cash-label">Demo wallet</span><div class="cash sm" id="cash">${fmt(p.cash)}</div></div>

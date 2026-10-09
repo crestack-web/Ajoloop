@@ -11,8 +11,8 @@ const css = fs.readFileSync(path.join(root, 'src/styles/main.css'), 'utf8');
 const engine = fs.readFileSync(path.join(root, 'src/engine/game.js'), 'utf8');
 let ui = fs.readFileSync(path.join(root, 'src/ui/app.js'), 'utf8');
 
-const logoPath = path.join(root, 'public/logo.jpg');
-let logoUri = '/logo.jpg';
+const logoPath = path.join(root, 'public/logo.png');
+let logoUri = '/logo.png';
 if (fs.existsSync(logoPath)) {
   const b64 = fs.readFileSync(logoPath).toString('base64');
   logoUri = 'data:image/jpeg;base64,' + b64;
@@ -26,8 +26,8 @@ for (const m of ['export async function startApp', 'export function startApp', '
   if (p >= 0) uiBody = uiBody.slice(0, p);
 }
 uiBody = uiBody.replace(/^import\s+.*?from\s+.*?;\n/gm, '').trim() + '\n\nboot();\n';
-uiBody = uiBody.split('/logo.jpg').join(logoUri);
-let cssOut = css.split('/logo.jpg').join(logoUri);
+uiBody = uiBody.split('/logo.png').join(logoUri);
+let cssOut = css.split('/logo.png').join(logoUri);
 
 const html = `<!doctype html>
 <html lang="en">
