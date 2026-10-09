@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -300,15 +300,16 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
 `}
 
 function locMeta(id){
+ const L=LOCS[id]||{};
  const M={
   home:{tags:['Rest','Food'],blurb:'Recover energy and cook cheap meals.'},
-  market:{tags:['Trade','Shop','Social'],blurb:'Stock a stall, snack, and meet traders.'},
-  restaurant:{tags:['Food','Social'],blurb:'Eat well and share a table with neighbours.'},
-  park:{tags:['Transport','Gig'],blurb:'Cheaper keke rides and quick errand money.'},
-  work:{tags:['Jobs','Pay'],blurb:'Clock in for salary or pick a new role.'},
-  bank:{tags:['Savings'],blurb:'Park game cash safely for bigger goals.'},
-  social:{tags:['Mood','Reputation'],blurb:'Hang out, buy a round, shape your name.'},
-  ajo:{tags:['Ajo circles'],blurb:'Join or host rotating savings — separate from game cash.'}
+  market:{tags:['Trade','Kano shops','Social'],blurb:'Real market stalls and traders in '+(L.area||'Kano')+'.'},
+  restaurant:{tags:['Food','Mama Put','Social'],blurb:'Street kitchens and shared tables in '+(L.area||'Kano')+'.'},
+  park:{tags:['Transport','Keke','Gig'],blurb:'Motor park life — rides and news across the city.'},
+  work:{tags:['Jobs','Pay','Offices'],blurb:'Workshops and desks along the municipal strip.'},
+  bank:{tags:['Savings','Services'],blurb:'Banks and small service desks in one corridor.'},
+  social:{tags:['Suya','Hangout','Reputation'],blurb:'Evening hangout where names are made.'},
+  ajo:{tags:['Ajo circles','Community'],blurb:'Where savings circles meet across Kano.'}
  };
  return M[id]||{tags:[],blurb:''};
 }
@@ -432,7 +433,9 @@ function spotAddSheet(){
   return `<div class="sec" style="margin-top:0">Add a spot<small>Places you usually go — visible to your community so friends nearby can connect and build trust.</small></div>
     <label class="l">Name</label><input id="sf-name" maxlength="32" placeholder="e.g. Central Mosque courtyard" value="${esc(f.name)}">
     <label class="l">Area (Kano)</label><div class="opts">${allAreas().map(a=>`<button data-a="spotArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
+    <label class="l">Linked daily place (optional)</label><div class="opts">${['market','restaurant','park','work','bank','social','ajo'].map(id=>`<button data-a="spotLoc" data-v="${id}" class="${(f.loc||'')===id?'on':''}">${LOCS[id].ic} ${LOCS[id].n}</button>`).join('')}</div>
     <label class="l">Landmark (optional)</label><input id="sf-label" maxlength="48" placeholder="e.g. Near the old gate" value="${esc(f.label||'')}">
+    <label class="l">Photo URL (optional)</label><input id="sf-img" maxlength="300" placeholder="https://…" value="${esc(f.img||'')}">
     <label class="l">Icon</label><div class="opts">${ics.map(ic=>`<button data-a="spotIc" data-v="${ic}" class="${f.ic===ic?'on':''}">${ic}</button>`).join('')}</div>
     <label class="l">Note (optional)</label><input id="sf-note" maxlength="120" placeholder="Why friends meet here" value="${esc(f.note||'')}">
     <button class="btn" style="margin-top:14px" data-a="spotSave">Save spot</button>
@@ -442,10 +445,11 @@ function spotDetailSheet(id){
   const s=(G.spots||[]).find(x=>x.id===id&&!x.removed);
   if(!s) return `<h2>Spot gone</h2><div class="muted sm">This place was removed.</div>`;
   const peeps=peopleAtSpot(s.id);
-  return `<div class="place-hero"><div class="ph-ic">${s.ic||'📍'}</div><div><h2>${esc(s.name)}</h2>
-    <div class="muted sm">${esc(s.area)}${s.label?' · '+esc(s.label):''}</div>
-    <div class="place-meta"><span class="place-tag hot">Community spot</span>${s.by==='player'?'<span class="place-tag">Yours</span>':''}</div>
-    ${s.note?`<div class="travel-hint">${esc(s.note)}</div>`:''}</div></div>
+  return `${s.img?`<div class="place-photo" style="background-image:url('${esc(s.img)}')"><div class="place-photo-shade"><div class="place-photo-ic">${s.ic||'📍'}</div><div><h2>${esc(s.name)}</h2><div class="place-photo-sub">${esc(s.area)}${s.label?' · '+esc(s.label):''}</div></div></div></div>`
+    :`<div class="place-hero"><div class="ph-ic">${s.ic||'📍'}</div><div><h2>${esc(s.name)}</h2>
+    <div class="muted sm">${esc(s.area)}${s.label?' · '+esc(s.label):''}</div></div></div>`}
+    <div class="place-meta" style="margin:8px 12px"><span class="place-tag hot">Community spot</span>${s.by==='player'?'<span class="place-tag">Yours</span>':''}${s.loc&&LOCS[s.loc]?`<span class="place-tag">${LOCS[s.loc].n}</span>`:''}</div>
+    ${s.note?`<div class="travel-hint" style="margin:0 12px">${esc(s.note)}</div>`:''}
     <div class="section-label">Friends & people nearby</div>
     <div class="muted tiny px" style="margin-bottom:8px">Connect with people who share this area — chat after you become friends.</div>
     ${peeps.length?peeps.map(n=>{
@@ -551,18 +555,70 @@ function chatSheet(uid){
     </div>
     <div class="tiny muted" style="margin-top:8px">These small acts raise closeness and trust over time — the same way community works offline.</div>`}
 
+
+function placePhotoBlock(locId){
+  const L=LOCS[locId]||{}, cover=placeCover(locId), meta=locMeta(locId);
+  const areaLine=L.area?(L.area+(L.label?' · '+L.label:'')):(L.label||'Your place');
+  const peopleTag=here().length?`<span class="place-tag people">${here().length} here now</span>`:'<span class="place-tag">Quiet now</span>';
+  if(cover){
+    return `<div class="place-photo" style="background-image:url('${esc(cover)}')">
+      <div class="place-photo-shade">
+        <div class="place-photo-ic">${L.ic||'📍'}</div>
+        <div style="min-width:0;flex:1"><h2>${esc(L.n)}</h2>
+        <div class="place-photo-sub">${esc(areaLine)}</div>
+        <div class="place-meta" style="margin-top:8px">${(meta.tags||[]).map(t=>`<span class="place-tag hot">${t}</span>`).join('')}${peopleTag}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+  return `<div class="place-hero"><div class="ph-ic">${L.ic}</div><div style="min-width:0;flex:1"><h2>${esc(L.n)}</h2>
+    <div class="muted sm">${esc(L.d||'')}</div>
+    <div class="place-meta">${(meta.tags||[]).map(t=>`<span class="place-tag hot">${t}</span>`).join('')}${peopleTag}</div></div></div>`;
+}
+function placeListings(locId){
+  if(locId==='home') return '';
+  const bizs=businessesAtLoc(locId);
+  const spots=spotsAtLoc(locId);
+  let h=`<div class="section-label">Businesses & spots · ${esc((LOCS[locId]||{}).area||'Kano')}</div>
+    <div class="muted tiny px" style="margin-bottom:8px">Shops and places people added in this part of Kano — visit, meet friends, build trust.</div>`;
+  if(!bizs.length&&!spots.length){
+    h+=`<div class="card empty"><div class="big">📌</div>No listings here yet.<button class="btn sm" style="margin-top:10px" data-a="spotAdd">Add a spot</button></div>`;
+    return h;
+  }
+  h+=bizs.map(b=>`<button class="place-listing" data-a="bizOpen" data-id="${b.id}">
+      <div class="pl-img" style="${b.img?`background-image:url('${esc(b.img)}')`:''}">${b.img?'':(b.ic||'🏪')}</div>
+      <div class="pl-meta"><b>${esc(b.name)}</b>
+        <div class="l">${esc(b.cat)} · ${esc(b.area)}${b.label?' · '+esc(b.label):''}</div>
+        <div class="tiny muted">Trust ${Math.round(b.trust||0)} · ${b.owner==='player'?'Yours':'Open'}</div>
+      </div>
+      <span class="go">›</span>
+    </button>`).join('');
+  h+=spots.map(s=>`<button class="place-listing" data-a="spotOpen" data-id="${s.id}">
+      <div class="pl-img spot" style="${s.img?`background-image:url('${esc(s.img)}')`:''}">${s.img?'':(s.ic||'📍')}</div>
+      <div class="pl-meta"><b>${esc(s.name)}</b>
+        <div class="l">${esc(s.area)}${s.label?' · '+esc(s.label):''}${s.by==='player'?' · yours':''}</div>
+        <div class="tiny muted">${esc(s.note||'Community hangout')}</div>
+      </div>
+      <span class="go">›</span>
+    </button>`).join('');
+  h+=`<div class="px" style="margin:8px 0 4px"><button class="btn sm ghost" data-a="spotAdd">＋ Add your spot in this area</button></div>`;
+  return h;
+}
+
 function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(),hn=here();
  const order=['home','market','restaurant','park','_c','work','bank','social','ajo'];
  const mode=UI.townMode||'map';
  const tile=id=>{
   if(id==='_c')return `<div class="tile center"><div>✦</div><b>KANO</b></div>`;
   const l=LOCS[id],h=G.p.loc===id,n=G.npcs.filter(x=>npcLoc(x)===id).length;
-  return `<button class="tile ${h?'here':''}" data-a="travel" data-to="${id}" ${h?'disabled':''} aria-label="${l.n}${h?' (you are here)':''}"><span class="ti">${l.ic}</span><b>${l.n}</b>${h?'<em class="me">You</em>':`<small class="${n?'busy':''}">${n?n+' here':'—'}</small>`}</button>`;
+  const bizN=id==='home'?0:businessesAtLoc(id).length;
+  return `<button class="tile ${h?'here':''}" data-a="travel" data-to="${id}" ${h?'disabled':''} aria-label="${l.n}${h?' (you are here)':''}"><span class="ti">${l.ic}</span><b>${l.n}</b>${h?'<em class="me">You</em>':`<small class="${n||bizN?'busy':''}">${bizN?bizN+' shop'+(bizN>1?'s':''):(n?n+' here':'—')}</small>`}</button>`;
  };
  const dirItem=id=>{
   const l=LOCS[id],h=G.p.loc===id,n=G.npcs.filter(x=>npcLoc(x)===id).length,m=locMeta(id),info=travelInfo(id);
   const trail=h?'You are here':(info?'Open to visit':'');
-  return `<button class="dir-item ${h?'here':''}" data-a="${h?'':'travel'}" ${h?'disabled':`data-to="${id}"`}><div class="di-ic">${l.ic}</div><div style="min-width:0;flex:1"><b>${l.n}</b><div class="tiny muted">${m.blurb}</div><div class="tiny muted" style="margin-top:2px">${n?n+' people · ':''}${trail}</div></div><span class="go">${h?'●':'›'}</span></button>`;
+  const area=l.area?l.area:'';
+  return `<button class="dir-item ${h?'here':''}" data-a="${h?'':'travel'}" ${h?'disabled':`data-to="${id}"`}><div class="di-ic">${l.ic}</div><div style="min-width:0;flex:1"><b>${l.n}</b><div class="tiny muted">${area?area+' · ':''}${m.blurb}</div><div class="tiny muted" style="margin-top:2px">${n?n+' people · ':''}${id!=='home'&&businessesAtLoc(id).length?businessesAtLoc(id).length+' shops · ':''}${trail}</div></div><span class="go">${h?'●':'›'}</span></button>`;
  };
  const groups=[['needs','Look after yourself'],['work','Work & money'],['social','People & vibe'],['rest','End the day'],['do','Here']];
  const grouped=groups.map(([g,label])=>{
@@ -582,8 +638,10 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
  </div>
  ${mode==='city'?kanoMapBlock():''}
  ${mode==='map'?`<div class="map-wrap"><div class="map">${order.map(tile).join('')}</div><div class="map-legend"><span>Tap a tile to travel</span><span>Free to move · focus is people & trust</span></div></div>
- <section class="card"><div class="place-hero"><div class="ph-ic">${L.ic}</div><div style="min-width:0;flex:1"><h2>${L.n}</h2><div class="muted sm">${L.d}</div><div class="place-meta">${meta.tags.map(t=>`<span class="place-tag hot">${t}</span>`).join('')}${hn.length?`<span class="place-tag people">${hn.length} here now</span>`:'<span class="place-tag">Quiet now</span>'}${G.p.loc==='work'&&openJobs?`<span class="place-tag hot">${openJobs} jobs open</span>`:''}</div>
- <div class="travel-hint">You are here · ${String(G.hour).padStart(2,'0')}:00 · Day ${G.day}. ${meta.blurb}</div></div></div></section>
+ ${placePhotoBlock(G.p.loc)}
+ <div class="card flat" style="margin:0 12px 8px"><div class="travel-hint" style="margin:0">You are here · ${String(G.hour).padStart(2,'0')}:00 · Day ${G.day}. ${meta.blurb}</div>
+ <div class="muted sm" style="margin-top:6px">${esc(L.d||'')}</div></div>
+ ${placeListings(G.p.loc)}
  ${acts.length?grouped:'<div class="card empty"><div class="big">🗺️</div>Nothing to do here right now.</div>'}
  <div class="sec">People here<small>${hn.length?'Tap someone to talk, share a meal, or help.':'Nobody on this block right now.'}</small></div>
  ${hn.length?hn.map(personRow).join(''):'<div class="card empty"><div class="big">🚶</div>Empty for the moment.</div>'}`:''}
@@ -1425,14 +1483,16 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     if(setHome(UI.homeForm.area,label,UI.homeForm.style)){UI.modal=null;if(setupSteps().every(s=>s.ok))markOnboarded();commit()} else render();
     break}
 
-  case 'spotAdd':UI.spotForm={name:'',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',ic:'📍',note:''};UI.modal={t:'spotAdd'};render();break;
+  case 'spotAdd':UI.spotForm={name:'',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',ic:'📍',note:'',loc:G.p.loc!=='home'?G.p.loc:'market',img:''};UI.modal={t:'spotAdd'};render();break;
   case 'spotArea':UI.spotForm.area=d.v;render();break;
+  case 'spotLoc':UI.spotForm.loc=d.v;render();break;
   case 'spotIc':UI.spotForm.ic=d.v;render();break;
   case 'spotSave':{
     const name=(document.getElementById('sf-name')||{}).value||UI.spotForm.name;
     const label=(document.getElementById('sf-label')||{}).value||UI.spotForm.label;
     const note=(document.getElementById('sf-note')||{}).value||UI.spotForm.note;
-    const s=addSpot({name,area:UI.spotForm.area,label,ic:UI.spotForm.ic,note});
+    const img=(document.getElementById('sf-img')||{}).value||UI.spotForm.img;
+    const s=addSpot({name,area:UI.spotForm.area,label,ic:UI.spotForm.ic,note,loc:UI.spotForm.loc,img});
     if(s){UI.modal={t:'spot',id:s.id};commit()} else render();
   }break;
   case 'spotOpen':UI.modal={t:'spot',id:d.id};render();break;
