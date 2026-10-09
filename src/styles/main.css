@@ -263,3 +263,100 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
 .check-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13.5px;font-weight:700}
 .check-row.ok{color:#7dffc4}
 .check-row:last-child{border:0}
+
+/* —— Full-page chat (WhatsApp-like, Ajoloop theme) —— */
+.wa-page{
+  position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(124,92,255,.18), transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(255,201,40,.08), transparent 45%),
+    #0f0b2e;
+  color:var(--tx);
+}
+.wa-head{
+  display:flex;align-items:center;gap:10px;
+  padding:calc(10px + env(safe-area-inset-top,0px)) 12px 12px;
+  background:linear-gradient(180deg,#241a5c,#1a1448);
+  border-bottom:1px solid rgba(255,201,40,.2);
+  box-shadow:0 4px 20px rgba(0,0,0,.35);
+}
+.wa-back{
+  width:40px;height:40px;border-radius:50%;border:0;
+  background:rgba(255,255,255,.08);color:#fff;font-size:28px;line-height:1;
+  font-weight:300;flex-shrink:0;
+}
+.wa-av{
+  width:42px;height:42px;border-radius:50%;background:var(--card2);
+  display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
+  border:2px solid rgba(255,201,40,.35);
+}
+.wa-title{
+  flex:1;min-width:0;text-align:left;background:none;border:0;color:inherit;padding:0;
+}
+.wa-title b{display:block;font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-title span{display:block;font-size:12px;color:var(--mut);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-icon{
+  width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.08);
+  color:var(--danfo);font-size:18px;font-weight:800;
+}
+.wa-log{
+  flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:12px 12px 8px;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 1px, transparent 0);
+  background-size:18px 18px;
+}
+.wa-day{
+  text-align:center;margin:12px auto;padding:4px 12px;width:fit-content;
+  background:rgba(36,26,92,.85);border:1px solid rgba(255,255,255,.08);
+  border-radius:999px;font-size:11px;font-weight:800;color:var(--mut);
+}
+.wa-sys{
+  text-align:center;margin:8px auto;padding:8px 14px;max-width:90%;
+  background:rgba(255,201,40,.1);border:1px solid rgba(255,201,40,.2);
+  border-radius:12px;font-size:12.5px;font-weight:600;color:#e8d9a0;line-height:1.4;
+}
+.wa-row{display:flex;margin:6px 0}
+.wa-row.me{justify-content:flex-end}
+.wa-bubble{
+  max-width:82%;padding:8px 12px 6px;border-radius:14px;position:relative;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);line-height:1.35;
+}
+.wa-bubble.them{
+  background:#2a2272;border-bottom-left-radius:4px;color:#f0eeff;
+}
+.wa-bubble.me{
+  background:linear-gradient(135deg,#f5c842,#e8b020);color:#1a1400;
+  border-bottom-right-radius:4px;
+}
+.wa-name{font-size:11px;font-weight:800;margin-bottom:2px;opacity:.85}
+.wa-bubble.me .wa-name{color:#5a4800}
+.wa-bubble.them .wa-name{color:#c4b5ff}
+.wa-text{font-size:14.5px;font-weight:600;word-break:break-word}
+.wa-time{font-size:10px;font-weight:700;opacity:.65;text-align:right;margin-top:4px}
+.wa-quick{
+  display:flex;gap:6px;padding:6px 10px;overflow-x:auto;
+  background:rgba(15,11,46,.92);border-top:1px solid rgba(255,255,255,.06);
+  -webkit-overflow-scrolling:touch;
+}
+.wa-quick button{
+  flex-shrink:0;border:0;border-radius:999px;padding:7px 12px;
+  background:#2a2272;color:#e8e4ff;font-size:12px;font-weight:800;
+}
+.wa-compose{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px calc(10px + env(safe-area-inset-bottom,0px));
+  background:#1a1448;border-top:1px solid rgba(255,201,40,.15);
+}
+.wa-plus,.wa-send{
+  width:44px;height:44px;border-radius:50%;border:0;flex-shrink:0;
+  font-size:18px;font-weight:800;
+}
+.wa-plus{background:#2a2272;color:#fff}
+.wa-send{background:linear-gradient(135deg,#f5c842,#e8b020);color:#1a1400}
+.wa-compose input{
+  flex:1;border:0;border-radius:22px;padding:12px 16px;
+  background:#2a2272;color:#fff;font-size:15px;font-weight:600;
+  outline:none;
+}
+.wa-compose input::placeholder{color:rgba(255,255,255,.4)}

@@ -25,6 +25,19 @@ function commit(){Store.save();render()}
 
 function render(){
  if(!G){app.innerHTML=createView();return}
+ // Full-page chat (WhatsApp-style) — no bottom nav clutter
+ if(UI.modal&&UI.modal.t==='ajoChat'){
+  app.innerHTML=ajoChatPage(ajoOf(UI.modal.id));
+  const log=document.getElementById('wa-log');
+  if(log)log.scrollTop=log.scrollHeight;
+  flush();return;
+ }
+ if(UI.modal&&UI.modal.t==='dmChat'){
+  app.innerHTML=dmChatPage(UI.modal.id);
+  const log=document.getElementById('wa-log');
+  if(log)log.scrollTop=log.scrollHeight;
+  flush();return;
+ }
  const sc0=document.getElementById('sheet'),st0=sc0?sc0.scrollTop:0;
  app.innerHTML=hud()+'<main>'+({life:lifeView,town:townView,people:peopleView,groups:groupsView,ajo:ajoView,more:moreView}[UI.tab])()+'</main>'+navHtml()+sheetHtml();
  if(st0){const s1=document.getElementById('sheet');if(s1)s1.scrollTop=st0}
@@ -546,6 +559,95 @@ function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${v
  <button class="btn" style="margin-top:12px" data-a="ajoCreate">Create circle</button>
  <div class="tiny muted" style="margin-top:10px">Offline demo uses virtual cash. Real collections need a payment partner later.</div>`}
 
+
+function ajoChatPage(a){
+  if(!a) return `<div class="wa-page"><header class="wa-head"><button class="wa-back" data-a="close">‹</button><div class="wa-title"><b>Circle</b></div></header><div class="empty">Not found</div></div>`;
+  const host=a.host==='player'?G.p:npc(a.host);
+  const hostEm=a.host==='player'?avatar(G.p.gender):(host&&host.em)||'🤝';
+  const memNames=a.members.slice(0,4).map(m=>m==='player'?'You':nm(m)).join(', ')+(a.members.length>4?'…':'');
+  const log=a.chat||[];
+  // Build with system activity interleaved lightly
+  let msgs='';
+  let lastDay=null;
+  const items=[];
+  (a.activity||[]).slice().reverse().forEach(x=>{
+    if(x.kind==='join'||x.kind==='system')items.push({type:'sys',day:x.day,t:x.txt});
+  });
+  log.forEach(m=>items.push({type:'msg',day:m.day,by:m.by,t:m.t,hour:m.hour}));
+  items.sort((x,y)=>(x.day-y.day)||0);
+  items.forEach(it=>{
+    if(it.day!==lastDay){
+      msgs+=`<div class="wa-day">Day ${it.day}</div>`;
+      lastDay=it.day;
+    }
+    if(it.type==='sys'){
+      msgs+=`<div class="wa-sys">${esc(it.t)}</div>`;
+    } else {
+      const me=it.by==='player';
+      const who=me?'You':esc(nm(it.by));
+      msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'}"><div class="wa-name">${who}</div><div class="wa-text">${esc(it.t)}</div><div class="wa-time">Day ${it.day}</div></div></div>`;
+    }
+  });
+  if(!items.length)msgs=`<div class="wa-sys">Messages are only visible to members of this circle.</div><div class="empty" style="margin-top:24px">Say hello — this is your circle chat.</div>`;
+
+  return `<div class="wa-page">
+  <header class="wa-head">
+    <button class="wa-back" data-a="ajoChatBack" data-id="${a.id}" aria-label="Back">‹</button>
+    <div class="wa-av">${hostEm}</div>
+    <button class="wa-title" data-a="ajoOpen" data-id="${a.id}">
+      <b>${esc(a.name)}</b>
+      <span>${esc(memNames)}</span>
+    </button>
+    <button class="wa-icon" data-a="ajoOpen" data-id="${a.id}" title="Circle info">ⓘ</button>
+  </header>
+  <div class="wa-log" id="wa-log">${msgs}</div>
+  <div class="wa-quick">
+    <button data-a="ajoAct" data-id="${a.id}" data-k="remind">⏰ Dues</button>
+    <button data-a="ajoAct" data-id="${a.id}" data-k="meetup">📅 Meetup</button>
+    <button data-a="ajoAct" data-id="${a.id}" data-k="cheers">✨ Encourage</button>
+    <button data-a="ajoAct" data-id="${a.id}" data-k="rules">📋 Rules</button>
+  </div>
+  ${a.members.includes('player')?`<footer class="wa-compose">
+    <button class="wa-plus" type="button" data-a="ajoAct" data-id="${a.id}" data-k="cheers" aria-label="Quick">＋</button>
+    <input id="ajo-chat-in" maxlength="240" placeholder="Message" autocomplete="off">
+    <button class="wa-send" data-a="ajoChatSend" data-id="${a.id}" aria-label="Send">➤</button>
+  </footer>`:`<footer class="wa-compose"><div class="muted sm" style="padding:12px;text-align:center;width:100%">Join this circle to send messages</div></footer>`}
+</div>`;
+}
+
+function dmChatPage(uid){
+  const n=npc(uid); if(!n) return `<div class="wa-page"><header class="wa-head"><button class="wa-back" data-a="close">‹</button></header><div class="empty">Unknown</div></div>`;
+  const th=chatThread(uid);
+  let msgs='',lastDay=null;
+  th.forEach(m=>{
+    if(m.day!==lastDay){msgs+=`<div class="wa-day">Day ${m.day}</div>`;lastDay=m.day}
+    const me=m.by==='player';
+    msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'}"><div class="wa-text">${esc(m.t)}</div><div class="wa-time">Day ${m.day}</div></div></div>`;
+  });
+  if(!th.length)msgs=`<div class="empty" style="margin-top:40px">Start the conversation. Trust grows from talking.</div>`;
+  const biz=bizByOwner(uid);
+  return `<div class="wa-page">
+  <header class="wa-head">
+    <button class="wa-back" data-a="close" aria-label="Back">‹</button>
+    <div class="wa-av">${n.em}</div>
+    <div class="wa-title"><b>${esc(n.n)}</b><span>${esc(n.occ)} · ${relLabel(n)}</span></div>
+  </header>
+  <div class="wa-log" id="wa-log">${msgs}</div>
+  <div class="wa-quick">
+    <button data-a="trustAct" data-id="${uid}" data-g="wave">👋 Greet</button>
+    <button data-a="trustAct" data-id="${uid}" data-g="help">🆘 Help</button>
+    <button data-a="trustAct" data-id="${uid}" data-g="vouch">🗣️ Vouch</button>
+    ${biz?`<button data-a="visitBiz" data-id="${biz.id}">📍 Visit</button>`:''}
+  </div>
+  <footer class="wa-compose">
+    <button class="wa-plus" type="button" data-a="trustAct" data-id="${uid}" data-g="intro" aria-label="Quick">＋</button>
+    <input id="chat-in" maxlength="200" placeholder="Message" autocomplete="off" value="${esc(UI.chatText||'')}">
+    <button class="wa-send" data-a="chatSend" data-id="${uid}" aria-label="Send">➤</button>
+  </footer>
+</div>`;
+}
+
+
 function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
  const P=G.p,host=a.host==='player'?null:npc(a.host),st=a.status;
  const tab=UI.ajoTab||'home';
@@ -646,7 +748,7 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
 
  if(a.payouts&&a.payouts.length){h+=`<section class="card"><b>Payouts</b>${a.payouts.map(p=>`<div class="tx"><div><b>${nm(p.to)}</b><div class="tiny muted">Round ${p.cycle+1}${p.fee?` · fee ${fmt(p.fee)}`:''}</div></div><span class="pos">${fmt(p.amt)}</span></div>`).join('')}</section>`}
  if(st==='done')h+=`<div class="card empty"><div class="big">✅</div>Circle complete.</div>`;
- h+=`<button class="btn ghost" style="margin-top:12px" data-a="ajoTab" data-v="chat">💬 Open circle chat</button>`;
+ h+=`<button class="btn" style="margin-top:12px" data-a="ajoChatOpen" data-id="${a.id}">💬 Open circle chat</button>`;
  return h}
 
 function notesSheet(){return `<h2>Notifications</h2><div style="margin-top:12px">${G.notes.length?G.notes.slice(0,30).map(n=>`<div class="note ${n.kind}" style="margin:0 0 8px"><div class="tiny muted">Day ${n.day}</div>${esc(n.txt)}</div>`).join(''):'<div class="muted">Nothing yet.</div>'}</div>`}
@@ -901,7 +1003,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'approveVisit':run(approveBizVisit,d.vid,d.y==='1');break;
   case 'trustAct':run(trustActivity,d.id,d.g);break;
   case 'buyBiz':run(buyAtBiz,d.id,d.p);break;
-  case 'chatOpen':UI.chatWith=d.id;UI.chatText='';UI.modal={t:'chat',id:d.id};render();break;
+  case 'chatOpen':UI.chatWith=d.id;UI.chatText='';UI.modal={t:'dmChat',id:d.id};render();break;
   case 'chatGame':run(chatGame,d.id,d.g);break;
   case 'chatSend':{
     const t=(document.getElementById('chat-in')||{}).value||UI.chatText;
@@ -931,6 +1033,8 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'keep':run(keepPromise,+d.id);break;
   case 'ev':run(pickEvent,+d.i);break;
   case 'ajoOpen':UI.ajoTab='home';UI.modal={t:'ajo',id:d.id};render();break;
+  case 'ajoChatOpen':UI.modal={t:'ajoChat',id:d.id};render();break;
+  case 'ajoChatBack':UI.ajoTab='home';UI.modal={t:'ajo',id:d.id};render();break;
   case 'ajoNew':UI.modal={t:'ajoNew'};render();break;
   case 'anset':UI.ajoNew[d.k]=+d.v;render();break;
   case 'ajoCreate':case 'ajoMake':{const nameEl=document.getElementById('f-ajo');const f=UI.ajoNew;if(nameEl&&nameEl.value)f.name=nameEl.value;const id=createAjo((f.name||'Kano Hustlers').trim(),f.size,f.amt,f.freq);if(id){UI.ajoTab='home';UI.modal={t:'ajo',id}}commit();break}
@@ -939,7 +1043,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'ajoChatSend':{const t=(document.getElementById('ajo-chat-in')||{}).value||'';run(ajoChatSend,d.id,t);break}
   case 'ajoAct':run(ajoQuickAct,d.id,d.k);break;
   case 'ajoVis':run(setAjoVis,d.id,d.v);break;
-  case 'ajoTab':UI.ajoTab=d.v;render();break;
+  case 'ajoTab':if(d.v==='chat'&&UI.modal&&UI.modal.id){UI.modal={t:'ajoChat',id:UI.modal.id};render();break}UI.ajoTab=d.v;render();break;
   case 'pickStone':run(pickStone,d.id,d.s);break;
   case 'rollStones':run(rollStones,d.id);break;
   case 'join':run(joinAjo,d.id);break;
