@@ -802,7 +802,23 @@ function bizDetailSheet(b){
            <div class="row" style="gap:8px;margin-top:8px"><button class="btn sm green" data-a="approveVisit" data-vid="${v.id}" data-y="1">Confirm visit</button>
            <button class="btn sm ghost" data-a="approveVisit" data-vid="${v.id}" data-y="0">Decline</button></div></div>`).join('')}`}
     </div>
-    <div class="tiny muted" style="margin-top:10px">Ajoloop is about community trust and real Ajo support — not paying for keke in the app.</div>`}
+    ${(()=>{
+      const credit=circleCreditAvailable();
+      const products=bizProducts(b);
+      if(b.owner==='player') return '';
+      let h=`<div class="section-label">Buy with circle credit</div>`;
+      if(!credit.ok){
+        h+=`<div class="card" style="background:var(--card)"><div class="muted sm">${esc(credit.why||'Not available')}</div>
+          <div class="tiny muted" style="margin-top:6px">Need an <b>active Ajo circle</b>, Trust 55+, Reputation 48+. Amount is taken from your pot on your turn.</div></div>`;
+        return h;
+      }
+      h+=`<div class="card" style="background:var(--card)"><div class="row sp"><span class="muted sm">Available credit</span><b>${fmt(credit.limit)}</b></div>
+        <div class="tiny muted">From ${esc(credit.ajo.name)} · ${Math.round((credit.pct||0)*100)}% of pot based on your trust & reputation</div></div>`;
+      h+=products.map(p=>`<div class="card" style="margin-top:8px"><div class="row sp"><div><b>${esc(p.n)}</b><div class="muted sm">${fmt(p.price)}</div></div>
+        <button class="btn sm ${p.price>credit.limit?'ghost':''}" data-a="circleBuy" data-biz="${b.id}" data-prod="${p.id}" data-ajo="${credit.ajo.id}" ${p.price>credit.limit?'disabled':''}>${p.price>credit.limit?'Over limit':'Buy on pot'}</button></div></div>`).join('');
+      return h;
+    })()}
+    <div class="tiny muted" style="margin-top:10px">Circle credit is only for members of an active loop with strong trust — paid back from your pot when your turn arrives.</div>`}
 function chatSheet(uid){
   const n=npc(uid); if(!n) return '<div class="muted">Unknown</div>';
   const th=chatThread(uid);
@@ -1028,7 +1044,7 @@ function ajoView(){const mine=myAjos(),pub=publicAjos(),done=G.ajos.filter(a=>a.
 
 function ajoCard(a){const st={open:'Gathering',stones:a.rolled?'Order set':'Pick stones',voting:'Voting',active:'Running',done:'Complete'}[a.status]||a.status;const mem=a.members.length;
  const unread=a.chat&&a.chat.length?a.chat.length:0;
- let line='';if(a.status==='active'){const d=dueDay(a);line=`<div class="row sp sm" style="margin-top:8px"><span class="muted">Round ${a.cycle+1}/${a.size} · due Day ${d}</span><span>→ ${nm(a.order[a.cycle])}</span></div>`}
+ let line='';if(a.status==='active'){const d=dueDay(a);const adv=advancesOutstanding(a,'player');line=`<div class="row sp sm" style="margin-top:8px"><span class="muted">Round ${a.cycle+1}/${a.size} · due Day ${d}</span><span>→ ${nm(a.order[a.cycle])}</span></div>${adv?`<div class="tiny" style="margin-top:4px;color:var(--danfo)">Circle credit owed: ${fmt(adv)} (cuts your pot)</div>`:''}`}
  if(a.status==='stones')line=`<div class="tiny muted" style="margin-top:6px">${a.rolled?'Stone order locked. Ready to start.':'Choose your stone · organizer is always first'}</div>`;
  if(a.status==='open'&&a.host==='player'&&(a.joinReqs||[]).some(r=>r.st==='pending'))line+=`<div class="tiny" style="margin-top:6px;color:var(--danfo)">Join requests waiting</div>`;
  line+=`<div class="tiny muted" style="margin-top:4px">${a.vis==='public'?'🌐 Public':'🔒 Private'}${unread?` · 💬 ${unread} messages`:''}</div>`;
@@ -1985,6 +2001,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     break}
   case 'bizOpen':UI.modal={t:'biz',id:d.id};render();break;
   case 'visitBiz':run(requestBizVisit,d.id);break;
+  case 'circleBuy':run(buyWithCircleCredit,d.biz,d.prod,d.ajo);break;
 
   case 'treatOpen':UI.treatForm={biz:null,product:null,friend:null,note:'',mode:'request'};UI.modal={t:'treat'};render();break;
   case 'treatOpenFriend':UI.treatForm={biz:null,product:null,friend:d.id,note:'',mode:'request'};UI.modal={t:'treat'};render();break;
