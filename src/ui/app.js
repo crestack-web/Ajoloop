@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',gi:{},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',gi:{},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -210,12 +210,51 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
  <div class="sec">People here<small>${hn.length?'Tap someone to talk, share a meal, or help.':'Nobody on this block right now. Neighbours move during the day.'}</small></div>
  ${hn.length?hn.map(personRow).join(''):'<div class="card empty"><div class="big">🚶</div>Empty for the moment.<div class="muted sm" style="margin-top:6px">Try the Market mid-morning or Suya Spot in the evening.</div></div>'}`}
 
-function personRow(n){return `<button class="person" data-a="npc" data-id="${n.id}"><div class="av">${n.em}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ}${n.met?' · '+relLabel(n):' · New face'}</div></div>${n.met?`<div class="score" style="color:${col(n.rel)}">${Math.round(n.rel)}</div>`:'<span class="chip">?</span>'}</button>`}
+function relPill(n){
+ if(n.rel>=80) return '<span class="rel-pill close">Trusted</span>';
+ if(n.rel>=60) return '<span class="rel-pill friend">Friend</span>';
+ if(n.rel>=35) return '<span class="rel-pill acq">Acquaintance</span>';
+ return '<span class="rel-pill low">Low trust</span>';
+}
+function personRow(n){
+ const where=LOCS[npcLoc(n)];
+ return `<button class="person" data-a="npc" data-id="${n.id}"><div class="av">${n.em}</div><div class="meta"><b>${n.n}<span class="npc-badge">NPC</span></b><div class="l">${n.occ} · ${relLabel(n)}</div><div class="tiny muted" style="margin-top:2px">${where.ic} ${where.n}${n.lastSeen?` · last Day ${n.lastSeen}`:''}</div></div><div style="text-align:right">${relPill(n)}<div class="score" style="color:${col(n.rel)};margin-top:4px">${Math.round(n.rel)}</div></div></button>`;
+}
 
-function peopleView(){const met=G.npcs.filter(n=>n.met).sort((a,b)=>b.rel-a.rel),un=G.npcs.filter(n=>!n.met);
- return `<div class="sec">People<small>${met.length} of ${G.npcs.length} known · relationships are earned in town</small></div>
- ${met.length?`<div class="section-label">Your network</div>${met.map(personRow).join('')}`:'<div class="card empty"><div class="big">👋</div>No friends yet.<div class="muted sm" style="margin-top:8px">Go to Kasuwa Market or Mama Put and say hello.</div><button class="btn sm" style="margin-top:12px" data-a="goto" data-to="market">Go to Market</button></div>'}
- ${un.length?`<div class="section-label">Around town</div><div class="muted tiny px" style="margin-bottom:6px">You have not met them yet — find them at their usual spots.</div>${un.map(n=>`<div class="person" style="opacity:.8"><div class="av">${n.em}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ}</div></div><span class="chip">${LOCS[n.spots[0]].ic} ${LOCS[n.spots[0]].n}</span></div>`).join('')}`:''}`}
+function peopleView(){
+ const filter=UI.peopleFilter||'all';
+ const met=G.npcs.filter(n=>n.met).sort((a,b)=>b.rel-a.rel);
+ const close=met.filter(n=>n.rel>=60);
+ const un=G.npcs.filter(n=>!n.met);
+ // Suggested: unmet who share a location with people you know, or high-trust tags nearby spots
+ const suggest=un.slice().sort((a,b)=>{
+  const sa=a.spots.includes(G.p.loc)?2:0; const sb=b.spots.includes(G.p.loc)?2:0;
+  return (sb+b.tr/100)-(sa+a.tr/100);
+ }).slice(0,4);
+ const list=filter==='close'?close:filter==='all'?met:met;
+ const seg=[['all','All '+met.length],['close','Close '+close.length],['discover','Discover']];
+ let body='';
+ if(filter==='discover'){
+  body=`<div class="section-label">Find them in town</div>
+   <div class="muted tiny px" style="margin-bottom:8px">These are simulated neighbours. Meet them where they spend the day.</div>
+   ${suggest.length?suggest.map(n=>{
+    const spot=n.spots[0],L=LOCS[spot],hereNow=npcLoc(n)===G.p.loc;
+    return `<div class="suggest-card"><div class="av">${n.em}</div><div class="meta"><b>${n.n}<span class="npc-badge">NPC</span></b><div class="l">${n.occ}</div><div class="tiny muted">${L.ic} often at ${L.n}${hereNow?' · here now':''}</div></div>
+     <button class="btn sm ${hereNow?'':'ghost'}" data-a="${hereNow?'npc':'goto'}" ${hereNow?`data-id="${n.id}"`:`data-to="${npcLoc(n)}"`}>${hereNow?'Meet':'Go'}</button></div>`;
+   }).join(''):'<div class="card empty"><div class="big">✨</div>You already know everyone in this demo town.</div>'}
+   <div class="section-label">Still to meet (${un.length})</div>
+   ${un.map(n=>`<div class="person" style="opacity:.85"><div class="av">${n.em}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ}</div></div><span class="chip">${LOCS[n.spots[0]].ic} ${LOCS[n.spots[0]].n}</span></div>`).join('')}`;
+ } else if(!met.length){
+  body=`<div class="card empty"><div class="big">👋</div>No one in your network yet.<div class="muted sm" style="margin-top:8px">Relationships start with a hello at the Market or Mama Put.</div>
+   <button class="btn sm" style="margin-top:12px" data-a="goto" data-to="market">Go to Kasuwa Market</button>
+   <button class="btn sm ghost" style="margin-top:8px" data-a="goto" data-to="restaurant">Go to Mama Put</button></div>`;
+ } else {
+  body=`<div class="section-label">${filter==='close'?'Close friends':'Your network'}</div>
+   ${list.length?list.map(personRow).join(''):'<div class="card empty"><div class="big">🤝</div>No close friends yet.<div class="muted sm" style="margin-top:6px">Talk, share meals, and keep promises to raise relationship.</div></div>'}`;
+ }
+ return `<div class="sec">People<small>${met.length} of ${G.npcs.length} known · offline demo uses simulated neighbours</small></div>
+ <div class="people-seg">${seg.map(([k,l])=>`<button data-a="peopleFilter" data-v="${k}" class="${filter===k?'on':''}">${l}</button>`).join('')}</div>
+ ${body}`}
 
 function ajoView(){const mine=myAjos(),open=G.ajos.filter(a=>a.status==='open'&&a.host!=='player'&&!a.members.includes('player')),done=G.ajos.filter(a=>a.status==='done'&&a.members.includes('player')),debts=G.debts.filter(d=>d.m==='player'&&!d.paid);
  return `<div class="sec">Ajo<small>Save together. Everyone pays in; one person takes the pot each round. It only works on trust.</small></div>
@@ -257,18 +296,27 @@ function eventSheet(){const e=G.ev,v=EV[e.id].view(e.d);return `<div class="ev">
 
 function npcSheet(n){const here_=npcLoc(n)===G.p.loc,p=G.p;const know=n.rel>=50;
  const wl=n.w>=65?'Well-off':n.w>=40?'Getting by':'Struggling';
- const reads=know?(n.tr>=70?'Reliable. Keeps their word.':n.tr>=45?'Mixed record.':'Not dependable.'):'You do not know them well enough to judge.';
- return `<div class="row"><div class="av" style="width:64px;height:64px;font-size:38px">${n.em}</div><div><h2>${n.n}</h2><div class="muted sm">${n.occ}</div></div></div>
- <div class="muted sm" style="margin:10px 0">${n.bio}</div><div>${n.tags.map(t=>`<span class="tag">${t}</span>`).join('')}<span class="tag">${wl}</span></div>
- ${n.met?`<div class="row sp" style="margin-top:12px"><b>${relLabel(n)}</b><b style="color:${col(n.rel)}">${Math.round(n.rel)}/100</b></div>${bar(n.rel,col(n.rel))}`:'<div class="muted sm" style="margin-top:12px">You have not met yet. Say hello.</div>'}
- <div class="card" style="background:var(--card)"><div class="tiny muted" style="font-weight:800">CAN YOU TRUST THEM?</div><div style="margin-top:4px;font-weight:700">${reads}</div></div>
+ const reads=know?(n.tr>=70?'Reliable. Keeps their word.':n.tr>=45?'Mixed record — stay alert.':'Not dependable with money or time.'):'Meet them and build history before you judge.';
+ const where=LOCS[npcLoc(n)];
+ return `<div class="profile-hero"><div class="av-lg">${n.em}</div><h2>${n.n}<span class="npc-badge">NPC</span></h2><div class="muted sm">${n.occ}</div>
+ ${n.met?`<div style="margin-top:8px">${relPill(n)}</div>`:''}</div>
+ <div class="muted sm" style="margin:10px 0;line-height:1.45">${n.bio}</div>
+ <div>${n.tags.map(t=>`<span class="tag">${t}</span>`).join('')}<span class="tag">${wl}</span></div>
+ ${n.met?`<div class="card" style="margin-top:12px"><div class="row sp"><b>${relLabel(n)}</b><b style="color:${col(n.rel)}">${Math.round(n.rel)}/100</b></div>${bar(n.rel,col(n.rel))}
+ <div class="tiny muted" style="margin-top:8px">Raised by talking, shared meals, help, and kept promises. Hurt by missed Ajo or broken word.</div></div>`
+ :`<div class="card empty" style="margin-top:12px"><div class="big">🤝</div>You have not met yet. Say hello when you are in the same place.</div>`}
+ <div class="card" style="background:var(--card)"><div class="tiny muted" style="font-weight:800">CAN YOU TRUST THEM?</div><div style="margin-top:4px;font-weight:700">${reads}</div>
+ <div class="tiny muted" style="margin-top:6px">Their reliability is a character trait in the simulation — not a real-money credit score.</div></div>
  ${n.said?`<div class="card" style="background:var(--card2)">“${esc(n.said)}”</div>`:''}
- ${here_?`<button class="btn" data-a="talk" data-id="${n.id}">💬 Talk (1h)</button>
- ${p.loc==='restaurant'?`<button class="btn ghost" style="margin-top:8px" data-a="eatw" data-id="${n.id}">🍛 Eat together — ₦3,000 (you pay)</button>`:''}
- <div class="row" style="margin-top:8px"><button class="btn ghost sm" style="flex:1" data-a="helpn" data-id="${n.id}" data-n="2000" ${p.cash<2000?'disabled':''}>Give ₦2,000</button><button class="btn ghost sm" style="flex:1" data-a="helpn" data-id="${n.id}" data-n="5000" ${p.cash<5000?'disabled':''}>Give ₦5,000</button></div>`
- :`<div class="card" style="background:var(--card)">Right now ${n.n} is at <b>${LOCS[npcLoc(n)].ic} ${LOCS[npcLoc(n)].n}</b>.<button class="btn ghost" style="margin-top:10px" data-a="goto" data-to="${npcLoc(n)}">Go there (₦200 · 1h)</button></div>`}
- ${G.promises.filter(x=>x.npc===n.id).map(pr=>`<button class="btn green" style="margin-top:8px" data-a="keep" data-id="${pr.id}">🤞🏾 Keep promise: bring ${fmt(pr.amt)}</button>`).join('')}
- ${n.hist.length?`<div class="sec" style="margin:16px 0 4px;font-size:15px">Between you two</div>${n.hist.slice(0,5).map(h=>`<div class="tx sm"><span>${esc(h.why)} <span class="muted tiny">Day ${h.day}</span></span><span class="${h.d>0?'pos':'neg'}">${h.d>0?'+':''}${h.d}</span></div>`).join('')}`:''}`}
+ <div class="profile-actions">
+ ${here_?`<button class="btn" data-a="talk" data-id="${n.id}">💬 Talk · 1 hour</button>
+ ${p.loc==='restaurant'?`<button class="btn ghost" data-a="eatw" data-id="${n.id}">🍛 Eat together · ₦3,000 (you pay)</button>`:''}
+ <div class="row" style="gap:8px"><button class="btn ghost sm" style="flex:1" data-a="helpn" data-id="${n.id}" data-n="2000" ${p.cash<2000?'disabled':''}>Help ₦2,000</button><button class="btn ghost sm" style="flex:1" data-a="helpn" data-id="${n.id}" data-n="5000" ${p.cash<5000?'disabled':''}>Help ₦5,000</button></div>`
+ :`<div class="card" style="background:var(--card);margin:0">Right now at <b>${where.ic} ${where.n}</b>.
+ <button class="btn ghost" style="margin-top:10px" data-a="goto" data-to="${npcLoc(n)}">Go there · travel costs apply</button></div>`}
+ ${G.promises.filter(x=>x.npc===n.id).map(pr=>`<button class="btn green" data-a="keep" data-id="${pr.id}">🤞🏾 Keep promise · bring ${fmt(pr.amt)}</button>`).join('')}
+ </div>
+ ${n.hist.length?`<div class="section-label">Between you two</div>${n.hist.slice(0,6).map(h=>`<div class="tx sm"><span>${esc(h.why)} <span class="muted tiny">Day ${h.day}</span></span><span class="${h.d>0?'pos':'neg'}">${h.d>0?'+':''}${h.d}</span></div>`).join('')}`:''}`}
 
 function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${vals.map(v=>`<button data-a="anset" data-k="${k}" data-v="${v}" class="${f[k]===v?'on':''}">${fm?fm(v):v}</button>`).join('')}</div>`;
  return `<h2>Create an Ajo</h2><div class="muted sm" style="margin-top:4px">You need ${f.size-1} people who trust you enough to join.</div>
@@ -316,27 +364,29 @@ const JOINL={open:'Open: anyone can join',approval:'Ask an admin first',invite:'
 const CHL={work:'work shifts',talk:'conversations',shop:'shop sessions'};
 const avOf=id=>id==='player'?avatar(G.p.gender):(npc(id)?npc(id).em:'🧑🏾');
 
-function gcardRow(x,extra){return `<button class="person" data-a="g_open" data-id="${x.id}"><div class="av">${x.av}</div><div class="meta"><b>${esc(x.name)}</b><div class="l">${esc(x.cat)} · ${x.count} member${x.count===1?'':'s'}${x.area?' · '+esc(x.area):''}${extra?' · '+extra:''}</div></div>${x.vis==='public'?'<span class="pill ok">Public</span>':'<span class="pill wait">🔒</span>'}</button>`}
+function gcardRow(x,extra){
+ return `<button class="g-card" data-a="g_open" data-id="${x.id}"><div class="g-av">${x.av}</div><div class="meta"><b>${esc(x.name)}</b><div class="l">${esc(x.cat)} · ${x.count} member${x.count===1?'':'s'}${x.area?' · '+esc(x.area):''}${extra?' · '+extra:''}</div></div>${x.vis==='public'?'<span class="pill ok">Public</span>':'<span class="pill wait">Private</span>'}</button>`;
+}
 
 function groupsView(){const mine=G.groups.filter(g=>!g.dead&&g.mem.player);
  const invs=[];G.groups.forEach(g=>{if(!g.dead)g.inv.forEach(i=>{if(i.to==='player'&&invState(i)==='pending')invs.push({g,i})})});
  const q=(UI.gi.q||'').trim(),cat=UI.gcat||'';let disc='';
- if(q||cat){const r=searchGroups(q,cat);disc=`<div class="sec">Results<small>${r.length} found</small></div>${r.length?r.map(x=>gcardRow(x)).join(''):'<div class="card muted">Nothing found. Try another word, or start the group yourself.</div>'}`}
- else{const S=discoverSections(),seen=new Set(),sect=(t,s,l)=>{l=l.filter(x=>!seen.has(x.id));l.forEach(x=>seen.add(x.id));return l.length?`<div class="sec">${t}<small>${s}</small></div>${l.map(x=>gcardRow(x,x.via?'friends: '+esc(x.via.join(', ')):'')).join('')}`:''};
-  disc=sect('Your friends are in','Public groups your friends chose to show',S.friends)+sect('For your interests','From the interests you picked below',S.rec)+sect('Near you','Only because you chose to share an area',S.nearby)+sect('Happening soon','Meetups and challenges coming up',S.game)+sect('Business & creators','Communities for people who make and sell',S.biz);
-  if(!disc)disc='<div class="card muted">Nothing new to suggest. Pick interests below, or search.</div>'}
- return `<div class="sec">Groups<small>Friends, interests and shared activities. Free to join. Never an Ajo by itself.</small></div>
- <div class="note grp">Other members here are simulated neighbours (marked NPC), plus you. Real player-to-player groups need the online version.</div>
+ if(q||cat){const r=searchGroups(q,cat);disc=`<div class="section-label">Results · ${r.length}</div>${r.length?r.map(x=>gcardRow(x)).join(''):'<div class="card empty"><div class="big">🔎</div>Nothing found. Try another word, or create the group yourself.</div>'}`}
+ else{const S=discoverSections(),seen=new Set(),sect=(t,s,l)=>{l=l.filter(x=>!seen.has(x.id));l.forEach(x=>seen.add(x.id));return l.length?`<div class="section-label">${t}</div><div class="muted tiny px" style="margin:-2px 0 8px">${s}</div>${l.map(x=>gcardRow(x,x.via?'via '+esc(x.via.join(', ')):'')).join('')}`:''};
+  disc=sect('Friends are in','Public groups your friends chose to show',S.friends)+sect('For your interests','From interests you picked below',S.rec)+sect('Near you','Only if you chose an area',S.nearby)+sect('Happening soon','Meetups and challenges',S.game)+sect('Business & creators','Communities for people who make and sell',S.biz);
+  if(!disc)disc='<div class="card empty"><div class="big">🏘️</div>Nothing new to suggest.<div class="muted sm" style="margin-top:6px">Pick interests below, search, or create a group.</div></div>'}
+ return `<div class="sec">Groups<small>Communities for friends and shared activities — free to join. Not an Ajo.</small></div>
+ <div class="note-sep">Members marked NPC are simulated. Real player-to-player groups need the online version. Joining a group never enrolls you in Ajo money circles.</div>
  <div class="px row" style="gap:10px;margin:10px 0"><button class="btn" data-a="g_new">＋ Create group</button><button class="btn ghost" data-a="g_code">Join with code</button></div>
- ${invs.length?`<div class="sec">Invitations for you<small>Nothing happens until you accept</small></div>${invs.map(({g,i})=>`<div class="card"><b>${esc(g.name)}</b><div class="muted sm">Invited by ${esc(nm(i.by))} (NPC) · expires Day ${i.exp}</div><div class="row" style="margin-top:10px"><button class="btn sm green" style="flex:1" data-a="g_ans" data-id="${g.id}" data-i="${i.id}" data-y="1">Accept</button><button class="btn sm ghost" style="flex:1" data-a="g_ans" data-id="${g.id}" data-i="${i.id}" data-y="0">Decline</button></div></div>`).join('')}`:''}
- <div class="sec">My groups<small>${mine.length?mine.length+' group'+(mine.length===1?'':'s'):'You are not in any group yet'}</small></div>
- ${mine.length?mine.map(g=>gcardRow(glimpse(g),ROLEL[g.mem.player.role])).join(''):'<div class="card muted">Create one for your friends, your street or your hustle, or join one below.</div>'}
- <div class="sec">Discover</div>
- <div class="card flat" style="margin:8px 12px">${GT('q','Search groups by name or interest',30,'','g_search')}<div class="row" style="margin-top:8px"><button class="btn sm" data-a="g_search">Search</button>${q||cat?'<button class="btn sm ghost" data-a="g_clear">Clear</button>':''}</div></div>
+ ${invs.length?`<div class="section-label">Invitations · ${invs.length}</div><div class="muted tiny px" style="margin-bottom:8px">Nothing happens until you accept.</div>${invs.map(({g,i})=>`<div class="inv-card"><b>${esc(g.name)}</b><div class="muted sm" style="margin-top:4px">From ${esc(nm(i.by))} · expires Day ${i.exp}</div><div class="row" style="margin-top:12px;gap:8px"><button class="btn sm green" style="flex:1" data-a="g_ans" data-id="${g.id}" data-i="${i.id}" data-y="1">Accept</button><button class="btn sm ghost" style="flex:1" data-a="g_ans" data-id="${g.id}" data-i="${i.id}" data-y="0">Decline</button></div></div>`).join('')}`:''}
+ <div class="section-label">My groups · ${mine.length}</div>
+ ${mine.length?mine.map(g=>gcardRow(glimpse(g),ROLEL[g.mem.player.role])).join(''):'<div class="card empty"><div class="big">✨</div>You are not in a group yet.<div class="muted sm" style="margin-top:6px">Create one for your street, hustle, or friends — any player can host.</div><button class="btn sm" style="margin-top:12px" data-a="g_new">Create a group</button></div>'}
+ <div class="section-label">Discover</div>
+ <div class="card flat" style="margin:8px 12px">${GT('q','Search by name or interest',30,'','g_search')}<div class="row" style="margin-top:8px;gap:8px"><button class="btn sm" data-a="g_search">Search</button>${q||cat?'<button class="btn sm ghost" data-a="g_clear">Clear</button>':''}</div></div>
  <div class="seg">${G_CATS.map(c=>`<button data-a="g_cat" data-v="${c}" class="${cat===c?'on':''}">${c}</button>`).join('')}</div>
  ${disc}
- <section class="card"><b>Your interests</b><div class="muted tiny">Used only on this device to suggest groups.</div><div class="opts">${G_CATS.map(c=>`<button data-a="g_int" data-v="${c}" class="${G.p.ints.includes(c)?'on':''}">${c}</button>`).join('')}</div>
- <label class="l">Show groups near me</label><div class="muted tiny">Off by default. No GPS is used: you choose an area yourself.</div><div class="opts"><button data-a="g_area" data-v="" class="${G.p.shareArea?'':'on'}">Off</button>${G_AREAS.map(a=>`<button data-a="g_area" data-v="${a}" class="${G.p.area===a?'on':''}">${a}</button>`).join('')}</div></section>`}
+ <section class="card"><b>Your interests</b><div class="muted tiny">Stored on this device only — used to suggest groups.</div><div class="opts">${G_CATS.map(c=>`<button data-a="g_int" data-v="${c}" class="${G.p.ints.includes(c)?'on':''}">${c}</button>`).join('')}</div>
+ <label class="l">Show groups near me</label><div class="muted tiny">Off by default. No GPS: you pick an area yourself.</div><div class="opts"><button data-a="g_area" data-v="" class="${G.p.shareArea?'':'on'}">Off</button>${G_AREAS.map(a=>`<button data-a="g_area" data-v="${a}" class="${G.p.area===a?'on':''}">${a}</button>`).join('')}</div></section>`}
 
 const gpostHtml=(g,p,isRep,staff)=>`<div class="msg ${isRep?'reply':''} ${p.kind==='announce'?'ann':''}"><div class="by">${p.kind==='announce'?'📣 ':''}${esc(nm(p.by))} ${npcTag(p.by)} <span class="muted">· Day ${p.day}</span></div>${p.hid?'<i class="muted">[hidden by a moderator]</i> ':''}${esc(p.txt)}${staff===null?'':`<div class="mact">${!isRep&&p.kind==='msg'?`<button data-a="g_reply" data-p="${p.id}">Reply</button>`:''}${p.by!=='player'?`<button data-a="g_rep" data-p="${p.id}">Report</button>`:''}${staff&&!p.hid?`<button data-a="g_hide" data-p="${p.id}">Hide</button>`:''}</div>${UI.gconf==='rep:'+p.id?`<div class="opts">${['Spam','Abuse or bullying','Scam','Other'].map(r=>`<button data-a="g_report" data-p="${p.id}" data-r="${r}">${r}</button>`).join('')}</div>`:''}`}</div>`;
 
@@ -524,6 +574,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'begin':{const n=(UI.form.name||'').trim();if(!n){fx('Enter a name first.','warn');flush();return}const age=Math.max(18,Math.min(60,parseInt(UI.form.age)||24));newGame(n,age,UI.form.gender);UI.tab='life';commit();break}
   case 'tab':UI.tab=d.v;UI.modal=null;render();break;
   case 'townMode':UI.townMode=d.v;render();break;
+  case 'peopleFilter':UI.peopleFilter=d.v;render();break;
   case 'tabAjo':UI.tab='ajo';render();break;
   case 'more':UI.more=d.v;render();break;
   case 'notes':UI.modal={t:'notes'};G.notes.forEach(n=>n.read=true);commit();break;

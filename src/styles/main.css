@@ -202,3 +202,27 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
 .town-tabs{display:flex;gap:6px;margin:0 12px 8px;overflow:auto}
 .town-tabs button{background:var(--card);border-radius:99px;padding:8px 14px;font-weight:800;font-size:13px;white-space:nowrap;color:var(--mut)}
 .town-tabs button.on{background:var(--danfo);color:#241a00}
+
+/* —— People & Groups Phase 4–5 —— */
+.people-seg{display:flex;gap:6px;margin:8px 12px;overflow:auto}
+.people-seg button{background:var(--card);border-radius:99px;padding:8px 14px;font-weight:800;font-size:13px;white-space:nowrap;color:var(--mut)}
+.people-seg button.on{background:var(--danfo);color:#241a00}
+.rel-pill{font-size:11px;font-weight:900;border-radius:99px;padding:2px 8px}
+.rel-pill.close{background:var(--green-soft);color:#7dffc4}
+.rel-pill.friend{background:rgba(92,200,255,.15);color:var(--sky)}
+.rel-pill.acq{background:rgba(255,255,255,.08);color:var(--mut)}
+.rel-pill.low{background:var(--red-soft);color:#ff9aa5}
+.npc-badge{font-size:10px;font-weight:900;background:rgba(255,255,255,.1);color:var(--mut);border-radius:99px;padding:2px 7px;margin-left:6px}
+.profile-hero{text-align:center;padding:8px 0 4px}
+.profile-hero .av-lg{width:72px;height:72px;font-size:42px;border-radius:22px;background:var(--card2);display:grid;place-items:center;margin:0 auto 10px;box-shadow:var(--shadow-sm)}
+.profile-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.suggest-card{display:flex;align-items:center;gap:12px;background:var(--card2);border-radius:16px;padding:12px;margin:0 12px 8px;box-shadow:var(--shadow-sm)}
+.suggest-card .meta{flex:1;min-width:0}
+.g-card{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);border-radius:18px;padding:12px;margin:0 12px 8px;width:calc(100% - 24px);box-shadow:var(--shadow-sm)}
+.g-card:active{transform:translateY(2px)}
+.g-card .g-av{width:48px;height:48px;border-radius:16px;background:var(--card2);display:grid;place-items:center;font-size:26px;flex:none}
+.g-card .meta{flex:1;min-width:0}
+.g-card b{font-size:15px;display:block}
+.g-card .l{font-size:12.5px;color:var(--mut)}
+.inv-card{background:linear-gradient(135deg,var(--card2),var(--card3));border:1px solid rgba(255,201,40,.2);border-radius:18px;padding:14px;margin:0 12px 10px;box-shadow:var(--shadow-sm)}
+.note-sep{margin:12px;padding:10px 12px;border-radius:14px;background:rgba(179,136,255,.1);border-left:4px solid #b388ff;font-size:13px;font-weight:600;color:var(--mut);line-height:1.4}
