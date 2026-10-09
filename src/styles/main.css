@@ -537,3 +537,21 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
   background:#ffc928;color:#1a1448;padding:1px 4px;border-radius:6px;
   white-space:nowrap;
 }
+
+
+/* Business storefront pins on live map */
+.lm-biz{background:transparent!important;border:0!important}
+.lm-bld{
+  width:46px;height:46px;border-radius:14px;
+  background:#1e1760;overflow:hidden;
+  display:grid;place-items:center;
+  position:relative;
+  box-shadow:0 0 0 2px #5b8cff,0 4px 14px rgba(0,0,0,.4);
+}
+.lm-bld .av-svg,.lm-bld .store-bld{width:42px;height:46px;display:block}
+.lm-bld-tag{
+  position:absolute;bottom:-3px;left:50%;transform:translateX(-50%);
+  font-size:8px;font-weight:900;font-style:normal;
+  background:#5b8cff;color:#fff;padding:1px 5px;border-radius:6px;
+  white-space:nowrap;
+}
