@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members',maxMembers:30},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''},regStep:1,authMode:null,ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members',maxMembers:30},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -221,25 +221,94 @@ function render(){
  requestAnimationFrame(()=>{mountLiveMap();mountSpotPicker()});
 }
 
-function createView(){const f=UI.form;const prev=defaultAvatar(f.gender);
- return `<div class="title">
-<img class="logo-hero" src="/logo.png" alt="AjoLoop" width="280" height="auto">
-<h1>Build your circle</h1><p>Create your character — look that feels like you and your culture. Then build trust in your community.</p>
-<div class="card flat">
-<div class="av-preview">${renderAvatar(UI.avForm||prev,96)}</div>
-<button class="btn sm ghost" style="margin:8px auto;display:block" data-a="avOpenCreate">Customize look</button>
-<label class="l" style="margin-top:8px">Your name</label><input type="text" id="f-name" maxlength="16" placeholder="e.g. Abubakar" value="${esc(f.name)}" autocomplete="off">
-<label class="l">Age</label><input type="number" id="f-age" min="18" max="60" value="${f.age}">
-<label class="l">I am</label><div class="opts">${['Male','Female','Other'].map(g=>`<button data-a="gender" data-v="${g}" class="${f.gender===g?'on':''}">${g}</button>`).join('')}</div>
-<button class="btn" data-a="begin" style="margin-top:8px">Enter AjoLoop</button></div>
-<p class="tiny center muted">Original character design inspired by African looks — yours to shape.</p></div>`}
+function createView(){
+  const acc=typeof Account!=='undefined'?Account.load():null;
+  // Returning user — simple social-style continue
+  if(acc&&acc.username&&UI.authMode!=='register'){
+    const face=acc.avatar?renderAvatar(acc.avatar,88):renderAvatar(defaultAvatar(acc.gender||'Male'),88);
+    return `<div class="title auth-simple">
+<img class="logo-hero" src="/logo.png" alt="AjoLoop" width="240" height="auto">
+<h1>Welcome back</h1>
+<p class="muted">Continue where you left off — one tap, like any social app.</p>
+<div class="card flat auth-card">
+  <div class="av-preview">${face}</div>
+  <div class="auth-user">@${esc(acc.username)}</div>
+  <div class="muted sm" style="text-align:center;margin-top:4px">${esc(acc.name||acc.username)}</div>
+  <button class="btn" data-a="loginContinue" style="margin-top:16px">Continue</button>
+  <button class="btn ghost sm" data-a="authRegister" style="margin-top:10px;display:block;width:100%">Create a new account</button>
+</div>
+<p class="tiny center muted">Your data stays on this device until cloud login is connected.</p></div>`;
+  }
+  // First-time / register wizard
+  const f=UI.form;const step=UI.regStep||1;
+  const prev=UI.avForm||defaultAvatar(f.gender);
+  const ints=typeof INTERESTS!=='undefined'?INTERESTS:['Trade & market','Food & kitchen','Fashion','Business networking','Neighbourhood','Learning'];
+  const statuses=typeof BIZ_STATUS!=='undefined'?BIZ_STATUS:[
+    {id:'owner',n:'I run a business',ic:'🏪'},{id:'worker',n:'I work for someone',ic:'💼'},
+    {id:'student',n:'I am a student',ic:'📚'},{id:'seeking',n:'Looking for work',ic:'🔎'},{id:'none',n:'Not working right now',ic:'🙂'}
+  ];
+  const dots=[1,2,3,4].map(s=>`<i class="reg-dot ${step===s?'on':(step>s?'done':'')}"></i>`).join('');
+  let body='';
+  if(step===1){
+    body=`<h2 class="reg-h">Create your account</h2>
+      <p class="muted sm reg-sub">Pick a username people will know you by.</p>
+      <label class="l">Username</label>
+      <div class="field"><input type="text" id="f-username" maxlength="20" placeholder="e.g. abubakar_kano" value="${esc(f.username||'')}" autocomplete="username" autocapitalize="off"></div>
+      <div class="muted tiny">Letters, numbers, underscore — no spaces.</div>
+      <label class="l">Display name</label>
+      <div class="field"><input type="text" id="f-name" maxlength="20" placeholder="e.g. Abubakar" value="${esc(f.name||'')}" autocomplete="nickname"></div>
+      <label class="l">Age</label>
+      <div class="field"><input type="number" id="f-age" min="18" max="60" value="${f.age||24}"></div>
+      <label class="l">I am</label>
+      <div class="opts">${['Male','Female','Other'].map(g=>`<button data-a="gender" data-v="${g}" class="${f.gender===g?'on':''}">${g}</button>`).join('')}</div>
+      <button class="btn" data-a="regNext" style="margin-top:16px">Continue</button>`;
+  } else if(step===2){
+    body=`<h2 class="reg-h">What are you into?</h2>
+      <p class="muted sm reg-sub">Pick a few interests so we can match you with people and groups.</p>
+      <div class="opts interest-opts">${ints.map(t=>`<button data-a="regInterest" data-v="${esc(t)}" class="${(f.interests||[]).includes(t)?'on':''}">${esc(t)}</button>`).join('')}</div>
+      <div class="muted tiny" style="margin-top:8px">${(f.interests||[]).length}/6 selected</div>
+      <div class="row" style="gap:8px;margin-top:16px">
+        <button class="btn ghost" data-a="regBack">Back</button>
+        <button class="btn" data-a="regNext" style="flex:1">Continue</button>
+      </div>`;
+  } else if(step===3){
+    body=`<h2 class="reg-h">Work & business</h2>
+      <p class="muted sm reg-sub">Helps neighbours know how to connect with you.</p>
+      <div class="biz-status-list">${statuses.map(s=>`<button class="biz-status ${f.businessStatus===s.id?'on':''}" data-a="regBizStatus" data-v="${s.id}"><span class="bs-ic">${s.ic}</span><span>${esc(s.n)}</span></button>`).join('')}</div>
+      <div class="row" style="gap:8px;margin-top:16px">
+        <button class="btn ghost" data-a="regBack">Back</button>
+        <button class="btn" data-a="regNext" style="flex:1">Continue</button>
+      </div>`;
+  } else {
+    body=`<h2 class="reg-h">Your look</h2>
+      <p class="muted sm reg-sub">Show up as yourself — you can change this anytime.</p>
+      <div class="av-preview">${renderAvatar(prev,110)}</div>
+      <button class="btn sm ghost" style="display:block;margin:10px auto" data-a="avOpenCreate">Customize look</button>
+      <div class="card" style="margin-top:12px;background:var(--card)">
+        <div class="muted tiny">@${esc(f.username||'…')} · ${esc(f.name||'')}</div>
+        <div class="muted tiny" style="margin-top:4px">${(f.interests||[]).slice(0,3).map(esc).join(' · ')||'Interests set'}</div>
+        <div class="muted tiny" style="margin-top:4px">${esc((statuses.find(s=>s.id===f.businessStatus)||{}).n||'')}</div>
+      </div>
+      <div class="row" style="gap:8px;margin-top:16px">
+        <button class="btn ghost" data-a="regBack">Back</button>
+        <button class="btn" data-a="begin" style="flex:1">Enter AjoLoop</button>
+      </div>`;
+  }
+  return `<div class="title auth-reg">
+<img class="logo-hero" src="/logo.png" alt="AjoLoop" width="200" height="auto">
+<div class="reg-dots">${dots}</div>
+<div class="card flat auth-card">${body}</div>
+${acc?`<button class="btn ghost sm" data-a="authLogin" style="margin-top:12px">I already have an account</button>`:''}
+</div>`;
+}
+
 
 function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length;
  const area=(p.home&&p.home.done)?p.home.area:(p.area||'Set home area');
  const dueAjo=G.ajos.some(a=>a.status==='active'&&a.members.includes('player')&&!cyc(a,'player')&&!(a.cycle===0&&a.host==='player')&&G.day>=dueDay(a)-1);
  return `<header class="hud"><div class="r1"><div class="day"><img class="logo-hud" src="/logo.png" alt="AjoLoop">
  <span style="display:block;font-weight:800;font-size:15px">${esc(p.name)}</span>
- <span class="muted" style="font-size:12px;font-weight:700">📍 ${esc(area)}</span></div>
+ <span class="muted" style="font-size:12px;font-weight:700">${p.username?'@'+esc(p.username)+' · ':''}📍 ${esc(area)}</span></div>
  <div class="center"><span class="cash-label">Demo wallet</span><div class="cash sm" id="cash">${fmt(p.cash)}</div></div>
  <button class="bell" data-a="notes" aria-label="Notifications">🔔${unread?`<b>${unread}</b>`:''}${dueAjo?'<i class="dot" style="top:2px;right:2px"></i>':''}</button></div>
  <div class="r2" style="grid-template-columns:1fr 1fr auto">
@@ -1691,7 +1760,70 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'avSave':setAvatar(UI.avForm);UI.modal=null;fx('Look saved','good');commit();break;
   case 'avSaveCreate':UI.avForm=UI.avForm||defaultAvatar(UI.form.gender);UI.modal=null;render();break;
   case 'finishSetup':markOnboarded();UI.modal=null;commit();break;
-  case 'begin':{const n=(UI.form.name||'').trim();if(!n){fx('Enter a name first.','warn');flush();return}const age=Math.max(18,Math.min(60,parseInt(UI.form.age)||24));newGame(n,age,UI.form.gender);if(UI.avForm){UI.avForm.gender=UI.form.gender;setAvatar(UI.avForm)}else setAvatar(defaultAvatar(UI.form.gender));UI.tab='life';commit();break}
+  case 'authRegister':UI.authMode='register';UI.regStep=1;render();break;
+  case 'authLogin':UI.authMode=null;render();break;
+  case 'loginContinue':{
+    // Resume saved game if present; otherwise start fresh from account profile
+    (async()=>{
+      const s=await Store.load();
+      const acc=Account.load();
+      if(s&&s.p){G=s;migrate();UI.tab='life';UI.authMode=null;render();return}
+      if(acc){
+        newGame(acc.name||acc.username,acc.age||24,acc.gender||'Male',{username:acc.username,interests:acc.interests||[],businessStatus:acc.businessStatus||'none'});
+        if(acc.avatar) setAvatar(acc.avatar);
+        UI.tab='life';UI.authMode=null;commit();
+      } else {UI.authMode='register';render()}
+    })();
+  }break;
+  case 'regBack':UI.regStep=Math.max(1,(UI.regStep||1)-1);render();break;
+  case 'regInterest':{
+    const list=UI.form.interests=UI.form.interests||[];
+    const i=list.indexOf(d.v);
+    if(i>=0) list.splice(i,1);
+    else if(list.length<6) list.push(d.v);
+    else fx('Pick up to 6 interests.','warn');
+    render();break;
+  }
+  case 'regBizStatus':UI.form.businessStatus=d.v;render();break;
+  case 'regNext':{
+    const step=UI.regStep||1;
+    if(step===1){
+      const u=(document.getElementById('f-username')||{}).value||UI.form.username||'';
+      const n=(document.getElementById('f-name')||{}).value||UI.form.name||'';
+      const age=parseInt((document.getElementById('f-age')||{}).value||UI.form.age)||24;
+      const user=u.trim().replace(/^@/,'').toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,20);
+      if(user.length<3){fx('Username needs at least 3 characters.','warn');flush();break}
+      UI.form.username=user;
+      UI.form.name=(n.trim()||user).slice(0,20);
+      UI.form.age=Math.max(18,Math.min(60,age));
+      UI.regStep=2;render();break;
+    }
+    if(step===2){
+      if(!(UI.form.interests||[]).length){fx('Pick at least one interest.','warn');flush();break}
+      UI.regStep=3;render();break;
+    }
+    if(step===3){
+      if(!UI.form.businessStatus){fx('Choose your work or business status.','warn');flush();break}
+      UI.regStep=4;render();break;
+    }
+  }break;
+  case 'begin':{
+    const f=UI.form;
+    const user=(f.username||'').trim().replace(/^@/,'').toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,20);
+    const n=(f.name||user||'').trim();
+    if(!user||user.length<3){UI.regStep=1;fx('Set a username first.','warn');render();break}
+    if(!(f.interests||[]).length){UI.regStep=2;fx('Pick your interests.','warn');render();break}
+    if(!f.businessStatus){UI.regStep=3;fx('Choose business status.','warn');render();break}
+    const age=Math.max(18,Math.min(60,parseInt(f.age)||24));
+    newGame(n,age,f.gender,{username:user,interests:f.interests,businessStatus:f.businessStatus});
+    if(UI.avForm){UI.avForm.gender=f.gender;setAvatar(UI.avForm)} else setAvatar(defaultAvatar(f.gender));
+    Account.save({
+      username:user,name:n,age,gender:f.gender,
+      interests:f.interests.slice(),businessStatus:f.businessStatus,
+      avatar:G.p.avatar,created:Date.now()
+    });
+    UI.tab='life';UI.authMode=null;UI.regStep=1;commit();
+  }break;
   case 'tab':UI.tab=d.v;UI.modal=null;render();break;
   case 'townMode':UI.townMode=d.v==='city'?'live':d.v;render();break;
   case 'homeEdit':UI.homeForm={area:(G.p.home&&G.p.home.area)||'Fagge',label:(G.p.home&&G.p.home.label)||'',style:(G.p.home&&G.p.home.style)||'compound'};UI.modal={t:'home'};render();break;
@@ -1842,7 +1974,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'start':case 'ajoStart':run(startAjo,d.id);break;
   case 'pay':run(payAjo,d.id);break;
   case 'debt':run(payDebt,+d.id);break;
-  case 'reset':if(!UI.confirmReset){UI.confirmReset=true;render()}else{Store.clear();G=null;UI.confirmReset=false;UI.modal=null;UI.tab='life';render()}break;
+  case 'reset':if(!UI.confirmReset){UI.confirmReset=true;render()}else{Store.clear();Account.clear();G=null;UI.confirmReset=false;UI.modal=null;UI.tab='life';UI.authMode=null;UI.regStep=1;UI.form={name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''};render()}break;
   default:if(a.indexOf('g_')===0)gClick(a,d);
  }});
 addEventListener('hashchange',()=>{deepLink();render()});
