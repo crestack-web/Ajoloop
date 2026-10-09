@@ -394,7 +394,7 @@ function kanoMapBlock(){
   const pins=mapPins();
   const sel=UI.mapPin?pins.find(p=>p.id===UI.mapPin):null;
   return `<div class="kano-map">${pins.map(p=>`<button class="pin ${p.kind} ${UI.mapPin===p.id?'selected':''}" style="left:${p.x}%;top:${p.y}%" data-a="mapPin" data-id="${p.id}" aria-label="${esc(p.n)}"><span class="bubble">${p.ic}</span><span class="pin-label">${esc(p.n)}</span></button>`).join('')}</div>
-  <div class="map-legend-row"><span>🏠 Home</span><span>🏪 Business</span><span>📍 Area</span><span>🛒 Public</span></div>
+  <div class="map-legend-row"><span>🏠 Home</span><span>🏪 Business</span><span>📌 Spot</span><span>📍 Area</span><span>🛒 Public</span></div>
   ${sel?`<section class="card"><div class="row"><div style="font-size:32px">${sel.ic}</div><div style="flex:1;min-width:0"><h2 style="font-size:18px">${esc(sel.n)}</h2><div class="muted sm">${esc(sel.sub||'')}</div></div></div>
     ${sel.kind==='biz'?`<div class="row" style="margin-top:12px;gap:8px"><button class="btn sm" data-a="bizOpen" data-id="${sel.id}">Open shop</button><button class="btn sm ghost" data-a="visitBiz" data-id="${sel.id}">Visit</button></div>`:''}
     ${sel.kind==='spot'?`<div class="muted sm" style="margin-top:8px">${esc((sel.spot&&sel.spot.note)||'Community hangout — meet friends nearby and build trust.')}</div>
