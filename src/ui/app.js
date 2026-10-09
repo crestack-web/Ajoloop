@@ -119,6 +119,10 @@ function avatar(g){
   return g==='Female'?'👩🏾':g==='Male'?'👨🏾':'🧑🏾';
 }
 function playerAvatar(sz){return renderAvatar((G&&G.p&&G.p.avatar)||defaultAvatar(G&&G.p&&G.p.gender),sz||48)}
+function gFace(g,sz){
+  if(g&&g.photo) return `<img class="g-photo" src="${g.photo}" alt="" width="${sz||40}" height="${sz||40}">`;
+  return `<span>${(g&&g.av)||'🏘️'}</span>`;
+}
 
 
 async function boot(){const s=await Store.load();if(s&&s.p){G=s;migrate()}deepLink();render();setInterval(()=>{if(!G||G.ev||UI.modal)return;UI.prog++;const hb=document.getElementById('hb');if(hb)hb.style.width=(UI.prog/60*100)+'%';if(UI.prog>=60){UI.prog=0;tick(1);commit()}},1000)}
@@ -784,7 +788,7 @@ function groupChatPage(gid){
   return `<div class="wa-page">
   <header class="wa-head">
     <button class="wa-back" data-a="grpChatBack" data-id="${gid}" aria-label="Back">‹</button>
-    <div class="wa-av">${g.av||'🏘️'}</div>
+    <div class="wa-av ${g.photo?'has-photo':''}">${gFace(g,44)}</div>
     <button class="wa-title" data-a="g_open" data-id="${gid}">
       <b>${esc(g.name)}</b>
       <span>${memN} member${memN===1?'':'s'}</span>
@@ -1031,7 +1035,7 @@ const CHL={work:'work shifts',talk:'conversations',shop:'shop sessions'};
 const avOf=id=>id==='player'?avatar(G.p.gender):(npc(id)?npc(id).em:'🧑🏾');
 
 function gcardRow(x,extra){
- return `<button class="g-card" data-a="g_open" data-id="${x.id}"><div class="g-av">${x.av}</div><div class="meta"><b>${esc(x.name)}</b><div class="l">${esc(x.cat)} · ${x.count} member${x.count===1?'':'s'}${x.area?' · '+esc(x.area):''}${extra?' · '+extra:''}</div></div>${x.vis==='public'?'<span class="pill ok">Public</span>':'<span class="pill wait">Private</span>'}</button>`;
+ return `<button class="g-card" data-a="g_open" data-id="${x.id}"><div class="g-av ${x.photo?'has-photo':''}">${x.photo?`<img src="${x.photo}" alt="">`:x.av}</div><div class="meta"><b>${esc(x.name)}</b><div class="l">${esc(x.cat)} · ${x.count} member${x.count===1?'':'s'}${x.area?' · '+esc(x.area):''}${extra?' · '+extra:''}</div></div>${x.vis==='public'?'<span class="pill ok">Public</span>':'<span class="pill wait">Private</span>'}</button>`;
 }
 
 function groupsView(){const mine=G.groups.filter(g=>!g.dead&&g.mem.player);
@@ -1066,7 +1070,7 @@ const gpostHtml=(g,p,isRep,staff)=>{
 };
 
 function grpSheet(id){const v=viewGroup(id);if(!v)return `<h2>Group unavailable</h2><div class="muted sm" style="margin-top:8px">This group is private, or it does not exist.</div>`;
- const g=grp(id),head=`<div class="row" style="margin:6px 0 4px"><div class="av" style="width:56px;height:56px;font-size:32px">${v.av}</div><div style="min-width:0"><h2>${esc(v.name)}</h2><div class="muted sm">${esc(v.cat)} · ${v.count} member${v.count===1?'':'s'}${v.area?' · '+esc(v.area):''}</div></div></div><div style="margin-bottom:8px">${visPill(v)}${v.member?rolePill(v.role):''}${(v.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`;
+ const g=grp(id),head=`<div class="row" style="margin:6px 0 4px"><div class="av ${g&&g.photo?'has-photo':''}" style="width:56px;height:56px;font-size:32px">${gFace(g,56)}</div><div style="min-width:0"><h2>${esc(v.name)}</h2><div class="muted sm">${esc(v.cat)} · ${v.count} member${v.count===1?'':'s'}${v.area?' · '+esc(v.area):''}</div></div></div><div style="margin-bottom:8px">${visPill(v)}${v.member?rolePill(v.role):''}${(v.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`;
  if(!v.member)return head+gNon(v,g);
  const staff=['mod','admin','owner'].includes(v.role),tabs=[['home','Home'],['chat','Chat'],['events','Activities'],['people','People']].concat(staff?[['manage','Manage']]:[]),tab=tabs.some(t=>t[0]===UI.gt)?UI.gt:'home';
  return head+`<div class="seg" style="margin:8px 0">${tabs.map(([k,l])=>`<button data-a="g_tab" data-v="${k}" class="${tab===k?'on':''}">${l}</button>`).join('')}</div>`+({home:gHome,chat:gChat,events:gEvents,people:gPeople,manage:gManage}[tab])(g,v)}
@@ -1121,7 +1125,20 @@ function gPeople(g,v){const L=memberList(g.id);if(!L)return '';if(L.hidden)retur
  ${x.id!=='player'?`<div class="row" style="margin-top:8px;flex-wrap:wrap">${me===4&&x.role!=='owner'?['admin','mod','member'].filter(q=>q!==x.role).map(q=>`<button class="btn sm ghost" data-a="g_role" data-u="${x.id}" data-r="${q}">${q==='admin'?'Make admin':q==='mod'?'Make moderator':'Make member'}</button>`).join(''):''}${me>=3&&r<me?`<button class="btn sm ghost" data-a="g_rm" data-u="${x.id}">Remove</button><button class="btn sm red" data-a="g_ban" data-u="${x.id}">Ban</button>`:''}<button class="btn sm ghost" data-a="${blk?'g_unblock':'g_block'}" data-u="${x.id}">${blk?'Unblock':'Block'}</button></div>`:''}</div>`}).join('')}
 
 function gManage(g,v){const me=rk(g,'player'),adm=me>=3,own=me===4,reps=g.reps.filter(r=>r.st==='open');
- let h=`<section class="card"><b>🚩 Reports (${reps.length})</b>${reps.length?reps.map(r=>{const p=g.posts.find(x=>x.id===r.pid);return `<div style="margin-top:10px"><div class="tiny muted">${esc(nm(r.by))} reported ${esc(nm(r.target))}: ${esc(r.why)}</div><div class="msg" style="margin:6px 0">${p?esc(p.txt):'[post gone]'}</div><div class="row" style="flex-wrap:wrap"><button class="btn sm ghost" data-a="g_review" data-r="${r.id}" data-x="dismiss">Dismiss</button>${p&&!p.hid?`<button class="btn sm" data-a="g_review" data-r="${r.id}" data-x="hide">Hide post</button>`:''}${adm?`<button class="btn sm ghost" data-a="g_review" data-r="${r.id}" data-x="remove">Remove member</button><button class="btn sm red" data-a="g_review" data-r="${r.id}" data-x="ban">Ban</button>`:''}</div></div>`}).join(''):'<div class="muted sm" style="margin-top:6px">No open reports.</div>'}</section>`;
+ let h=`<section class="card"><b>🖼️ Group photo</b>
+  <div class="row" style="margin-top:10px;gap:12px;align-items:center">
+    <div class="av ${g.photo?'has-photo':''}" style="width:72px;height:72px;font-size:36px">${gFace(g,72)}</div>
+    <div style="flex:1;min-width:0">
+      ${me>=2?`<label class="btn sm ghost" style="display:inline-block;cursor:pointer">Upload photo
+        <input type="file" accept="image/*" data-gphoto="${g.id}" style="display:none">
+      </label>
+      ${g.photo?`<button class="btn sm ghost" style="margin-left:6px" data-a="g_photoClear" data-id="${g.id}">Remove</button>`:''}
+      <div class="tiny muted" style="margin-top:6px">Admins only. Stored on this device until the backend is connected.</div>`
+      :`<div class="muted sm">Only admins can change the group photo.</div>`}
+    </div>
+  </div>
+ </section>
+ <section class="card"><b>🚩 Reports (${reps.length})</b>${reps.length?reps.map(r=>{const p=g.posts.find(x=>x.id===r.pid);return `<div style="margin-top:10px"><div class="tiny muted">${esc(nm(r.by))} reported ${esc(nm(r.target))}: ${esc(r.why)}</div><div class="msg" style="margin:6px 0">${p?esc(p.txt):'[post gone]'}</div><div class="row" style="flex-wrap:wrap"><button class="btn sm ghost" data-a="g_review" data-r="${r.id}" data-x="dismiss">Dismiss</button>${p&&!p.hid?`<button class="btn sm" data-a="g_review" data-r="${r.id}" data-x="hide">Hide post</button>`:''}${adm?`<button class="btn sm ghost" data-a="g_review" data-r="${r.id}" data-x="remove">Remove member</button><button class="btn sm red" data-a="g_review" data-r="${r.id}" data-x="ban">Ban</button>`:''}</div></div>`}).join(''):'<div class="muted sm" style="margin-top:6px">No open reports.</div>'}</section>`;
  if(!adm)return h+'<div class="note">Moderators review reports and hide posts. Settings belong to admins and the owner.</div>';
  h+=`<section class="card"><b>🙋 Join requests (${g.req.length})</b>${g.req.length?g.req.map(u=>`<div class="tx"><span>${avOf(u)} ${esc(nm(u))} ${npcTag(u)}</span><span class="row"><button class="btn sm green" data-a="g_apv" data-u="${u}" data-y="1">Approve</button><button class="btn sm ghost" data-a="g_apv" data-u="${u}" data-y="0">Decline</button></span></div>`).join(''):'<div class="muted sm" style="margin-top:6px">No one is waiting.</div>'}</section>
  <button class="btn ghost" style="margin:0 0 12px" data-a="g_inv" data-id="${g.id}">Invitations: friends, links and codes</button>
@@ -1177,6 +1194,7 @@ function deepLink(){if(!G)return;let h='';try{h=(location.hash||'').slice(1)}cat
 function gClick(a,d){const M=UI.modal||{};
  switch(a){
   case 'g_open':UI.modal={t:'grp',id:d.id};UI.gt='home';UI.gi.replyTo=null;UI.gs=null;UI.gconf=null;visitGroup(d.id);commit();break;
+  case 'g_photoClear':run(clearGroupPhoto,d.id);break;
   case 'g_tab':if(d.v==='chat'&&UI.modal&&UI.modal.id){UI.modal={t:'grpChat',id:UI.modal.id};render();break}UI.gt=d.v;UI.gconf=null;UI.gs=null;render();break;
   case 'g_back':UI.modal={t:'grp',id:M.id};render();break;
   case 'g_set':{const o=UI[d.o]||(UI[d.o]={});o[d.k]=d.v==='true'?true:d.v==='false'?false:d.v;render();break}
@@ -1271,6 +1289,20 @@ function flush(){const q=FX.splice(0);if(!q.length)return;let i=0,ti=0;const cas
 const run=(fn,...a)=>{fn(...a);commit()};
 document.addEventListener('input',e=>{if(e.target.id==='f-name')UI.form.name=e.target.value;if(e.target.id==='f-age')UI.form.age=e.target.value;if(e.target.id==='f-ajo')UI.ajoNew.name=e.target.value;if(e.target.dataset&&e.target.dataset.f)UI.gi[e.target.dataset.f]=e.target.value});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.enter){const b=document.querySelector('[data-a="'+e.target.dataset.enter+'"]');if(b)b.click()}});
+document.addEventListener('change',e=>{
+  const inp=e.target;
+  if(inp&&inp.matches&&inp.matches('input[type=file][data-gphoto]')){
+    const gid=inp.getAttribute('data-gphoto');
+    const file=inp.files&&inp.files[0];
+    if(!file||!gid)return;
+    if(file.size>700000){fx('Image too large (max ~700KB).','warn');flush();return}
+    const reader=new FileReader();
+    reader.onload=()=>{if(setGroupPhoto(gid,reader.result))commit();};
+    reader.onerror=()=>{fx('Could not read image.','warn');flush()};
+    reader.readAsDataURL(file);
+    inp.value='';
+  }
+});
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el||el.disabled)return;const d=el.dataset,a=d.a;
  if(a==='closeBack'){if(e.target===el){UI.modal=null;render()}return}
  if(a!=='reset')UI.confirmReset=false;

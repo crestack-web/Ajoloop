@@ -483,6 +483,20 @@ function mkGroup(o,owner){const vis=o.vis==='private'?'private':'public';let joi
 function addMember(g,u,role='member'){g.mem[u]={role,joined:G.day,last:G.day,show:u!=='player'&&g.vis==='public'};g.req=g.req.filter(x=>x!==u);g.last=G.day;if(u==='player')miles('grpjoin','Joined a group: '+g.name)}
 function dropMember(g,t){delete g.mem[t];g.req=g.req.filter(x=>x!==t);g.inv.forEach(i=>{if(i.by===t&&invState(i)==='pending')i.rev=true})}
 
+function setGroupPhoto(gid,dataUrl,u='player'){
+  const g=grp(gid);if(!g||!g.mem[u])return no('Join the group first.');
+  if(rk(g,u)<2&&g.owner!==u)return no('Only admins can change the group photo.');
+  if(!dataUrl||typeof dataUrl!=='string'||dataUrl.length>900000)return no('Photo is too large. Try a smaller image.');
+  if(!dataUrl.startsWith('data:image/'))return no('Choose an image file.');
+  g.photo=dataUrl;g.last=G.day;
+  fx('Group photo updated','good');
+  return true;
+}
+function clearGroupPhoto(gid,u='player'){
+  const g=grp(gid);if(!g||!g.mem[u])return no('Join the group first.');
+  if(rk(g,u)<2&&g.owner!==u)return no('Only admins can change the group photo.');
+  delete g.photo;fx('Photo removed','warm');return true;
+}
 function createGroup(o,u='player'){if(G.susp.includes(u))return no('This account is suspended.');const name=String(o.name||'').trim().replace(/\s+/g,' ');
  if(name.length<3||name.length>30)return no('Give your group a name (3 to 30 characters).');
  if(G.groups.some(g=>!g.dead&&g.name.toLowerCase()===name.toLowerCase()&&(g.vis==='public'||g.disc)))return no('A group with that name already exists. Pick another.');
@@ -696,7 +710,7 @@ function ajoFromProposal(gid,u,pid){const g=gguard(gid,u,'proposeAjo');if(!g)ret
 function ajosFor(g,v){if(!g||!g.mem[v])return [];return G.ajos.filter(a=>a.group===g.id).map(a=>({id:a.id,name:a.name,status:a.status,amt:a.amt,freq:a.freq,size:a.size,count:a.members.length}))}
 
 /* ---- what each viewer is allowed to see ---- */
-function glimpse(g){return {id:g.id,name:g.name,av:g.av,desc:g.desc,cat:g.cat,tags:g.tags.slice(),vis:g.vis,disc:g.disc,join:g.join,area:g.area,count:gcount(g)}}
+function glimpse(g){return {id:g.id,name:g.name,av:g.av,photo:g.photo||null,desc:g.desc,cat:g.cat,tags:g.tags.slice(),vis:g.vis,disc:g.disc,join:g.join,area:g.area,count:gcount(g)}}
 const upcoming=g=>g.evs.filter(e=>!e.done&&!e.fail&&G.day<=e.dl).map(e=>({id:e.id,title:e.title,kind:e.kind,loc:e.loc,day:e.day,type:e.type,target:e.target,dl:e.dl,going:e.going.length}));
 function viewGroup(gid,v='player'){const g=grp(gid);if(!g||g.ban.includes(v))return null;const b=glimpse(g);
  if(g.mem[v])return {...b,member:true,role:g.mem[v].role,rules:g.rules.slice(),announcements:g.posts.filter(p=>p.kind==='announce'&&!p.hid).slice(-3).reverse().map(p=>({...p})),events:upcoming(g),ajos:ajosFor(g,v)};
