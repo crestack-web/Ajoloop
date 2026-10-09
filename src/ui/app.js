@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -397,6 +397,8 @@ function kanoMapBlock(){
   <div class="map-legend-row"><span>🏠 Home</span><span>🏪 Business</span><span>📍 Area</span><span>🛒 Public</span></div>
   ${sel?`<section class="card"><div class="row"><div style="font-size:32px">${sel.ic}</div><div style="flex:1;min-width:0"><h2 style="font-size:18px">${esc(sel.n)}</h2><div class="muted sm">${esc(sel.sub||'')}</div></div></div>
     ${sel.kind==='biz'?`<div class="row" style="margin-top:12px;gap:8px"><button class="btn sm" data-a="bizOpen" data-id="${sel.id}">Open shop</button><button class="btn sm ghost" data-a="visitBiz" data-id="${sel.id}">Visit</button></div>`:''}
+    ${sel.kind==='spot'?`<div class="muted sm" style="margin-top:8px">${esc((sel.spot&&sel.spot.note)||'Community hangout — meet friends nearby and build trust.')}</div>
+      <div class="row" style="margin-top:12px;gap:8px"><button class="btn sm" data-a="spotOpen" data-id="${sel.id}">Open spot</button></div>`:''}
     ${sel.kind==='home'?`<div class="muted sm" style="margin-top:8px">Only you see this exact pin. Others see your area when you enable nearby.</div>`:''}
     ${sel.kind==='area'?`<div class="muted sm" style="margin-top:8px">${(KANO_MAP.areas[sel.n]||{}).blurb||''}</div><div class="section-label">Businesses here</div>${bizesInArea(sel.n).length?bizesInArea(sel.n).map(b=>`<button class="g-card" data-a="bizOpen" data-id="${b.id}" style="margin:0 0 8px;width:100%"><div class="g-av">${b.ic}</div><div class="meta"><b>${esc(b.name)}</b><div class="l">${esc(b.cat)} · trust ${Math.round(b.trust||0)}</div></div></button>`).join(''):'<div class="empty">No listed businesses in this area yet.</div>'}`:''}
     ${sel.kind==='public'?`<div class="muted sm" style="margin-top:8px">Public place · good spot to suggest a meetup.</div>`:''}
@@ -407,12 +409,55 @@ function nearbyBlock(){
   if(!G.p.nearbyOptIn) return `<div class="card" style="margin:12px"><b>People near you</b><div class="muted sm" style="margin:6px 0">Opt in to see neighbours in your home area. Approximate only — no live GPS.</div>
     <button class="btn sm" data-a="nearbyToggle">Enable nearby</button></div>`;
   const list=nearbyPeople();
+  const spots=communitySpots().filter(s=>s.area===(G.p.home&&G.p.home.area));
   return `<div class="section-label">Nearby · ${esc(G.p.home&&G.p.home.area||'')}</div>
-    ${list.length?list.map(n=>`<div class="suggest-card"><div class="av">${n.em}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ} · ${relLabel(n)}</div></div>
-      <button class="btn sm ghost" data-a="chatOpen" data-id="${n.id}">Chat</button>
-      <button class="btn sm" data-a="npc" data-id="${n.id}">Profile</button></div>`).join('')
-    :'<div class="card empty"><div class="big">📍</div>No met neighbours in your area yet. Meet people in Town, then they can show as nearby.</div>'}`;
+    ${list.length?list.map(n=>{
+      const st=friendStatus(n.id);
+      const chatBtn=st==='friends'?`<button class="btn sm ghost" data-a="chatOpen" data-id="${n.id}">Chat</button>`:`<button class="btn sm ghost" data-a="friendReq" data-id="${n.id}">${st==='pending_out'?'Pending':st==='pending_in'?'Accept':'Add friend'}</button>`;
+      return `<div class="suggest-card"><div class="av">${n.em}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ} · ${relLabel(n)}</div></div>
+      ${chatBtn}
+      <button class="btn sm" data-a="npc" data-id="${n.id}">Profile</button></div>`;
+    }).join('')
+    :'<div class="card empty"><div class="big">📍</div>No met neighbours in your area yet. Meet people in Town, then they can show as nearby.</div>'}
+    <div class="section-label">Community spots · ${esc(G.p.home&&G.p.home.area||'')}</div>
+    <div class="muted tiny px" style="margin-bottom:8px">Places people usually go — visit to meet friends nearby and build trust.</div>
+    ${spots.length?spots.map(s=>`<button class="g-card" data-a="spotOpen" data-id="${s.id}" style="width:calc(100% - 24px)"><div class="g-av">${s.ic||'📍'}</div><div class="meta"><b>${esc(s.name)}</b><div class="l">${esc(s.area)}${s.label?' · '+esc(s.label):''}${s.by==='player'?' · yours':''}</div></div></button>`).join('')
+    :'<div class="card empty"><div class="big">📌</div>No community spots yet.</div>'}
+    <div class="px" style="margin:8px 0 12px"><button class="btn sm" data-a="spotAdd">＋ Add your spot</button></div>`;
 }
+
+function spotAddSheet(){
+  const f=UI.spotForm||{name:'',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',ic:'📍',note:''};
+  const ics=['📍','🕌','🏟️','🌳','☕','🛒','🏫','🚏','🎵','🏥'];
+  return `<div class="sec" style="margin-top:0">Add a spot<small>Places you usually go — visible to your community so friends nearby can connect and build trust.</small></div>
+    <label class="l">Name</label><input id="sf-name" maxlength="32" placeholder="e.g. Central Mosque courtyard" value="${esc(f.name)}">
+    <label class="l">Area (Kano)</label><div class="opts">${allAreas().map(a=>`<button data-a="spotArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
+    <label class="l">Landmark (optional)</label><input id="sf-label" maxlength="48" placeholder="e.g. Near the old gate" value="${esc(f.label||'')}">
+    <label class="l">Icon</label><div class="opts">${ics.map(ic=>`<button data-a="spotIc" data-v="${ic}" class="${f.ic===ic?'on':''}">${ic}</button>`).join('')}</div>
+    <label class="l">Note (optional)</label><input id="sf-note" maxlength="120" placeholder="Why friends meet here" value="${esc(f.note||'')}">
+    <button class="btn" style="margin-top:14px" data-a="spotSave">Save spot</button>
+    <div class="muted tiny" style="margin-top:10px">Approximate only — area + landmark. Not exact street for strangers.</div>`;
+}
+function spotDetailSheet(id){
+  const s=(G.spots||[]).find(x=>x.id===id&&!x.removed);
+  if(!s) return `<h2>Spot gone</h2><div class="muted sm">This place was removed.</div>`;
+  const peeps=peopleAtSpot(s.id);
+  return `<div class="place-hero"><div class="ph-ic">${s.ic||'📍'}</div><div><h2>${esc(s.name)}</h2>
+    <div class="muted sm">${esc(s.area)}${s.label?' · '+esc(s.label):''}</div>
+    <div class="place-meta"><span class="place-tag hot">Community spot</span>${s.by==='player'?'<span class="place-tag">Yours</span>':''}</div>
+    ${s.note?`<div class="travel-hint">${esc(s.note)}</div>`:''}</div></div>
+    <div class="section-label">Friends & people nearby</div>
+    <div class="muted tiny px" style="margin-bottom:8px">Connect with people who share this area — chat after you become friends.</div>
+    ${peeps.length?peeps.map(n=>{
+      const st=friendStatus(n.id);
+      return `<div class="suggest-card"><div class="av">${n.em}</div><div class="meta"><b>${esc(n.n)}</b><div class="l">${esc(n.occ)} · ${relLabel(n)}</div></div>
+        ${st==='friends'?`<button class="btn sm ghost" data-a="chatOpen" data-id="${n.id}">Chat</button>`
+        :`<button class="btn sm" data-a="friendReq" data-id="${n.id}">${st==='pending_out'?'Pending':'Add friend'}</button>`}
+        <button class="btn sm ghost" data-a="npc" data-id="${n.id}">Profile</button></div>`;
+    }).join(''):'<div class="card empty"><div class="big">👋</div>No met neighbours linked to this area yet. Meet people in Town first.</div>'}
+    ${s.by==='player'?`<button class="btn ghost red" style="margin-top:12px" data-a="spotRemove" data-id="${s.id}">Remove this spot</button>`:''}`;
+}
+
 function homeSheet(){
   const f=UI.homeForm, styles=HOME_STYLES;
   return `<div class="sec" style="margin-top:0">Your home<small>Area is public-facing. Street label stays private on this device for now.</small></div>
@@ -533,6 +578,7 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
   <button data-a="townMode" data-v="map" class="${mode==='map'?'on':''}">Daily places</button>
   <button data-a="townMode" data-v="list" class="${mode==='list'?'on':''}">List</button>
   <button data-a="townMode" data-v="biz" class="${mode==='biz'?'on':''}">Businesses</button>
+  <button data-a="townMode" data-v="spots" class="${mode==='spots'?'on':''}">My spots</button>
  </div>
  ${mode==='city'?kanoMapBlock():''}
  ${mode==='map'?`<div class="map-wrap"><div class="map">${order.map(tile).join('')}</div><div class="map-legend"><span>Tap a tile to travel</span><span>Free to move · focus is people & trust</span></div></div>
@@ -544,7 +590,17 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
  ${mode==='list'?`<div class="dir-list">${['home','market','restaurant','park','work','bank','social','ajo'].map(dirItem).join('')}</div>`:''}
  ${mode==='biz'?`<div class="px row" style="gap:8px;margin:8px 0"><button class="btn" data-a="bizManage">${playerBiz()?'My business':'＋ List my business'}</button></div>
    <div class="section-label">On the map</div>
-   ${G.bizs.filter(b=>!b.closed).map(b=>`<button class="g-card" data-a="bizOpen" data-id="${b.id}" style="width:calc(100% - 24px)"><div class="g-av">${b.ic||'🏪'}</div><div class="meta"><b>${esc(b.name)}</b><div class="l">${esc(b.cat)} · ${esc(b.area)} · trust ${Math.round(b.trust||0)}</div></div></button>`).join('')||'<div class="card empty">No businesses listed.</div>'}`:''}`}
+   ${G.bizs.filter(b=>!b.closed).map(b=>`<button class="g-card" data-a="bizOpen" data-id="${b.id}" style="width:calc(100% - 24px)"><div class="g-av">${b.ic||'🏪'}</div><div class="meta"><b>${esc(b.name)}</b><div class="l">${esc(b.cat)} · ${esc(b.area)} · trust ${Math.round(b.trust||0)}</div></div></button>`).join('')||'<div class="card empty">No businesses listed.</div>'}`:''}
+ ${mode==='spots'?`<div class="px" style="margin:8px 0"><button class="btn" data-a="spotAdd">＋ Add a spot you usually go</button></div>
+   <div class="muted tiny px" style="margin-bottom:8px">Your community can see these addresses (area + landmark — not exact street for strangers) and meet friends nearby to build trust.</div>
+   <div class="section-label">Your spots</div>
+   ${mySpots().length?mySpots().map(s=>`<div class="g-card" style="width:calc(100% - 24px)"><div class="g-av">${s.ic||'📍'}</div><div class="meta"><b>${esc(s.name)}</b><div class="l">${esc(s.area)}${s.label?' · '+esc(s.label):''}</div></div>
+     <button class="btn sm ghost" data-a="spotOpen" data-id="${s.id}">Open</button>
+     <button class="btn sm ghost" data-a="spotRemove" data-id="${s.id}">Remove</button></div>`).join('')
+   :'<div class="card empty"><div class="big">📌</div>No spots yet. Add places you usually go.</div>'}
+   <div class="section-label">Community spots</div>
+   ${communitySpots().filter(s=>s.by!=='player').length?communitySpots().filter(s=>s.by!=='player').map(s=>`<button class="g-card" data-a="spotOpen" data-id="${s.id}" style="width:calc(100% - 24px)"><div class="g-av">${s.ic||'📍'}</div><div class="meta"><b>${esc(s.name)}</b><div class="l">${esc(s.area)}${s.label?' · '+esc(s.label):''}</div></div></button>`).join('')
+   :'<div class="card empty">No other community spots in view. Enable nearby and set home area.</div>'}`:''}`}
 
 function relPill(n){
  if(n.rel>=80) return '<span class="rel-pill close">Trusted</span>';
@@ -554,22 +610,40 @@ function relPill(n){
 }
 function personRow(n){
  const where=LOCS[npcLoc(n)];
- return `<button class="person" data-a="npc" data-id="${n.id}"><div class="av">${n.em}</div><div class="meta"><b>${n.n}<span class="npc-badge">NPC</span></b><div class="l">${n.occ} · ${relLabel(n)}</div><div class="tiny muted" style="margin-top:2px">${where.ic} ${where.n}${n.lastSeen?` · last Day ${n.lastSeen}`:''}</div></div><div style="text-align:right">${relPill(n)}<div class="score" style="color:${col(n.rel)};margin-top:4px">${Math.round(n.rel)}</div></div></button>`;
+ const fr=isFriend(n.id)?' · Friends':'';
+ return `<button class="person" data-a="npc" data-id="${n.id}"><div class="av">${n.em}</div><div class="meta"><b>${n.n}<span class="npc-badge">NPC</span></b><div class="l">${n.occ} · ${relLabel(n)}${fr}</div><div class="tiny muted" style="margin-top:2px">${where.ic} ${where.n}${n.lastSeen?` · last Day ${n.lastSeen}`:''}</div></div><div style="text-align:right">${relPill(n)}<div class="score" style="color:${col(n.rel)};margin-top:4px">${Math.round(n.rel)}</div></div></button>`;
 }
 
 function peopleView(){
  const filter=UI.peopleFilter||'all';
  const met=G.npcs.filter(n=>n.met).sort((a,b)=>b.rel-a.rel);
- const close=met.filter(n=>n.rel>=60);
+ const close=met.filter(n=>isFriend(n.id)||n.rel>=60);
  const un=G.npcs.filter(n=>!n.met);
+ const pendingIn=pendingFriendReqs();
+ const pendingOut=outgoingFriendReqs();
  // Suggested: unmet who share a location with people you know, or high-trust tags nearby spots
  const suggest=un.slice().sort((a,b)=>{
   const sa=a.spots.includes(G.p.loc)?2:0; const sb=b.spots.includes(G.p.loc)?2:0;
   return (sb+b.tr/100)-(sa+a.tr/100);
  }).slice(0,4);
  const list=filter==='close'?close:filter==='all'?met:met;
- const seg=[['all','All '+met.length],['close','Close '+close.length],['discover','Discover']];
+ const seg=[['all','All '+met.length],['close','Friends '+close.length],['discover','Discover']];
  let body='';
+ if(pendingIn.length||pendingOut.length){
+  body+=`<div class="section-label">Friend requests</div>`;
+  pendingIn.forEach(r=>{
+    const n=npc(r.from); if(!n) return;
+    body+=`<div class="suggest-card"><div class="av">${n.em}</div><div class="meta"><b>${esc(n.n)}</b><div class="l">${esc(n.occ)} · wants to connect</div></div>
+      <button class="btn sm green" data-a="friendAccept" data-id="${r.id}">Accept</button>
+      <button class="btn sm ghost" data-a="friendReject" data-id="${r.id}">Reject</button></div>`;
+  });
+  pendingOut.forEach(r=>{
+    const n=npc(r.to); if(!n) return;
+    body+=`<div class="suggest-card"><div class="av">${n.em}</div><div class="meta"><b>${esc(n.n)}</b><div class="l">Request pending</div></div>
+      <button class="btn sm ghost" data-a="friendCancel" data-id="${n.id}">Cancel</button>
+      <button class="btn sm" data-a="npc" data-id="${n.id}">Profile</button></div>`;
+  });
+ }
  if(filter==='discover'){
   body=`<div class="section-label">Find them in town</div>
    <div class="muted tiny px" style="margin-bottom:8px">These are simulated neighbours. Meet them where they spend the day.</div>
@@ -647,6 +721,7 @@ function sheetHtml(){let h='';
  const m=UI.modal;if(!m)return '';
  if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='avatar')h=avatarSheet(!!m.create);if(m.t==='storeAvatar')h=storeAvatarSheet(!!m.create);if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
  if(m.t==='home')h=homeSheet();if(m.t==='work')h=workSheet();if(m.t==='bizManage')h=bizManageSheet();if(m.t==='biz')h=bizDetailSheet(bizById(m.id));if(m.t==='chat')h=chatSheet(m.id);
+ if(m.t==='spotAdd')h=spotAddSheet();if(m.t==='spot')h=spotDetailSheet(m.id);
  return wrap(h)}
 function wrap(h,lock){return `<div class="back" ${lock?'':'data-a="closeBack"'}><div class="sheet" id="sheet">${lock?'':'<button class="x" data-a="close" aria-label="Close">✕</button>'}${h}</div></div>`}
 
@@ -667,7 +742,14 @@ function npcSheet(n){const here_=npcLoc(n)===G.p.loc,p=G.p;const know=n.rel>=50;
  <div class="tiny muted" style="margin-top:6px">Their reliability is a character trait in the simulation — not a real-money credit score.</div></div>
  ${n.said?`<div class="card" style="background:var(--card2)">“${esc(n.said)}”</div>`:''}
  <div class="profile-actions">
- ${here_?`<button class="btn" data-a="talk" data-id="${n.id}">💬 Talk · 1 hour</button>
+ ${(()=>{const st=friendStatus(n.id);
+   if(!n.met) return '';
+   if(st==='friends') return `<button class="btn green" data-a="chatOpen" data-id="${n.id}">💬 Chat</button><div class="muted sm center" style="margin:4px 0 8px">Friends · you can message anytime</div>`;
+   if(st==='pending_out') return `<button class="btn ghost" data-a="friendCancel" data-id="${n.id}">Request pending · Cancel</button>`;
+   if(st==='pending_in'){const rid=pendingFriendReqs().find(r=>r.from===n.id);return rid?`<div class="row" style="gap:8px"><button class="btn green" style="flex:1" data-a="friendAccept" data-id="${rid.id}">Accept friend</button><button class="btn ghost" style="flex:1" data-a="friendReject" data-id="${rid.id}">Reject</button></div>`:''}
+   return `<button class="btn" data-a="friendReq" data-id="${n.id}">🤝 Add friend</button><div class="muted sm center" style="margin:4px 0 8px">They accept or reject — then you can chat</div>`;
+ })()}
+ ${here_?`<button class="btn ${friendStatus(n.id)==='friends'?'ghost':''}" data-a="talk" data-id="${n.id}">💬 Talk in person · 1 hour</button>
  ${p.loc==='restaurant'?`<button class="btn ghost" data-a="eatw" data-id="${n.id}">🍛 Eat together · ₦3,000 (you pay)</button>`:''}
  <div class="row" style="gap:8px"><button class="btn ghost sm" style="flex:1" data-a="helpn" data-id="${n.id}" data-n="2000" ${p.cash<2000?'disabled':''}>Help ₦2,000</button><button class="btn ghost sm" style="flex:1" data-a="helpn" data-id="${n.id}" data-n="5000" ${p.cash<5000?'disabled':''}>Help ₦5,000</button></div>`
  :`<div class="card" style="background:var(--card);margin:0">Right now at <b>${where.ic} ${where.n}</b>.
@@ -905,12 +987,23 @@ function dmChatPage(uid){
     <button data-a="trustAct" data-id="${uid}" data-g="vouch">🗣️ Vouch</button>
     ${biz?`<button data-a="visitBiz" data-id="${biz.id}">📍 Visit</button>`:''}
   </div>
-  <footer class="wa-compose">
+  ${isFriend(uid)?`<footer class="wa-compose">
     <button class="wa-plus" type="button" data-a="trustAct" data-id="${uid}" data-g="intro" aria-label="Quick">＋</button>
     <button class="wa-mic" type="button" data-a="chatVoice" data-id="${uid}" aria-label="Voice note">🎤</button>
     <input id="chat-in" maxlength="200" placeholder="Message a friend" autocomplete="off" value="${esc(UI.chatText||'')}">
     <button class="wa-send" data-a="chatSend" data-id="${uid}" aria-label="Send">➤</button>
-  </footer>
+  </footer>`
+  :friendStatus(uid)==='pending_out'
+  ?`<footer class="wa-compose"><div class="muted sm" style="padding:12px;text-align:center;width:100%">Friend request pending — chat unlocks when they accept</div></footer>`
+  :friendStatus(uid)==='pending_in'
+  ?`<footer class="wa-compose"><div style="padding:10px;width:100%;display:flex;gap:8px;justify-content:center">
+      <button class="btn sm green" data-a="friendAccept" data-id="${(pendingFriendReqs().find(r=>r.from===uid)||{}).id}">Accept friend</button>
+      <button class="btn sm ghost" data-a="friendReject" data-id="${(pendingFriendReqs().find(r=>r.from===uid)||{}).id}">Reject</button>
+    </div></footer>`
+  :`<footer class="wa-compose"><div style="padding:10px;width:100%;text-align:center">
+      <div class="muted sm" style="margin-bottom:8px">Add ${esc(n.n)} as a friend to chat</div>
+      <button class="btn sm" data-a="friendReq" data-id="${uid}">🤝 Send friend request</button>
+    </div></footer>`}
 </div>`;
 }
 
@@ -1331,6 +1424,23 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const label=(document.getElementById('hf-label')||{}).value||UI.homeForm.label;
     if(setHome(UI.homeForm.area,label,UI.homeForm.style)){UI.modal=null;if(setupSteps().every(s=>s.ok))markOnboarded();commit()} else render();
     break}
+
+  case 'spotAdd':UI.spotForm={name:'',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',ic:'📍',note:''};UI.modal={t:'spotAdd'};render();break;
+  case 'spotArea':UI.spotForm.area=d.v;render();break;
+  case 'spotIc':UI.spotForm.ic=d.v;render();break;
+  case 'spotSave':{
+    const name=(document.getElementById('sf-name')||{}).value||UI.spotForm.name;
+    const label=(document.getElementById('sf-label')||{}).value||UI.spotForm.label;
+    const note=(document.getElementById('sf-note')||{}).value||UI.spotForm.note;
+    const s=addSpot({name,area:UI.spotForm.area,label,ic:UI.spotForm.ic,note});
+    if(s){UI.modal={t:'spot',id:s.id};commit()} else render();
+  }break;
+  case 'spotOpen':UI.modal={t:'spot',id:d.id};render();break;
+  case 'spotRemove':run(removeSpot,d.id);UI.modal=null;break;
+  case 'friendReq':run(sendFriendRequest,d.id);break;
+  case 'friendAccept':run(acceptFriendRequest,d.id);break;
+  case 'friendReject':run(rejectFriendRequest,d.id);break;
+  case 'friendCancel':run(cancelFriendRequest,d.id);break;
   case 'nearbyToggle':G.p.nearbyOptIn=!G.p.nearbyOptIn;if(G.p.nearbyOptIn&&!(G.p.home&&G.p.home.done)){fx('Set your home area first.','warm');G.p.nearbyOptIn=false;UI.modal={t:'home'};render();break}note(G.p.nearbyOptIn?'Nearby enabled for your area.':'Nearby disabled.');commit();break;
   
   case 'workEdit':UI.workForm={cat:(G.p.work&&G.p.work.cat)||'Trader',title:(G.p.work&&G.p.work.title)||''};UI.modal={t:'work'};render();break;
