@@ -842,6 +842,77 @@ function nearestArea(lat,lng){
   });
   return best||'Fagge';
 }
+
+function personMapCoords(entity){
+  // entity: player object or npc
+  if(entity===G.p||(entity&&entity===G.p)){
+    const loc=G.p.loc, L=LOCS[loc];
+    let base;
+    if(L&&L.area) base=areaCoords(L.area);
+    else if(G.p.home&&G.p.home.area) base=areaCoords(G.p.home.area);
+    else base={lat:KANO_MAP.center.lat,lng:KANO_MAP.center.lng};
+    return {lat:base.lat+0.001,lng:base.lng-0.001};
+  }
+  const n=entity;
+  const loc=npcLoc(n);
+  const L=LOCS[loc];
+  let base;
+  if(L&&L.area) base=areaCoords(L.area);
+  else if(n.homeArea) base=areaCoords(n.homeArea);
+  else base={lat:KANO_MAP.center.lat,lng:KANO_MAP.center.lng};
+  // Stable jitter so people don't stack
+  const h=hash(n.id+'map');
+  const jlat=((h%11)-5)*0.0012;
+  const jlng=(((h>>4)%11)-5)*0.0012;
+  return {lat:base.lat+jlat,lng:base.lng+jlng};
+}
+function npcAvatarFor(n){
+  if(n.avatar) return n.avatar;
+  // Deterministic look from id so each NPC has a stable character face
+  const skins=['s2','s3','s4','s5','s6'];
+  const hairsM=['fade','short','afro','locs','bald'];
+  const hairsF=['braids','longbraids','afro','afropuff','gele'];
+  const tops=['tee','dashiki','ankara','shirt'];
+  const fem=/aisha|fatima|maryam|hauwa|halima|zainab|aisha/i.test(n.id)||/aisha|fatima|maryam|hauwa|halima/i.test(n.n||'');
+  const h=hash(n.id+'av');
+  const gender=fem?'Female':'Male';
+  return {
+    gender,
+    skin:skins[h%skins.length],
+    face:fem?'heart':'oval',
+    hair:fem?hairsF[h%hairsF.length]:hairsM[h%hairsM.length],
+    hairColor:'black',
+    eyes:'almond',
+    brows:fem?'arched':'full',
+    nose:'medium',
+    mouth:fem?'full':'smile',
+    facial:fem?'none':(['none','none','beard','mustache'][h%4]),
+    accessory:fem?(h%2?'hoops':'none'):'none',
+    top:tops[h%tops.length]
+  };
+}
+function peopleOnMap(){
+  const list=[];
+  // Player always
+  if(G&&G.p){
+    const c=personMapCoords(G.p);
+    list.push({id:'player',kind:'person',me:true,n:G.p.name||'You',sub:'You · '+(LOCS[G.p.loc]?LOCS[G.p.loc].n:''),lat:c.lat,lng:c.lng,avatar:G.p.avatar||defaultAvatar(G.p.gender),em:null});
+  }
+  // Met NPCs (and optionally nearby)
+  G.npcs.filter(n=>n.met&&!(G.blk||[]).includes(n.id)).forEach(n=>{
+    const c=personMapCoords(n);
+    const where=LOCS[npcLoc(n)];
+    list.push({id:n.id,kind:'person',me:false,n:n.n,sub:(where?where.ic+' '+where.n:'')+' · '+relLabelPeople(n),lat:c.lat,lng:c.lng,avatar:npcAvatarFor(n),em:n.em,npc:n});
+  });
+  return list;
+}
+function relLabelPeople(n){
+  if(typeof isFriend==='function'&&isFriend(n.id)) return 'Friend';
+  if(n.rel>=60) return 'Friend';
+  if(n.rel>=35) return 'Acquaintance';
+  return 'Neighbour';
+}
+
 const BIZ_CATS=['Provisions','Food & Kitchen','Fashion','Phones & Tech','Services','Transport','Beauty','Other'];
 const WORK_CATS=['Trader','Food & Kitchen','Fashion','Phones & Tech','Services','Transport','Beauty','Farmer','Teacher','Student','Civil service','Driver','Artisan','Other'];
 
@@ -1364,7 +1435,7 @@ function ensureSetup(){
   if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
   if(G.p.onboarded==null)G.p.onboarded=false;
 }
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);if(!G.p.work)G.p.work={cat:'',title:'',set:false};(G.bizs||[]).forEach(b=>{
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};(G.bizs||[]).forEach(b=>{
   if(b.owner==='player'&&!b.avatar)b.avatar=defaultStoreAvatar(G.p.gender);
   if(!b.loc){const areaLoc={Fagge:'market',Gwale:'restaurant',Nasarawa:'social','Kano Municipal':'work',Tarauni:'market',Dala:'social',Kumbotso:'market',Ungogo:'park'};b.loc=areaLoc[b.area]||'market'}
 });ensureSetup()}
