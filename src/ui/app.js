@@ -469,19 +469,24 @@ function destroyLiveMaps(){
 
 function liveMapBlock(){
   const peopleN=(typeof peopleOnMap==='function'?peopleOnMap():[]).length;
-  const showP=UI.mapShowPeople!==false, showPl=UI.mapShowPlaces!==false;
+  const bizN=(G.bizs||[]).filter(b=>!b.closed).length;
+  const showP=UI.mapShowPeople!==false, showPl=UI.mapShowPlaces!==false, showB=UI.mapShowBiz!==false;
   return `<div class="live-map-wrap">
     <div id="live-map" class="live-map"></div>
     <div class="live-map-legend">
-      <span>👤 People (${peopleN})</span><span>📍 Spots</span><span>🏪 Shops</span><span>Tap a character to open</span>
+      <span>👤 People (${peopleN})</span>
+      <span>🏪 Businesses (${bizN})</span>
+      <span>📍 Spots</span>
+      <span>Tap to open</span>
     </div>
     <div class="px" style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn sm ${showP?'':'ghost'}" data-a="mapTogglePeople">${showP?'👤 People on':'👤 People off'}</button>
+      <button class="btn sm ${showB?'':'ghost'}" data-a="mapToggleBiz">${showB?'🏪 Shops on':'🏪 Shops off'}</button>
       <button class="btn sm ${showPl?'':'ghost'}" data-a="mapTogglePlaces">${showPl?'📍 Places on':'📍 Places off'}</button>
       <button class="btn sm" data-a="spotAdd">＋ Add spot</button>
       <button class="btn sm ghost" data-a="mapLocate">📍 My location</button>
     </div>
-    <div class="muted tiny px">Characters show where people are in Kano right now. Tap a face to meet or chat.</div>
+    <div class="muted tiny px">People as characters · shops as storefronts · spots as pins. Tap any marker to open it.</div>
   </div>`;
 }
 
@@ -497,10 +502,26 @@ function mountLiveMap(){
   }).addTo(_liveMap);
   const showPeople=UI.mapShowPeople!==false;
   const showPlaces=UI.mapShowPlaces!==false;
+  const showBiz=UI.mapShowBiz!==false;
+  if(showBiz){
+    const bizPins=mapPins().filter(p=>p.kind==='biz'&&p.lat!=null&&p.lng!=null);
+    bizPins.forEach(p=>{
+      const b=p.biz||bizById(p.id);
+      const face=b?renderBizFace(b,40):(p.ic||'🏪');
+      const icon=L.divIcon({
+        className:'lm-pin lm-biz',
+        html:`<div class="lm-bld">${typeof face==='string'?face:'🏪'}<i class="lm-bld-tag">Shop</i></div>`,
+        iconSize:[48,52],iconAnchor:[24,52]
+      });
+      const m=L.marker([p.lat,p.lng],{icon,zIndexOffset:300}).addTo(_liveMap);
+      m.bindPopup(`<b>${esc(p.n)}</b><br><span style="opacity:.85">${esc(p.sub||'Business')}</span>`);
+      m.on('click',()=>{UI.modal={t:'biz',id:p.id};render()});
+    });
+  }
   if(showPlaces){
-    const pins=mapPins().filter(p=>p.lat!=null&&p.lng!=null&&(p.kind==='spot'||p.kind==='biz'||p.kind==='public'||p.kind==='home'));
+    const pins=mapPins().filter(p=>p.lat!=null&&p.lng!=null&&(p.kind==='spot'||p.kind==='public'||p.kind==='home'));
     pins.forEach(p=>{
-      const color=p.kind==='spot'?'#ffc928':p.kind==='biz'?'#5b8cff':p.kind==='home'?'#22c177':'#c4b5fd';
+      const color=p.kind==='spot'?'#ffc928':p.kind==='home'?'#22c177':'#c4b5fd';
       const icon=L.divIcon({
         className:'lm-pin',
         html:`<div class="lm-dot" style="background:${color}"><span>${p.ic||'📍'}</span></div>`,
@@ -510,7 +531,6 @@ function mountLiveMap(){
       m.bindPopup(`<b>${esc(p.n)}</b><br><span style="opacity:.85">${esc(p.sub||'')}</span>`);
       m.on('click',()=>{
         if(p.kind==='spot'){UI.modal={t:'spot',id:p.id};render()}
-        else if(p.kind==='biz'){UI.modal={t:'biz',id:p.id};render()}
         else if(p.kind==='home'){UI.modal={t:'home'};render()}
       });
     });
@@ -1686,6 +1706,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'spotGeo':
   case 'mapTogglePeople':UI.mapShowPeople=!(UI.mapShowPeople!==false);render();break;
   case 'mapTogglePlaces':UI.mapShowPlaces=!(UI.mapShowPlaces!==false);render();break;
+  case 'mapToggleBiz':UI.mapShowBiz=!(UI.mapShowBiz!==false);render();break;
   case 'mapLocate':{
     if(!navigator.geolocation){fx('Location not available on this device.','warn');break}
     fx('Finding you…','good');
