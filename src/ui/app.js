@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,gi:{},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',gi:{},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -99,29 +99,116 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
  <section class="card"><b>🛒 Business</b>${G.biz?`<div class="money-row" style="margin-top:8px"><span class="label">Mini Shop · ${G.biz.stock} in stock</span><span class="val">Profit ${fmt(G.biz.profit)}</span></div>`:`<div class="muted sm" style="margin-top:6px">No business yet. Work → save → open a Mini Shop for ${fmt(SHOP_COST)} at the Market.</div>`}</section>
  ${G.promises.length?`<section class="card"><b>🤞🏾 Promises</b>${G.promises.map(pr=>`<div class="row sp" style="margin-top:8px"><span class="sm">${npc(pr.npc).n} · ${fmt(pr.amt)} by Day ${pr.due}</span><button class="btn sm" data-a="keep" data-id="${pr.id}">Keep it</button></div>`).join('')}</section>`:''}`}
 
-function locActions(){const p=G.p,L=p.loc,A=[];const add=(ic,l,s,a,d={},dis)=>A.push({ic,l,s,a,d,dis});const j=JOBS.find(x=>x.id===p.job);const hereN=here();
- const meet=()=>add('🙋🏾','Meet people here',hereN.length?hereN.length+' around':'Nobody around right now','meet',{},hereN.length?'':'No one here');
- if(L==='home'){add('😴','Sleep & start next day','Restores energy','sleep');add('🍚','Cook at home','₦500 · −30 hunger · 1h','cook');add('🛋️','Rest','Free · +14 energy · 2h','rest');add('📞','Call family','Free · +mood · 1h','call')}
- if(L==='market'){add('🍢','Buy suya snack','₦600 · −18 hunger · 1h','snack');meet();add('🔎','Look for opportunity','1h · might meet someone useful','opp');
-  if(!G.biz)add('🏪','Start the Mini Shop',fmt(SHOP_COST)+' · stall, permit, 10 drinks','bizStart',{},p.cash<SHOP_COST?'Need '+fmt(SHOP_COST):'');
-  else{add('📦','Buy stock ×10','₦5,000 · 1h','bizBuy',{n:10},p.cash<5000?'Need ₦5,000':'');add('📦','Buy stock ×20','₦10,000 · 1h','bizBuy',{n:20},p.cash<10000?'Need ₦10,000':'');add('🥤','Tend the shop','Sell at ₦700 each · '+G.biz.stock+' in stock · 2h','bizTend',{},G.biz.stock<=0?'Out of stock':'')}}
- if(L==='restaurant'){add('🍛','Eat jollof & chicken','₦1,500 · −45 hunger · 1h','eat');meet()}
- if(L==='park'){meet();add('🛺','Run a keke errand','+₦1,500 · −10 energy · 2h','gig')}
- if(L==='work'){if(!j){add('📋','Pick a job','Choose from today\'s openings','jobs')}else{add(j.ic,'Work a shift','+'+fmt(j.pay)+' · −'+j.en+' energy · 8h','work',{},p.shiftDay===G.day?'Already worked today':'');add('🚪','Quit this job','','quit')}meet()}
- if(L==='bank'){add('🏦','Save ₦2,000','Keep it safe from emergencies','dep',{n:2000},p.cash<2000?'Need ₦2,000':'');add('🏦','Save ₦10,000','','dep',{n:10000},p.cash<10000?'Need ₦10,000':'');add('💵','Withdraw ₦5,000','Saved: '+fmt(p.savings),'wd',{n:5000},p.savings<=0?'Nothing saved':'');add('💵','Withdraw all','','wd',{n:1e9},p.savings<=0?'Nothing saved':'')}
- if(L==='social'){add('🎶','Hang out','Free · +mood · 2h','hang');add('🍻','Buy a round','₦1,500 · everyone here likes you more','round');add('🗣️','Tell a tall story','+Reputation, −Trust (once a day)','boast');meet()}
- if(L==='ajo'){add('🤝','Open Ajo hub','Create, join, vote, contribute','tabAjo')}
+function locMeta(id){
+ const M={
+  home:{tags:['Rest','Food'],blurb:'Recover energy and cook cheap meals.'},
+  market:{tags:['Trade','Shop','Social'],blurb:'Stock a stall, snack, and meet traders.'},
+  restaurant:{tags:['Food','Social'],blurb:'Eat well and share a table with neighbours.'},
+  park:{tags:['Transport','Gig'],blurb:'Cheaper keke rides and quick errand money.'},
+  work:{tags:['Jobs','Pay'],blurb:'Clock in for salary or pick a new role.'},
+  bank:{tags:['Savings'],blurb:'Park game cash safely for bigger goals.'},
+  social:{tags:['Mood','Reputation'],blurb:'Hang out, buy a round, shape your name.'},
+  ajo:{tags:['Ajo circles'],blurb:'Join or host rotating savings — separate from game cash.'}
+ };
+ return M[id]||{tags:[],blurb:''};
+}
+function travelInfo(to){
+ if(to===G.p.loc) return null;
+ const fare=G.p.loc==='park'?100:200;
+ const canRide=G.p.cash>=fare;
+ return {fare,hours:canRide?1:2,mode:canRide?'keke':'walk',canRide};
+}
+function locActions(){const p=G.p,L=p.loc,A=[];
+ const add=(ic,l,s,a,d={},dis,g='do',primary=false,cost='')=>A.push({ic,l,s,a,d,dis,g,primary,cost});
+ const j=JOBS.find(x=>x.id===p.job);const hereN=here();
+ const meet=()=>add('👋🏾','Meet people here',hereN.length?hereN.length+' neighbour'+(hereN.length===1?'':'s')+' around':'Nobody around right now','meet',{},hereN.length?'':'No one here','social',!!hereN.length);
+ if(L==='home'){
+  add('🛋️','Rest','+14 energy · 2 hours','rest',{},'','needs',p.energy<60,'Free');
+  add('🍚','Cook at home','−30 hunger · 1 hour','cook',{},p.cash<500?'Need ₦500':'','needs',p.hunger>=50,'₦500');
+  add('📞','Call family','+mood · 1 hour','call',{},'','social',false,'Free');
+  add('😴','Sleep until morning','Ends the day · restores energy','sleep',{},'','rest',false,'');
+ }
+ if(L==='market'){
+  add('🍢','Suya snack','−18 hunger · 1 hour','snack',{},p.cash<600?'Need ₦600':'','needs',p.hunger>=40,'₦600');
+  meet();
+  add('🔎','Look for opportunity','1 hour · chance to meet someone useful','opp',{},'','social');
+  if(!G.biz) add('🏪','Open Mini Shop',fmt(SHOP_COST)+' startup · stall, permit, 10 drinks','bizStart',{},p.cash<SHOP_COST?'Need '+fmt(SHOP_COST):'','work',true,fmt(SHOP_COST));
+  else{
+   add('🥤','Tend the shop','Sell at ₦700 · '+G.biz.stock+' in stock · 2 hours','bizTend',{},G.biz.stock<=0?'Out of stock':'','work',G.biz.stock>0,'');
+   add('📦','Buy stock ×10','10 drinks · 1 hour','bizBuy',{n:10},p.cash<5000?'Need ₦5,000':'','work',false,'₦5,000');
+   add('📦','Buy stock ×20','20 drinks · 1 hour','bizBuy',{n:20},p.cash<10000?'Need ₦10,000':'','work',false,'₦10,000');
+  }
+ }
+ if(L==='restaurant'){
+  add('🍛','Jollof & chicken','−45 hunger · 1 hour','eat',{},p.cash<1500?'Need ₦1,500':'','needs',p.hunger>=35,'₦1,500');
+  meet();
+ }
+ if(L==='park'){
+  meet();
+  add('🛺','Keke errand','+₦1,500 · −10 energy · 2 hours','gig',{},p.energy<12?'Too tired':'','work',true,'+₦1,500');
+ }
+ if(L==='work'){
+  if(!j) add('📋','See open jobs','Shop, rider, or sales roles','jobs',{},'','work',true,'');
+  else{
+   add(j.ic,'Work a shift','+'+fmt(j.pay)+' · −'+j.en+' energy · 8 hours','work',{},p.shiftDay===G.day?'Already worked today':(p.energy<j.en?'Need '+j.en+' energy':''),'work',p.shiftDay!==G.day,fmt(j.pay));
+   add('🚪','Quit this job','You can re-apply later','quit',{},'','work');
+  }
+  meet();
+ }
+ if(L==='bank'){
+  add('🏦','Save ₦2,000','Move cash to savings','dep',{n:2000},p.cash<2000?'Need ₦2,000':'','work',false,'₦2,000');
+  add('🏦','Save ₦10,000','','dep',{n:10000},p.cash<10000?'Need ₦10,000':'','work',false,'₦10,000');
+  add('💵','Withdraw ₦5,000','Saved: '+fmt(p.savings),'wd',{n:5000},p.savings<=0?'Nothing saved':'','work',false,'');
+  add('💵','Withdraw all','Empty savings into cash','wd',{n:1e9},p.savings<=0?'Nothing saved':'','work',false,'');
+ }
+ if(L==='social'){
+  add('🎶','Hang out','+mood · 2 hours','hang',{},'','social',true,'Free');
+  add('🍻','Buy a round','Everyone here likes you more','round',{},p.cash<1500?'Need ₦1,500':'','social',false,'₦1,500');
+  add('🗣️','Tall story','+Reputation · −Trust · once a day','boast',{},p.boastDay===G.day?'Already told one today':'','social',false,'');
+  meet();
+ }
+ if(L==='ajo'){
+  add('🤝','Open Ajo hub','Create, join, vote, contribute','tabAjo',{},'','work',true,'');
+ }
  return A}
+function actButton(a){
+ const dis=a.dis?` disabled`:'';
+ const cls='act'+(a.primary&&!a.dis?' primary':'');
+ const extra=a.d&&a.d.n?` data-n="${a.d.n}"`:'';
+ const sub=a.dis&&a.dis!=='No one here'?a.dis:a.s;
+ const cost=a.cost&&!a.dis?`<span class="cost">${a.cost}</span>`:'';
+ return `<button class="${cls}" data-a="${a.a}"${extra}${dis}><div class="ic">${a.ic}</div><div><b>${a.l}</b><small>${sub}</small>${cost}</div><span class="go">›</span></button>`;
+}
 
-function townView(){const L=LOCS[G.p.loc],acts=locActions(),hn=here();
+function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(),hn=here();
  const order=['home','market','restaurant','park','_c','work','bank','social','ajo'];
- const tile=id=>{if(id==='_c')return `<div class="tile center"><div>✦</div><b>KANO CITY</b></div>`;const l=LOCS[id],h=G.p.loc===id,n=G.npcs.filter(x=>npcLoc(x)===id).length;return `<button class="tile ${h?'here':''}" data-a="travel" data-to="${id}" ${h?'disabled':''}><span class="ti">${l.ic}</span><b>${l.n}</b>${h?'<em class="me">You</em>':`<small>${n?n+' here':'&nbsp;'}</small>`}</button>`};
- return `<div class="sec">Explore Kano<small>Tap a place to travel. Keke ₦200 · 1h (₦100 from the Park). No cash? You walk.</small></div>
- <div class="map">${order.map(tile).join('')}</div>
- <section class="card"><div class="row"><div style="font-size:40px">${L.ic}</div><div><h2>${L.n}</h2><div class="muted sm">${L.d}</div></div></div></section>
- <div class="px">${acts.map(a=>`<button class="act" data-a="${a.a}" ${a.d.n?`data-n="${a.d.n}"`:''} ${a.dis?'disabled':''}><div class="ic">${a.ic}</div><div><b>${a.l}</b><small>${a.dis&&a.dis!=='No one here'?a.dis:a.s}</small></div><span class="go">›</span></button>`).join('')}</div>
- <div class="sec">People here<small>${hn.length?'Tap someone to talk, eat or help.':'Nobody around. People move through the day — try another hour.'}</small></div>
- ${hn.map(personRow).join('')}`}
+ const mode=UI.townMode||'map';
+ const tile=id=>{
+  if(id==='_c')return `<div class="tile center"><div>✦</div><b>KANO</b></div>`;
+  const l=LOCS[id],h=G.p.loc===id,n=G.npcs.filter(x=>npcLoc(x)===id).length;
+  return `<button class="tile ${h?'here':''}" data-a="travel" data-to="${id}" ${h?'disabled':''} aria-label="${l.n}${h?' (you are here)':''}"><span class="ti">${l.ic}</span><b>${l.n}</b>${h?'<em class="me">You</em>':`<small class="${n?'busy':''}">${n?n+' here':'—'}</small>`}</button>`;
+ };
+ const dirItem=id=>{
+  const l=LOCS[id],h=G.p.loc===id,n=G.npcs.filter(x=>npcLoc(x)===id).length,m=locMeta(id),info=travelInfo(id);
+  const trail=h?'You are here':(info?(info.mode==='keke'?`Keke ${fmt(info.fare)} · ${info.hours}h`:`Walk · ${info.hours}h`):'');
+  return `<button class="dir-item ${h?'here':''}" data-a="${h?'':'travel'}" ${h?'disabled':`data-to="${id}"`}><div class="di-ic">${l.ic}</div><div style="min-width:0;flex:1"><b>${l.n}</b><div class="tiny muted">${m.blurb}</div><div class="tiny muted" style="margin-top:2px">${n?n+' people · ':''}${trail}</div></div><span class="go">${h?'●':'›'}</span></button>`;
+ };
+ const groups=[['needs','Look after yourself'],['work','Work & money'],['social','People & vibe'],['rest','End the day'],['do','Here']];
+ const grouped=groups.map(([g,label])=>{
+  const list=acts.filter(a=>a.g===g);
+  if(!list.length) return '';
+  return `<div class="act-group"><div class="ag-label">${label}</div>${list.map(actButton).join('')}</div>`;
+ }).join('');
+ const openJobs=G.openJobs?G.openJobs.length:0;
+ return `<div class="sec">Town<small>Eight places. Travel costs game cash and time.</small></div>
+ <div class="town-tabs"><button data-a="townMode" data-v="map" class="${mode==='map'?'on':''}">Map</button><button data-a="townMode" data-v="list" class="${mode==='list'?'on':''}">All places</button></div>
+ ${mode==='map'?`<div class="map-wrap"><div class="map">${order.map(tile).join('')}</div><div class="map-legend"><span>Tap a tile to travel</span><span>Keke ₦200 · from Park ₦100</span></div></div>`
+ :`<div class="dir-list">${['home','market','restaurant','park','work','bank','social','ajo'].map(dirItem).join('')}</div>`}
+ <section class="card"><div class="place-hero"><div class="ph-ic">${L.ic}</div><div style="min-width:0;flex:1"><h2>${L.n}</h2><div class="muted sm">${L.d}</div><div class="place-meta">${meta.tags.map(t=>`<span class="place-tag hot">${t}</span>`).join('')}${hn.length?`<span class="place-tag people">${hn.length} here now</span>`:'<span class="place-tag">Quiet now</span>'}${G.p.loc==='work'&&openJobs?`<span class="place-tag hot">${openJobs} jobs open</span>`:''}</div>
+ <div class="travel-hint">You are here · ${String(G.hour).padStart(2,'0')}:00 · Day ${G.day}. ${meta.blurb}</div></div></div></section>
+ ${acts.length?grouped:'<div class="card empty"><div class="big">🗺️</div>Nothing to do here right now.</div>'}
+ <div class="sec">People here<small>${hn.length?'Tap someone to talk, share a meal, or help.':'Nobody on this block right now. Neighbours move during the day.'}</small></div>
+ ${hn.length?hn.map(personRow).join(''):'<div class="card empty"><div class="big">🚶</div>Empty for the moment.<div class="muted sm" style="margin-top:6px">Try the Market mid-morning or Suya Spot in the evening.</div></div>'}`}
 
 function personRow(n){return `<button class="person" data-a="npc" data-id="${n.id}"><div class="av">${n.em}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ}${n.met?' · '+relLabel(n):' · New face'}</div></div>${n.met?`<div class="score" style="color:${col(n.rel)}">${Math.round(n.rel)}</div>`:'<span class="chip">?</span>'}</button>`}
 
@@ -436,6 +523,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'gender':UI.form.gender=d.v;render();break;
   case 'begin':{const n=(UI.form.name||'').trim();if(!n){fx('Enter a name first.','warn');flush();return}const age=Math.max(18,Math.min(60,parseInt(UI.form.age)||24));newGame(n,age,UI.form.gender);UI.tab='life';commit();break}
   case 'tab':UI.tab=d.v;UI.modal=null;render();break;
+  case 'townMode':UI.townMode=d.v;render();break;
   case 'tabAjo':UI.tab='ajo';render();break;
   case 'more':UI.more=d.v;render();break;
   case 'notes':UI.modal={t:'notes'};G.notes.forEach(n=>n.read=true);commit();break;
