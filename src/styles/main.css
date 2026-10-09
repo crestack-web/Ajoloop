@@ -360,3 +360,13 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
   outline:none;
 }
 .wa-compose input::placeholder{color:rgba(255,255,255,.4)}
+
+.logo-hero{
+  display:block;width:min(280px,78vw);height:auto;margin:0 auto 18px;
+  filter:drop-shadow(0 8px 24px rgba(255,201,40,.25));
+}
+.logo-hud{
+  display:block;height:18px;width:auto;max-width:110px;
+  object-fit:contain;object-position:left center;
+}
+.title .logo-hero{margin-bottom:20px}

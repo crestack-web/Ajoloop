@@ -43,8 +43,8 @@ function render(){
  if(st0){const s1=document.getElementById('sheet');if(s1)s1.scrollTop=st0}
  flush()}
 
-function createView(){const f=UI.form;return `<div class="title"><div class="road"><span>🚌</span><span>🛺</span></div>
-<div class="brand-mark">AJO LOOP</div>
+function createView(){const f=UI.form;return `<div class="title">
+<img class="logo-hero" src="/logo.jpg" alt="AjoLoop" width="280" height="auto">
 <h1>Build your circle</h1><p>Create your character. Set your area. List your business. Chat, build trust, run Ajo with people you know.</p>
 <div class="card flat"><label class="l" style="margin-top:0">Your name</label><input type="text" id="f-name" maxlength="16" placeholder="e.g. Abubakar" value="${esc(f.name)}" autocomplete="off">
 <label class="l">Age</label><input type="number" id="f-age" min="18" max="60" value="${f.age}">
@@ -55,7 +55,7 @@ function createView(){const f=UI.form;return `<div class="title"><div class="roa
 function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length;
  const area=(p.home&&p.home.done)?p.home.area:(p.area||'Set home area');
  const dueAjo=G.ajos.some(a=>a.status==='active'&&a.members.includes('player')&&!cyc(a,'player')&&!(a.cycle===0&&a.host==='player')&&G.day>=dueDay(a)-1);
- return `<header class="hud"><div class="r1"><div class="day"><span class="brand-mark" style="font-size:11px">AJO LOOP</span>
+ return `<header class="hud"><div class="r1"><div class="day"><img class="logo-hud" src="/logo.jpg" alt="AjoLoop">
  <span style="display:block;font-weight:800;font-size:15px">${esc(p.name)}</span>
  <span class="muted" style="font-size:12px;font-weight:700">📍 ${esc(area)}</span></div>
  <div class="center"><span class="cash-label">Demo wallet</span><div class="cash sm" id="cash">${fmt(p.cash)}</div></div>
