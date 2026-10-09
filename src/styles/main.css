@@ -370,3 +370,15 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
   object-fit:contain;object-position:left center;
 }
 .title .logo-hero{margin-bottom:20px}
+
+.av-svg{display:block;border-radius:50%;background:radial-gradient(circle at 50% 30%,#3d3499,#1a1448)}
+.av-btn{padding:0;border:0;background:none;border-radius:50%;overflow:hidden;box-shadow:0 0 0 2px rgba(255,201,40,.35)}
+.av-preview{display:flex;justify-content:center;margin:8px 0}
+.av-preview.lg{margin:16px 0}
+.av-preview .av-svg{border-radius:24px;box-shadow:0 8px 28px rgba(0,0,0,.35)}
+.av-builder .people-seg{margin:12px 0;flex-wrap:nowrap;overflow-x:auto}
+.av-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-height:220px;overflow-y:auto}
+.av-opt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:14px;background:var(--card2);border:2px solid transparent;font-size:11px;font-weight:800;color:var(--tx)}
+.av-opt.on{border-color:var(--danfo);background:rgba(255,201,40,.12)}
+.av-opt .swatch{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.2);display:block}
+.av-cats{gap:6px}

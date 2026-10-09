@@ -107,7 +107,7 @@ function tick(h){const p=G.p;G.hour+=h;p.hunger=clamp(p.hunger+1.5*h);p.energy=c
 
 function newGame(name,age,gender){
  G={v:1,day:1,hour:6,nid:1,
- p:{name,age,gender,job:null,cash:20000,savings:0,energy:100,hunger:20,happiness:60,rep:50,trust:52,biz:10,social:10,reliab:50,loc:'home',blockedUntil:0,shiftDay:0,missed:0,boastDay:0,oppDay:0,oppN:0,bizRepDay:0},
+ p:{name,age,gender,job:null,cash:20000,savings:0,energy:100,hunger:20,happiness:60,rep:50,trust:52,biz:10,social:10,reliab:50,loc:'home',blockedUntil:0,shiftDay:0,missed:0,boastDay:0,oppDay:0,oppN:0,bizRepDay:0,avatar:defaultAvatar(gender),onboarded:false},
  npcs:NP0.map(n=>({...n,met:false,lastSeen:0,hist:[],tk:{d:0,c:0},said:''})),
  tx:[],btx:[],biz:null,ajos:SEED(),debts:[],promises:[],sched:[],notes:[],th:[],rh:[],mile:{},ev:null,lastEv:'',openJobs:['shop','rider','sales'],snap:[]};
  initGroups();initPlaces();ensureSetup();snap();note('Welcome to Kano City. You have ₦20,000. Find work, meet people — and protect your name.','info');return G}
@@ -1013,13 +1013,34 @@ function demoAdvanceToPayout(id){
   return true;
 }
 
+function defaultAvatar(gender){
+  const g=gender||'Male';
+  return {
+    skin:g==='Female'?'s4':'s3',
+    face:'oval',
+    hair:g==='Female'?'braids':'fade',
+    hairColor:'black',
+    eyes:'almond',
+    brows:g==='Female'?'arched':'full',
+    nose:'medium',
+    mouth:'full',
+    facial:'none',
+    accessory:g==='Female'?'hoops':'none',
+    top:g==='Female'?'blouse':'dashiki'
+  };
+}
+function setAvatar(parts){
+  if(!G||!G.p)return false;
+  G.p.avatar=Object.assign({},G.p.avatar||defaultAvatar(G.p.gender),parts||{});
+  return true;
+}
 function markOnboarded(){G.p.onboarded=true;note('You are set up. Build trust, visit shops, invite people into Ajo.','ajo');fx('Welcome to your circle','good');return true}
 function ensureSetup(){
   // After character create, player should set home — not a demo unlock
   if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
   if(G.p.onboarded==null)G.p.onboarded=false;
 }
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);ensureSetup()}
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);ensureSetup()}
 
 /* ---- persistence ---- */
 const Store={async load(){try{if(window.storage){const r=await window.storage.get(KEY,false);if(r&&r.value)return JSON.parse(r.value)}}catch(e){}try{const v=localStorage.getItem(KEY);if(v)return JSON.parse(v)}catch(e){}return Store.mem?JSON.parse(Store.mem):null},

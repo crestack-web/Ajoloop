@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},chatWith:null,chatText:'',gi:{},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},chatWith:null,chatText:'',gi:{},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -18,7 +18,98 @@ const trustTier=v=>v>=85?'Rock solid':v>=65?'Reliable':v>=45?'Fair':v>=25?'Shaky
 const repTier=v=>v>=85?'Big name':v>=65?'Respected':v>=45?'Known':v>=25?'Doubted':'Disliked';
 const relLabel=n=>n.rel>=80?'Trusted Friend':n.rel>=60?'Friend':n.rel>=35?(n.tags.some(t=>['ambitious','wealthy','opportunistic'].includes(t))?'Business Contact':'Acquaintance'):'Low Trust';
 const titleFor=()=>{const s=(G.p.trust+G.p.rep)/2+Math.min(20,netWorth()/5000);return s>=85?'Community Pillar':s>=68?'Trusted Name':s>=50?'Known Face':'Street Hustler'};
-const avatar=g=>g==='Female'?'👩🏾':g==='Male'?'👨🏾':'🧑🏾';
+
+/* —— Original character avatar (African-inspired, not a third-party style copy) —— */
+const AV={
+ skin:[{id:'s1',c:'#2c1810',n:'Deep ebony'},{id:'s2',c:'#3d2314',n:'Espresso'},{id:'s3',c:'#5c3317',n:'Mahogany'},{id:'s4',c:'#7a4a22',n:'Cocoa'},{id:'s5',c:'#a67c52',n:'Caramel'},{id:'s6',c:'#c4a574',n:'Honey'},{id:'s7',c:'#d4b896',n:'Golden'},{id:'s8',c:'#e8c4a0',n:'Sand'}],
+ hair:[{id:'bald',n:'Bald'},{id:'short',n:'Short'},{id:'fade',n:'Fade'},{id:'afro',n:'Afro'},{id:'twist',n:'Twists'},{id:'locs',n:'Locs'},{id:'braids',n:'Braids'},{id:'cornrows',n:'Cornrows'},{id:'bun',n:'Bun'},{id:'gele',n:'Gele'},{id:'kufi',n:'Kufi'},{id:'long',n:'Long'}],
+ hairColor:[{id:'black',c:'#1a1a1a',n:'Black'},{id:'darkbrown',c:'#3b2314',n:'Dark brown'},{id:'brown',c:'#6b4423',n:'Brown'},{id:'auburn',c:'#8b4513',n:'Auburn'},{id:'grey',c:'#8a8a8a',n:'Grey'}],
+ face:[{id:'oval',n:'Oval'},{id:'round',n:'Round'},{id:'square',n:'Square'},{id:'heart',n:'Heart'}],
+ eyes:[{id:'almond',n:'Almond'},{id:'round',n:'Round'},{id:'hooded',n:'Hooded'}],
+ brows:[{id:'full',n:'Full'},{id:'arched',n:'Arched'},{id:'soft',n:'Soft'}],
+ nose:[{id:'broad',n:'Broad'},{id:'medium',n:'Medium'},{id:'button',n:'Soft'}],
+ mouth:[{id:'full',n:'Full'},{id:'smile',n:'Smile'},{id:'neutral',n:'Calm'}],
+ facial:[{id:'none',n:'None'},{id:'beard',n:'Beard'},{id:'mustache',n:'Mustache'},{id:'goatee',n:'Goatee'}],
+ accessory:[{id:'none',n:'None'},{id:'earrings',n:'Studs'},{id:'hoops',n:'Hoops'},{id:'necklace',n:'Bead necklace'},{id:'glasses',n:'Glasses'}],
+ top:[{id:'tee',n:'Tee',c:'#4a3f8c'},{id:'dashiki',n:'Dashiki',c:'#c9a227'},{id:'kaftan',n:'Kaftan',c:'#2d6a4f'},{id:'blouse',n:'Blouse',c:'#9b2226'},{id:'hoodie',n:'Hoodie',c:'#1d3557'}]
+};
+function avPart(a,k,fallback){const v=(a&&a[k])||fallback;return v}
+function skinC(a){const s=AV.skin.find(x=>x.id===avPart(a,'skin','s3'));return s?s.c:'#5c3317'}
+function hairC(a){const s=AV.hairColor.find(x=>x.id===avPart(a,'hairColor','black'));return s?s.c:'#1a1a1a'}
+function topC(a){const s=AV.top.find(x=>x.id===avPart(a,'top','dashiki'));return s?s.c:'#c9a227'}
+
+function renderAvatar(a,size){
+  a=a||(G&&G.p&&G.p.avatar)||defaultAvatar('Male');
+  const sz=size||48, skin=skinC(a), hc=hairC(a), tc=topC(a);
+  const face=avPart(a,'face','oval'), hair=avPart(a,'hair','fade'), eyes=avPart(a,'eyes','almond');
+  const brows=avPart(a,'brows','full'), nose=avPart(a,'nose','medium'), mouth=avPart(a,'mouth','full');
+  const facial=avPart(a,'facial','none'), acc=avPart(a,'accessory','none');
+  // face geometry
+  const facePath={
+    oval:'M50 28 C70 28 82 48 82 62 C82 82 68 92 50 92 C32 92 18 82 18 62 C18 48 30 28 50 28Z',
+    round:'M50 30 C72 30 84 48 84 64 C84 84 68 94 50 94 C32 94 16 84 16 64 C16 48 28 30 50 30Z',
+    square:'M24 34 H76 V78 Q76 90 50 90 Q24 90 24 78Z',
+    heart:'M50 30 C68 30 82 42 82 58 C82 78 60 92 50 92 C40 92 18 78 18 58 C18 42 32 30 50 30Z'
+  }[face]||'M50 28 C70 28 82 48 82 62 C82 82 68 92 50 92 C32 92 18 82 18 62 C18 48 30 28 50 28Z';
+  // hair paths (behind or on head)
+  let hairSvg='';
+  if(hair==='afro') hairSvg=`<ellipse cx="50" cy="40" rx="38" ry="36" fill="${hc}"/><ellipse cx="22" cy="48" rx="14" ry="16" fill="${hc}"/><ellipse cx="78" cy="48" rx="14" ry="16" fill="${hc}"/>`;
+  else if(hair==='locs') hairSvg=`<path d="M20 40 Q18 70 22 88 M30 32 Q28 75 32 90 M40 28 Q40 80 42 92 M50 26 Q50 82 50 92 M60 28 Q60 80 58 92 M70 32 Q72 75 68 90 M80 40 Q82 70 78 88" stroke="${hc}" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+  else if(hair==='braids') hairSvg=`<path d="M28 36 Q26 70 24 88 M36 30 Q34 72 32 90 M44 28 Q44 74 42 90 M56 28 Q56 74 58 90 M64 30 Q66 72 68 90 M72 36 Q74 70 76 88" stroke="${hc}" stroke-width="3.5" fill="none" stroke-linecap="round"/><circle cx="24" cy="90" r="3" fill="${hc}"/><circle cx="76" cy="90" r="3" fill="${hc}"/>`;
+  else if(hair==='cornrows') hairSvg=`<path d="M30 32 L28 70 M40 28 L40 72 M50 26 L50 74 M60 28 L60 72 M70 32 L72 70" stroke="${hc}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+  else if(hair==='twist') hairSvg=`<path d="M26 38 Q30 50 26 62 Q30 74 26 85 M38 32 Q42 50 38 68 Q42 80 38 90 M50 30 Q54 55 50 78 M62 32 Q58 50 62 68 Q58 80 62 90 M74 38 Q70 50 74 62 Q70 74 74 85" stroke="${hc}" stroke-width="4" fill="none"/>`;
+  else if(hair==='bun') hairSvg=`<ellipse cx="50" cy="22" rx="16" ry="14" fill="${hc}"/><path d="M28 40 Q50 28 72 40" fill="${hc}"/>`;
+  else if(hair==='gele') hairSvg=`<path d="M18 48 Q50 8 82 48 L78 52 Q50 22 22 52Z" fill="#c9a227"/><path d="M22 48 Q50 18 78 48" fill="#e8c547"/><path d="M30 44 Q50 28 70 44" fill="#8b0000"/>`;
+  else if(hair==='kufi') hairSvg=`<ellipse cx="50" cy="36" rx="28" ry="10" fill="#1d3557"/><rect x="24" y="36" width="52" height="14" rx="2" fill="#2d6a4f"/><path d="M24 42 H76" stroke="#c9a227" stroke-width="2"/>`;
+  else if(hair==='long') hairSvg=`<path d="M22 42 Q18 80 28 95 H40 Q36 70 38 45 M78 42 Q82 80 72 95 H60 Q64 70 62 45" fill="${hc}"/><path d="M26 34 Q50 20 74 34" fill="${hc}"/>`;
+  else if(hair==='fade') hairSvg=`<path d="M26 48 Q28 32 50 26 Q72 32 74 48 L72 52 Q50 34 28 52Z" fill="${hc}"/>`;
+  else if(hair==='short') hairSvg=`<path d="M28 46 Q32 30 50 28 Q68 30 72 46 Q50 36 28 46Z" fill="${hc}"/>`;
+  // eyes
+  let eyeSvg='';
+  if(eyes==='round') eyeSvg=`<ellipse cx="38" cy="58" rx="5" ry="5.5" fill="#1a1a1a"/><ellipse cx="62" cy="58" rx="5" ry="5.5" fill="#1a1a1a"/><circle cx="39.5" cy="56.5" r="1.5" fill="#fff"/><circle cx="63.5" cy="56.5" r="1.5" fill="#fff"/>`;
+  else if(eyes==='hooded') eyeSvg=`<path d="M32 56 Q38 52 44 56" stroke="#1a1a1a" stroke-width="2.5" fill="none"/><path d="M56 56 Q62 52 68 56" stroke="#1a1a1a" stroke-width="2.5" fill="none"/><ellipse cx="38" cy="58" rx="4" ry="3" fill="#1a1a1a"/><ellipse cx="62" cy="58" rx="4" ry="3" fill="#1a1a1a"/>`;
+  else eyeSvg=`<ellipse cx="38" cy="58" rx="6" ry="4" fill="#1a1a1a"/><ellipse cx="62" cy="58" rx="6" ry="4" fill="#1a1a1a"/><circle cx="40" cy="57" r="1.4" fill="#fff"/><circle cx="64" cy="57" r="1.4" fill="#fff"/>`;
+  // brows
+  let browSvg= brows==='arched'
+    ? `<path d="M30 50 Q38 46 46 50" stroke="#1a1a1a" stroke-width="2.2" fill="none"/><path d="M54 50 Q62 46 70 50" stroke="#1a1a1a" stroke-width="2.2" fill="none"/>`
+    : brows==='soft'
+    ? `<path d="M31 51 Q38 49 45 51" stroke="#1a1a1a" stroke-width="1.8" fill="none"/><path d="M55 51 Q62 49 69 51" stroke="#1a1a1a" stroke-width="1.8" fill="none"/>`
+    : `<path d="M30 51 L46 50" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/><path d="M54 50 L70 51" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>`;
+  // nose
+  let noseSvg= nose==='broad'
+    ? `<path d="M50 60 L44 72 H56 Z" fill="${skin}" stroke="#000" stroke-opacity=".15" stroke-width="1"/><ellipse cx="45" cy="72" rx="3" ry="2" fill="#000" fill-opacity=".12"/><ellipse cx="55" cy="72" rx="3" ry="2" fill="#000" fill-opacity=".12"/>`
+    : nose==='button'
+    ? `<ellipse cx="50" cy="68" rx="4" ry="3.5" fill="${skin}" stroke="#000" stroke-opacity=".12"/>`
+    : `<path d="M50 62 L47 72 H53 Z" fill="${skin}" stroke="#000" stroke-opacity=".12" stroke-width="1"/>`;
+  // mouth
+  let mouthSvg= mouth==='smile'
+    ? `<path d="M40 78 Q50 86 60 78" stroke="#5c1a1a" stroke-width="2.5" fill="none" stroke-linecap="round"/>`
+    : mouth==='neutral'
+    ? `<path d="M42 80 H58" stroke="#5c1a1a" stroke-width="2.2" stroke-linecap="round"/>`
+    : `<path d="M40 78 Q50 88 60 78 Q50 84 40 78Z" fill="#8b2942"/>`;
+  // facial hair
+  let facialSvg='';
+  if(facial==='beard') facialSvg=`<path d="M28 70 Q32 95 50 98 Q68 95 72 70 Q60 88 50 90 Q40 88 28 70Z" fill="${hc}" fill-opacity=".9"/>`;
+  if(facial==='mustache') facialSvg=`<path d="M38 76 Q50 82 62 76" stroke="${hc}" stroke-width="3" fill="none"/>`;
+  if(facial==='goatee') facialSvg=`<path d="M44 82 Q50 96 56 82" fill="${hc}"/>`;
+  // accessories
+  let accSvg='';
+  if(acc==='hoops') accSvg=`<circle cx="18" cy="62" r="6" fill="none" stroke="#c9a227" stroke-width="2.5"/><circle cx="82" cy="62" r="6" fill="none" stroke="#c9a227" stroke-width="2.5"/>`;
+  if(acc==='earrings') accSvg=`<circle cx="18" cy="64" r="3" fill="#c9a227"/><circle cx="82" cy="64" r="3" fill="#c9a227"/>`;
+  if(acc==='necklace') accSvg=`<path d="M32 92 Q50 102 68 92" stroke="#c9a227" stroke-width="2.5" fill="none"/><circle cx="50" cy="100" r="3" fill="#e8c547"/>`;
+  if(acc==='glasses') accSvg=`<circle cx="38" cy="58" r="9" fill="none" stroke="#1a1a1a" stroke-width="2"/><circle cx="62" cy="58" r="9" fill="none" stroke="#1a1a1a" stroke-width="2"/><path d="M47 58 H53" stroke="#1a1a1a" stroke-width="2"/>`;
+  // shoulders / top
+  const topSvg=`<path d="M10 100 Q20 88 35 90 L50 92 L65 90 Q80 88 90 100 L90 110 H10Z" fill="${tc}"/><path d="M40 90 L50 100 L60 90" fill="${skin}"/>`;
+
+  return `<svg class="av-svg" width="${sz}" height="${sz}" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${hair==='gele'||hair==='kufi'||hair==='afro'||hair==='locs'||hair==='braids'||hair==='cornrows'||hair==='twist'||hair==='long'||hair==='bun'||hair==='fade'||hair==='short'?hairSvg:''}<path d="${facePath}" fill="${skin}"/><path d="M18 62 Q12 70 18 78" fill="${skin}"/><path d="M82 62 Q88 70 82 78" fill="${skin}"/>${browSvg}${eyeSvg}${noseSvg}${facialSvg}${mouthSvg}${accSvg}${topSvg}${hair==='bald'?'':''}</svg>`;
+}
+function avatar(g){
+  // Prefer player custom avatar when rendering player
+  if(G&&G.p&&G.p.avatar) return renderAvatar(G.p.avatar,40);
+  return g==='Female'?'👩🏾':g==='Male'?'👨🏾':'🧑🏾';
+}
+function playerAvatar(sz){return renderAvatar((G&&G.p&&G.p.avatar)||defaultAvatar(G&&G.p&&G.p.gender),sz||48)}
+
 
 async function boot(){const s=await Store.load();if(s&&s.p){G=s;migrate()}deepLink();render();setInterval(()=>{if(!G||G.ev||UI.modal)return;UI.prog++;const hb=document.getElementById('hb');if(hb)hb.style.width=(UI.prog/60*100)+'%';if(UI.prog>=60){UI.prog=0;tick(1);commit()}},1000)}
 function commit(){Store.save();render()}
@@ -43,14 +134,18 @@ function render(){
  if(st0){const s1=document.getElementById('sheet');if(s1)s1.scrollTop=st0}
  flush()}
 
-function createView(){const f=UI.form;return `<div class="title">
+function createView(){const f=UI.form;const prev=defaultAvatar(f.gender);
+ return `<div class="title">
 <img class="logo-hero" src="/logo.jpg" alt="AjoLoop" width="280" height="auto">
-<h1>Build your circle</h1><p>Create your character. Set your area. List your business. Chat, build trust, run Ajo with people you know.</p>
-<div class="card flat"><label class="l" style="margin-top:0">Your name</label><input type="text" id="f-name" maxlength="16" placeholder="e.g. Abubakar" value="${esc(f.name)}" autocomplete="off">
+<h1>Build your circle</h1><p>Create your character — look that feels like you and your culture. Then build trust in your community.</p>
+<div class="card flat">
+<div class="av-preview">${renderAvatar(UI.avForm||prev,96)}</div>
+<button class="btn sm ghost" style="margin:8px auto;display:block" data-a="avOpenCreate">Customize look</button>
+<label class="l" style="margin-top:8px">Your name</label><input type="text" id="f-name" maxlength="16" placeholder="e.g. Abubakar" value="${esc(f.name)}" autocomplete="off">
 <label class="l">Age</label><input type="number" id="f-age" min="18" max="60" value="${f.age}">
 <label class="l">I am</label><div class="opts">${['Male','Female','Other'].map(g=>`<button data-a="gender" data-v="${g}" class="${f.gender===g?'on':''}">${g}</button>`).join('')}</div>
-<button class="btn" data-a="begin" style="margin-top:8px">Enter Ajoloop</button></div>
-<p class="tiny center muted">Trust is earned through conversation, showing up, and keeping your word — not through a high score alone.</p></div>`}
+<button class="btn" data-a="begin" style="margin-top:8px">Enter AjoLoop</button></div>
+<p class="tiny center muted">Original character design inspired by African looks — yours to shape.</p></div>`}
 
 function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length;
  const area=(p.home&&p.home.done)?p.home.area:(p.area||'Set home area');
@@ -121,7 +216,7 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
   ${!next&&!G.p.onboarded?`<button class="btn" style="margin-top:10px" data-a="finishSetup">Continue to Home</button>`:''}
  </section>`:''}
 
- <section class="card hero"><div class="row"><div class="av">${avatar(p.gender)}</div><div style="min-width:0;flex:1">
+ <section class="card hero"><div class="row"><button class="av av-btn" data-a="avOpen" aria-label="Edit character">${playerAvatar(56)}</button><div style="min-width:0;flex:1">
   <h2>${esc(p.name)}</h2>
   <div class="muted sm">Building community · Trust ${Math.round(p.trust)} · Rep ${Math.round(p.rep)}</div>
   <div class="loc-chip" style="margin-top:8px"><span class="dot-live"></span>${p.home&&p.home.done?`📍 ${esc(p.home.area)}`:'📍 Set your home area'}</div>
@@ -508,7 +603,7 @@ function settingsV(){return `<section class="card"><b>About Ajoloop</b><div clas
 function sheetHtml(){let h='';
  if(G.ev)return wrap(eventSheet(),true);
  const m=UI.modal;if(!m)return '';
- if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
+ if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='avatar')h=avatarSheet(!!m.create);if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
  if(m.t==='home')h=homeSheet();if(m.t==='bizManage')h=bizManageSheet();if(m.t==='biz')h=bizDetailSheet(bizById(m.id));if(m.t==='chat')h=chatSheet(m.id);
  return wrap(h)}
 function wrap(h,lock){return `<div class="back" ${lock?'':'data-a="closeBack"'}><div class="sheet" id="sheet">${lock?'':'<button class="x" data-a="close" aria-label="Close">✕</button>'}${h}</div></div>`}
@@ -559,6 +654,29 @@ function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${v
  <button class="btn" style="margin-top:12px" data-a="ajoCreate">Create circle</button>
  <div class="tiny muted" style="margin-top:10px">Offline demo uses virtual cash. Real collections need a payment partner later.</div>`}
 
+
+
+function avatarSheet(createMode){
+  if(!UI.avForm)UI.avForm=Object.assign({},(G&&G.p&&G.p.avatar)||defaultAvatar((G&&G.p&&G.p.gender)||UI.form.gender));
+  const a=UI.avForm, cat=UI.avCat||'skin';
+  const cats=[['skin','Skin'],['hair','Hair'],['hairColor','Color'],['face','Face'],['eyes','Eyes'],['brows','Brows'],['nose','Nose'],['mouth','Mouth'],['facial','Beard'],['accessory','Style'],['top','Clothes']];
+  const opts=AV[cat]||[];
+  return `<div class="av-builder">
+  <h2>${createMode?'Your character':'Edit character'}</h2>
+  <div class="muted sm">Original looks with African-inspired hair, dress and features. Not a copy of any other app.</div>
+  <div class="av-preview lg">${renderAvatar(a,120)}</div>
+  <div class="people-seg av-cats">${cats.map(([k,l])=>`<button data-a="avCat" data-v="${k}" class="${cat===k?'on':''}">${l}</button>`).join('')}</div>
+  <div class="av-opts">${opts.map(o=>{
+    const on=a[cat]===o.id?'on':'';
+    const swatch=o.c?`<i class="swatch" style="background:${o.c}"></i>`:'';
+    return `<button class="av-opt ${on}" data-a="avSet" data-k="${cat}" data-v="${o.id}">${swatch}<span>${esc(o.n)}</span></button>`;
+  }).join('')}</div>
+  <div class="row" style="gap:8px;margin-top:14px">
+    <button class="btn ghost" data-a="avRandom">Shuffle</button>
+    <button class="btn" data-a="${createMode?'avSaveCreate':'avSave'}" style="flex:1">Save look</button>
+  </div>
+</div>`;
+}
 
 function ajoChatPage(a){
   if(!a) return `<div class="wa-page"><header class="wa-head"><button class="wa-back" data-a="close">‹</button><div class="wa-title"><b>Circle</b></div></header><div class="empty">Not found</div></div>`;
@@ -973,9 +1091,20 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
  if(a==='closeBack'){if(e.target===el){UI.modal=null;render()}return}
  if(a!=='reset')UI.confirmReset=false;
  switch(a){
-  case 'gender':UI.form.gender=d.v;render();break;
+  case 'gender':UI.form.gender=d.v;if(!UI.avForm)UI.avForm=defaultAvatar(d.v);else UI.avForm=Object.assign(defaultAvatar(d.v),{skin:UI.avForm.skin,hairColor:UI.avForm.hairColor});render();break;
+  
+  case 'avOpen':UI.avForm=Object.assign({},G.p.avatar||defaultAvatar(G.p.gender));UI.avCat='skin';UI.modal={t:'avatar'};render();break;
+  case 'avOpenCreate':UI.avForm=Object.assign({},UI.avForm||defaultAvatar(UI.form.gender));UI.avCat='skin';UI.modal={t:'avatar',create:true};render();break;
+  case 'avCat':UI.avCat=d.v;render();break;
+  case 'avSet':if(!UI.avForm)UI.avForm=defaultAvatar(UI.form.gender);UI.avForm[d.k]=d.v;render();break;
+  case 'avRandom':{
+    const rnd=arr=>arr[Math.floor(Math.random()*arr.length)].id;
+    UI.avForm={skin:rnd(AV.skin),face:rnd(AV.face),hair:rnd(AV.hair),hairColor:rnd(AV.hairColor),eyes:rnd(AV.eyes),brows:rnd(AV.brows),nose:rnd(AV.nose),mouth:rnd(AV.mouth),facial:rnd(AV.facial),accessory:rnd(AV.accessory),top:rnd(AV.top)};
+    render();break}
+  case 'avSave':setAvatar(UI.avForm);UI.modal=null;fx('Look saved','good');commit();break;
+  case 'avSaveCreate':UI.avForm=UI.avForm||defaultAvatar(UI.form.gender);UI.modal=null;render();break;
   case 'finishSetup':markOnboarded();UI.modal=null;commit();break;
-  case 'begin':{const n=(UI.form.name||'').trim();if(!n){fx('Enter a name first.','warn');flush();return}const age=Math.max(18,Math.min(60,parseInt(UI.form.age)||24));newGame(n,age,UI.form.gender);UI.tab='life';commit();break}
+  case 'begin':{const n=(UI.form.name||'').trim();if(!n){fx('Enter a name first.','warn');flush();return}const age=Math.max(18,Math.min(60,parseInt(UI.form.age)||24));newGame(n,age,UI.form.gender);if(UI.avForm)setAvatar(UI.avForm);UI.tab='life';commit();break}
   case 'tab':UI.tab=d.v;UI.modal=null;render();break;
   case 'townMode':UI.townMode=d.v;render();break;
   case 'mapPin':UI.mapPin=d.id;render();break;
