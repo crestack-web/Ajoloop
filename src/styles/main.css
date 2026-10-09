@@ -555,3 +555,26 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
   background:#5b8cff;color:#fff;padding:1px 5px;border-radius:6px;
   white-space:nowrap;
 }
+
+
+/* —— Auth / registration —— */
+.auth-card{text-align:left;padding:18px 16px 20px}
+.auth-simple .auth-card{text-align:center}
+.auth-user{font-size:22px;font-weight:900;text-align:center;margin-top:8px;color:var(--danfo,#ffc928)}
+.reg-dots{display:flex;justify-content:center;gap:8px;margin:8px 0 14px}
+.reg-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2)}
+.reg-dot.on{background:var(--danfo,#ffc928);box-shadow:0 0 0 3px rgba(255,201,40,.25)}
+.reg-dot.done{background:var(--sky,#5b8cff)}
+.reg-h{font-size:22px;margin:0 0 4px;text-align:center}
+.reg-sub{text-align:center;margin:0 0 12px}
+.interest-opts{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.interest-opts button{font-size:13px}
+.biz-status-list{display:flex;flex-direction:column;gap:8px}
+.biz-status{
+  display:flex;align-items:center;gap:12px;width:100%;
+  text-align:left;padding:14px 14px;border-radius:16px;
+  background:var(--card2,#1e1760);border:2px solid transparent;
+  color:inherit;font:inherit;font-weight:800;cursor:pointer;
+}
+.biz-status.on{border-color:var(--danfo,#ffc928);background:#2a2272}
+.biz-status .bs-ic{font-size:22px;width:32px;text-align:center}
