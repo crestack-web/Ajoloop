@@ -483,11 +483,14 @@ function gguard(gid,u,act,msg){if(G.susp.includes(u)){no('This account is suspen
 
 function mkGroup(o,owner){const vis=o.vis==='private'?'private':'public';let join=o.join;
  if(vis==='public'&&join!=='approval')join='open';if(vis==='private'&&join!=='approval')join='invite';
+ const maxM=clamp(parseInt(o.maxMembers)||30,3,G_MAX);
  const g={id:o.id||'g'+G.nid++,name:o.name,av:G_AVS.includes(o.av)?o.av:'🏘️',desc:String(o.desc||''),cat:G_CATS.includes(o.cat)?o.cat:'Friends & Family',
   tags:(o.tags||[]).filter(t=>G_CATS.includes(t)).slice(0,3),area:G_AREAS.includes(o.area)?o.area:null,vis,disc:vis==='private'&&!!o.disc,join,
   memInvite:o.memInvite==='admins'?'admins':'members',roster:o.roster==='admins'?'admins':'members',rules:(o.rules||[]).map(r=>String(r||'').trim()).filter(Boolean).slice(0,6),
+  maxMembers:maxM,
   owner,mem:{},req:[],inv:[],ban:[],posts:[],evs:[],reps:[],ajoP:[],created:G.day,last:G.day,fi:false,dead:false};
  g.mem[owner]={role:'owner',joined:G.day,last:G.day,show:false};return g}
+function gCap(g){return clamp(parseInt(g&&g.maxMembers)||G_MAX,3,G_MAX)}
 function addMember(g,u,role='member'){g.mem[u]={role,joined:G.day,last:G.day,show:u!=='player'&&g.vis==='public'};g.req=g.req.filter(x=>x!==u);g.last=G.day;if(u==='player')miles('grpjoin','Joined a group: '+g.name)}
 function dropMember(g,t){delete g.mem[t];g.req=g.req.filter(x=>x!==t);g.inv.forEach(i=>{if(i.by===t&&invState(i)==='pending')i.rev=true})}
 
@@ -519,7 +522,7 @@ function mkCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c,t=0;const dup
  do{c='KANO-';for(let k=0;k<6;k++)c+=A[Math.floor(Math.random()*A.length)]}while(dup(c)&&t++<20);if(dup(c))c+=G.nid;return c}
 function acceptDirect(g,i,u){i.acc.push({u,day:G.day});addMember(g,u);gtrack('invitation_accepted',g,{by:i.by,u});fx('You joined '+g.name+'!','warm');return true}
 function joinGroup(gid,u='player'){if(G.susp.includes(u))return no('This account is suspended.');const g=grp(gid),gone='That group is not available.';
- if(!g||g.ban.includes(u))return no(gone);if(g.mem[u])return no('You are already in this group.');if(gcount(g)>=G_MAX)return no('This group is full.');
+ if(!g||g.ban.includes(u))return no(gone);if(g.mem[u])return no('You are already in this group.');if(gcount(g)>=gCap(g))return no('This group is full.');
  const di=g.inv.find(i=>i.to===u&&invState(i)==='pending');if(di)return acceptDirect(g,di,u);
  if(g.vis==='private'&&!g.disc)return no(gone);
  if(g.join==='open'){addMember(g,u);gtrack('membership_joined',g,{by:u});fx('You joined '+g.name+'!','warm');return true}
@@ -554,7 +557,7 @@ function resendInvite(gid,by,iid){const g=gguard(gid,by,'invite');if(!g)return f
 function redeemCode(code,u='player'){if(G.susp.includes(u))return no('This account is suspended.');code=String(code||'').trim().toUpperCase();G.cf=G.cf||{};const k=u+'|'+G.day;
  if((G.cf[k]||0)>=6)return no('Too many wrong codes today. Try again tomorrow.');const bad=()=>{G.cf[k]=(G.cf[k]||0)+1;return no('That code is not valid.')};
  let g=null,i=null;for(const x of G.groups){if(x.dead)continue;const f=x.inv.find(y=>!y.to&&y.code===code);if(f){g=x;i=f;break}}
- if(!i||invState(i)!=='pending'||g.ban.includes(u))return bad();if(g.mem[u])return no('You are already in this group.');if(gcount(g)>=G_MAX)return no('This group is full.');
+ if(!i||invState(i)!=='pending'||g.ban.includes(u))return bad();if(g.mem[u])return no('You are already in this group.');if(gcount(g)>=gCap(g))return no('This group is full.');
  i.uses++;i.acc.push({u,day:G.day});addMember(g,u);gtrack('invitation_accepted',g,{by:i.by,u});fx('You joined '+g.name+'!','warm');return g.id}
 
 /* ---- conversations ---- */
@@ -636,7 +639,7 @@ function reviewReport(gid,u,rid,action){const g=gguard(gid,u,'reviewReport','Onl
 
 /* ---- membership & roles ---- */
 function approveRequest(gid,u,target,yes=true){const g=gguard(gid,u,'approve','Only admins can handle join requests.');if(!g)return false;if(!g.req.includes(target))return no('That request is gone.');
- if(!yes){g.req=g.req.filter(x=>x!==target);return true}if(g.ban.includes(target))return no('That person is banned.');if(gcount(g)>=G_MAX)return no('This group is full.');
+ if(!yes){g.req=g.req.filter(x=>x!==target);return true}if(g.ban.includes(target))return no('That person is banned.');if(gcount(g)>=gCap(g))return no('This group is full.');
  addMember(g,target);gtrack('membership_approved',g,{by:u,u:target});if(target==='player')gnote('You were approved to join '+g.name+'.');return true}
 function removeMember(gid,u,target,ban=false){const g=gguard(gid,u,'removeMember','Only admins can remove members.');if(!g)return false;if(!g.mem[target])return no('They are not in this group.');
  if(target===u)return no('Use Leave group instead.');if(rk(g,target)>=rk(g,u))return no('You cannot remove someone with the same or a higher role.');
@@ -661,6 +664,7 @@ function deleteGroup(gid,u,confirm){const g=gguard(gid,u,'deleteGroup','Only the
 function editGroup(gid,u,p){const g=gguard(gid,u,'editInfo','Only administrators can change group settings.');if(!g)return false;
  const ownerKeys=['name','vis','disc'];if(ownerKeys.some(k=>k in p)&&!gcan(g,u,'setVisibility'))return no('Only the owner can change the name or visibility.');
  if('name' in p){const n=String(p.name).trim().replace(/\s+/g,' ');if(n.length<3||n.length>30)return no('Name must be 3 to 30 characters.');if(G.groups.some(x=>x!==g&&!x.dead&&x.name.toLowerCase()===n.toLowerCase()&&(x.vis==='public'||x.disc)))return no('A group with that name already exists.');g.name=n}
+ if('maxMembers' in p){const m=clamp(parseInt(p.maxMembers)||30,3,G_MAX);if(m<gcount(g))return no('Limit cannot be below current members ('+gcount(g)+').');g.maxMembers=m}
  if('desc' in p)g.desc=String(p.desc).trim().slice(0,240);
  if('rules' in p)g.rules=p.rules.map(r=>String(r||'').trim().slice(0,100)).filter(Boolean).slice(0,6);
  if('av' in p&&G_AVS.includes(p.av))g.av=p.av;
@@ -703,7 +707,7 @@ function gProgress(type,n=1){if(!G.groups)return;G.groups.forEach(g=>{if(g.dead|
 function proposeAjo(gid,u,o){const g=gguard(gid,u,'proposeAjo');if(!g)return false;
  if(u==='player'&&(G.p.trust<40||blocked()))return no('You need Trust 40+ and no Ajo block to propose a circle.');
  if(g.ajoP.some(p=>p.st==='proposed'))return no('There is already an open proposal. Settle it first.');
- const size=[3,4,5,6].includes(+o.size)?+o.size:5,amt=[2000,5000,10000].includes(+o.amt)?+o.amt:5000,freq=[3,7,14].includes(+o.freq)?+o.freq:7;
+ const size=clamp(parseInt(o.size)||5,3,12),amt=clamp(parseInt(o.amt)||5000,500,500000),freq=[3,7,14].includes(+o.freq)?+o.freq:7;
  if(!grate(u,'ajop',2))return false;
  const p={id:'ap'+G.nid++,by:u,name:String(o.name||g.name+' Ajo').trim().slice(0,24)||'Group Ajo',size,amt,freq,day:G.day,st:'proposed',int:[],ajo:null};g.ajoP.push(p);
  gPush(g,u,'📌 Proposal: a separate Ajo of '+fmt(amt)+' every '+freq+' days for '+size+' people. Nobody is signed up. Read the terms before deciding.','msg',null);return p.id}
@@ -1451,7 +1455,7 @@ function ensureSetup(){
   if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
   if(G.p.onboarded==null)G.p.onboarded=false;
 }
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};(G.bizs||[]).forEach(b=>{
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};(G.bizs||[]).forEach(b=>{
   if(!b.avatar||b.avatar.kind!=='building')b.avatar=defaultStoreAvatar(b.cat||'Other');
   if(!b.loc){const areaLoc={Fagge:'market',Gwale:'restaurant',Nasarawa:'social','Kano Municipal':'work',Tarauni:'market',Dala:'social',Kumbotso:'market',Ungogo:'park'};b.loc=areaLoc[b.area]||'market'}
 });ensureSetup()}
