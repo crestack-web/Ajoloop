@@ -950,6 +950,7 @@ function initPlaces(){
   if(!G.chats) G.chats={};
   if(!G.spots) G.spots=[];
   if(!G.friendReqs) G.friendReqs=[];
+  if(!G.treatReqs) G.treatReqs=[];
   if(!G.p.nearbyOptIn) G.p.nearbyOptIn=false;
   // Seed a few NPC businesses once
   // Top-up seed Kano businesses (new installs + older saves)
@@ -1277,6 +1278,127 @@ function approveBizVisit(vid,yes){
   fx('Visit confirmed ✓','good');
   return true;
 }
+
+/* ---- Treat / pay-for-me requests (friends + local businesses) ---- */
+function bizProducts(b){
+  if(!b) return [];
+  if(b.products&&b.products.length) return b.products;
+  // defaults by category
+  const defaults={
+    'Provisions':[{id:'p1',n:'Everyday goods',price:2000},{id:'p2',n:'Rice measure',price:3500}],
+    'Food & Kitchen':[{id:'p1',n:'Plate of the day',price:1500},{id:'p2',n:'Shared meal for two',price:3000}],
+    'Fashion':[{id:'p1',n:'Alteration',price:2500},{id:'p2',n:'Ankara piece',price:5000}],
+    'Phones & Tech':[{id:'p1',n:'Airtime / data',price:1000},{id:'p2',n:'Screen fix',price:8000}],
+    'Transport':[{id:'p1',n:'Short hop',price:500},{id:'p2',n:'Cross-town ride',price:1500}],
+    'Beauty':[{id:'p1',n:'Quick style',price:2000},{id:'p2',n:'Full look',price:5000}],
+    'Services':[{id:'p1',n:'Small service',price:1500},{id:'p2',n:'Document help',price:3000}],
+    'Other':[{id:'p1',n:'Popular item',price:2000}]
+  };
+  return defaults[b.cat]||defaults.Other;
+}
+function businessesInUserArea(uid){
+  let area=null;
+  if(uid==='player'){
+    area=(G.p.home&&G.p.home.done&&G.p.home.area)||G.p.area||null;
+  } else {
+    const n=npc(uid);
+    area=n&&(n.homeArea||n.area)||null;
+  }
+  if(!area) return (G.bizs||[]).filter(b=>!b.closed);
+  return (G.bizs||[]).filter(b=>!b.closed&&b.area===area);
+}
+function friendsList(){
+  return G.npcs.filter(n=>n.met&&!G.blk.includes(n.id)&&isFriend(n.id));
+}
+function requestTreat({to,bizId,productId,note,mode}){
+  // mode: 'request' = ask friend to pay for me; 'suggest' = suggest this treat to a friend (they might pay for me or we go together)
+  if(!to) return fx('Pick a friend.','warn');
+  if(to==='player') return fx('Pick someone else.','warn');
+  if(!isFriend(to)) return fx('Become friends first.','warn');
+  const b=bizById(bizId); if(!b||b.closed) return fx('Pick a business.','warn');
+  const products=bizProducts(b);
+  const prod=products.find(p=>p.id===productId)||products[0];
+  if(!prod) return fx('No activity listed at this shop.','warn');
+  if(!G.treatReqs) G.treatReqs=[];
+  if(G.treatReqs.filter(t=>t.from==='player'&&t.status==='pending').length>=5)
+    return fx('You already have 5 open treat requests.','warn');
+  const id='tr_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  const t={
+    id,from:'player',to,biz:bizId,productId:prod.id,productName:prod.n,price:prod.price,
+    note:(note||'').trim().slice(0,120),mode:mode==='suggest'?'suggest':'request',
+    status:'pending',day:G.day,area:b.area
+  };
+  G.treatReqs.push(t);
+  const n=npc(to);
+  const label=mode==='suggest'?'suggested':'asked';
+  note((n?n.n:'A friend')+' — you '+label+' they cover '+prod.n+' at '+b.name+' ('+fmt(prod.price)+').','ajo');
+  fx(mode==='suggest'?'Suggestion sent':'Treat request sent','warm');
+  // NPC friends often respond same day
+  if(n){
+    const chance=n.rel>=70?0.75:n.rel>=50?0.55:0.35;
+    if(Math.random()<chance){
+      // defer slightly by accepting now in demo offline
+      acceptTreat(id,true);
+    } else if(Math.random()<0.25){
+      rejectTreat(id,true);
+    }
+  }
+  return t;
+}
+function pendingTreatsIn(){
+  return (G.treatReqs||[]).filter(t=>t.status==='pending'&&t.to==='player');
+}
+function pendingTreatsOut(){
+  return (G.treatReqs||[]).filter(t=>t.status==='pending'&&t.from==='player');
+}
+function acceptTreat(id,auto){
+  const t=(G.treatReqs||[]).find(x=>x.id===id&&x.status==='pending');
+  if(!t) return fx('Request not found.','warn');
+  const b=bizById(t.biz);
+  const payerIsPlayer = t.to==='player'; // friend was asked; if to is player, someone asked us to pay
+  const price=t.price||0;
+  if(payerIsPlayer){
+    if(G.p.cash<price) return fx('Not enough cash to cover this treat.','warn');
+    if(!spend(price,'Treated friend — '+t.productName+' at '+(b?b.name:'shop'),'treat')) return false;
+    t.status='accepted';t.resolved=G.day;
+    G.p.rep=clamp(G.p.rep+1.5,0,100);
+    G.p.trust=clamp(G.p.trust+0.8,0,100);
+    const from=npc(t.from);
+    if(from){from.rel=clamp(from.rel+8,0,100);from.hist.push({day:G.day,why:'You paid for their '+t.productName,d:8});}
+    note('You covered '+t.productName+(b?' at '+b.name:'')+' for '+(from?from.n:'a friend')+'. Trust grew.','good');
+    fx('Treat paid ✓','good');
+  } else {
+    // NPC pays for player
+    t.status='accepted';t.resolved=G.day;
+    const n=npc(t.to);
+    if(n){n.rel=clamp(n.rel+6,0,100);n.hist.push({day:G.day,why:'Paid for your '+t.productName,d:6});}
+    G.p.happiness=clamp(G.p.happiness+8,0,100);
+    G.p.trust=clamp(G.p.trust+1.5,0,100);
+    G.p.hunger=clamp(G.p.hunger-12,0,100); // small activity benefit
+    if(b){b.trust=clamp((b.trust||40)+2,0,100);b.visits=(b.visits||0)+1}
+    note((n?n.n:'A friend')+' paid for your '+t.productName+(b?' at '+b.name:'')+' ('+fmt(price)+').','good');
+    if(!auto) fx('They covered it ✓','good');
+    else fx((n?n.n:'Friend')+' covered your treat','good');
+  }
+  return true;
+}
+function rejectTreat(id,auto){
+  const t=(G.treatReqs||[]).find(x=>x.id===id&&x.status==='pending');
+  if(!t) return fx('Request not found.','warn');
+  t.status='rejected';t.resolved=G.day;
+  if(t.to==='player'){
+    const from=npc(t.from);
+    note('You declined a treat request'+(from?' from '+from.n:'')+'.','ajo');
+    fx('Declined','cold');
+  } else {
+    const n=npc(t.to);
+    if(!auto) note((n?n.n:'Friend')+' could not cover '+t.productName+' this time.','ajo');
+    if(!auto) fx('Not this time','cold');
+  }
+  return true;
+}
+
+
 function interestBiz(bid){
   // No game-cash purchase — interest is a trust signal
   const b=bizById(bid);if(!b)return;
