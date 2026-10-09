@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -150,9 +150,12 @@ function render(){
   flush();return;
  }
  const sc0=document.getElementById('sheet'),st0=sc0?sc0.scrollTop:0;
+ destroyLiveMaps();
  app.innerHTML=hud()+'<main>'+({life:lifeView,town:townView,people:peopleView,groups:groupsView,ajo:ajoView,more:moreView}[UI.tab])()+'</main>'+navHtml()+sheetHtml();
  if(st0){const s1=document.getElementById('sheet');if(s1)s1.scrollTop=st0}
- flush()}
+ flush();
+ requestAnimationFrame(()=>{mountLiveMap();mountSpotPicker()});
+}
 
 function createView(){const f=UI.form;const prev=defaultAvatar(f.gender);
  return `<div class="title">
@@ -391,6 +394,95 @@ function homeBanner(){
   return `<div class="home-banner"><b>Set your home area</b><div class="muted sm" style="margin:6px 0 10px">Approximate only — LGA / neighbourhood, not your street number. This is how people find your circle.</div>
     <button class="btn" data-a="homeEdit">Choose home in Kano</button></div>`;
 }
+
+/* —— Live OpenStreetMap (Leaflet) —— */
+let _liveMap=null,_pickMap=null,_pickMarker=null;
+
+function destroyLiveMaps(){
+  try{if(_liveMap){_liveMap.remove();_liveMap=null}}catch(e){}
+  try{if(_pickMap){_pickMap.remove();_pickMap=null;_pickMarker=null}}catch(e){}
+}
+
+function liveMapBlock(){
+  return `<div class="live-map-wrap">
+    <div id="live-map" class="live-map"></div>
+    <div class="live-map-legend">
+      <span>📍 Spots</span><span>🏪 Shops</span><span>🏠 Home</span><span>Tap pin to open</span>
+    </div>
+    <div class="px" style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn sm" data-a="spotAdd">＋ Drop a pin / add spot</button>
+      <button class="btn sm ghost" data-a="mapLocate">📍 My location</button>
+    </div>
+    <div class="muted tiny px">Real Kano map — pin places friends can find and visit.</div>
+  </div>`;
+}
+
+function mountLiveMap(){
+  const el=document.getElementById('live-map');
+  if(!el||typeof L==='undefined') return;
+  try{if(_liveMap){_liveMap.remove();_liveMap=null}}catch(e){}
+  const c=KANO_MAP.center;
+  _liveMap=L.map(el,{zoomControl:true}).setView([c.lat,c.lng],c.zoom||13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+  }).addTo(_liveMap);
+  const pins=mapPins().filter(p=>p.lat!=null&&p.lng!=null&&(p.kind==='spot'||p.kind==='biz'||p.kind==='public'||p.kind==='home'));
+  pins.forEach(p=>{
+    const color=p.kind==='spot'?'#ffc928':p.kind==='biz'?'#5b8cff':p.kind==='home'?'#22c177':'#c4b5fd';
+    const icon=L.divIcon({
+      className:'lm-pin',
+      html:`<div class="lm-dot" style="background:${color}"><span>${p.ic||'📍'}</span></div>`,
+      iconSize:[36,36],iconAnchor:[18,18]
+    });
+    const m=L.marker([p.lat,p.lng],{icon}).addTo(_liveMap);
+    m.bindPopup(`<b>${esc(p.n)}</b><br><span style="opacity:.85">${esc(p.sub||'')}</span>`);
+    m.on('click',()=>{
+      if(p.kind==='spot'){UI.modal={t:'spot',id:p.id};render()}
+      else if(p.kind==='biz'){UI.modal={t:'biz',id:p.id};render()}
+      else if(p.kind==='home'){UI.modal={t:'home'};render()}
+    });
+  });
+  if(UI.mapFocus){
+    const f=pins.find(p=>p.id===UI.mapFocus);
+    if(f) _liveMap.setView([f.lat,f.lng],16);
+    UI.mapFocus=null;
+  }
+  setTimeout(()=>{try{_liveMap.invalidateSize()}catch(e){}},80);
+}
+
+function mountSpotPicker(){
+  const el=document.getElementById('spot-pick-map');
+  if(!el||typeof L==='undefined') return;
+  try{if(_pickMap){_pickMap.remove();_pickMap=null;_pickMarker=null}}catch(e){}
+  const f=UI.spotForm||{};
+  const start=f.lat!=null?[f.lat,f.lng]:[KANO_MAP.center.lat,KANO_MAP.center.lng];
+  _pickMap=L.map(el,{zoomControl:true}).setView(start, f.lat!=null?16:13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OSM'}).addTo(_pickMap);
+  const placeMarker=(lat,lng)=>{
+    if(_pickMarker) _pickMarker.setLatLng([lat,lng]);
+    else {
+      _pickMarker=L.marker([lat,lng],{draggable:true}).addTo(_pickMap);
+      _pickMarker.on('dragend',()=>{
+        const ll=_pickMarker.getLatLng();
+        UI.spotForm.lat=+ll.lat.toFixed(6);
+        UI.spotForm.lng=+ll.lng.toFixed(6);
+        UI.spotForm.area=nearestArea(UI.spotForm.lat,UI.spotForm.lng);
+        const lab=document.getElementById('sf-coords');
+        if(lab) lab.textContent=UI.spotForm.lat+', '+UI.spotForm.lng+' · '+UI.spotForm.area;
+      });
+    }
+    UI.spotForm.lat=+lat.toFixed(6);
+    UI.spotForm.lng=+lng.toFixed(6);
+    UI.spotForm.area=nearestArea(UI.spotForm.lat,UI.spotForm.lng);
+    const lab=document.getElementById('sf-coords');
+    if(lab) lab.textContent=UI.spotForm.lat+', '+UI.spotForm.lng+' · '+UI.spotForm.area;
+  };
+  if(f.lat!=null&&f.lng!=null) placeMarker(f.lat,f.lng);
+  _pickMap.on('click',e=>placeMarker(e.latlng.lat,e.latlng.lng));
+  setTimeout(()=>{try{_pickMap.invalidateSize()}catch(e){}},120);
+}
+
 function kanoMapBlock(){
   const pins=mapPins();
   const sel=UI.mapPin?pins.find(p=>p.id===UI.mapPin):null;
@@ -428,18 +520,25 @@ function nearbyBlock(){
 }
 
 function spotAddSheet(){
-  const f=UI.spotForm||{name:'',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',ic:'📍',note:''};
+  const f=UI.spotForm||{name:'',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',ic:'📍',note:'',lat:null,lng:null};
   const ics=['📍','🕌','🏟️','🌳','☕','🛒','🏫','🚏','🎵','🏥'];
-  return `<div class="sec" style="margin-top:0">Add a spot<small>Places you usually go — visible to your community so friends nearby can connect and build trust.</small></div>
-    <label class="l">Name</label><input id="sf-name" maxlength="32" placeholder="e.g. Central Mosque courtyard" value="${esc(f.name)}">
-    <label class="l">Area (Kano)</label><div class="opts">${allAreas().map(a=>`<button data-a="spotArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
+  const hasPin=f.lat!=null&&f.lng!=null;
+  return `<div class="sec" style="margin-top:0">Add a spot<small>Drop a pin on the real map — friends can find it and visit.</small></div>
+    <label class="l">Name</label><input id="sf-name" maxlength="32" placeholder="e.g. Central Mosque courtyard" value="${esc(f.name||'')}">
+    <label class="l">Pin on live map</label>
+    <div id="spot-pick-map" class="spot-pick-map"></div>
+    <div class="row sp" style="margin:8px 0;gap:8px;flex-wrap:wrap">
+      <button class="btn sm ghost" type="button" data-a="spotGeo">📍 Use my location</button>
+      <span id="sf-coords" class="muted tiny">${hasPin?(f.lat+', '+f.lng+' · '+(f.area||'')):'Tap the map to place a pin'}</span>
+    </div>
+    <label class="l">Area (auto from pin)</label><div class="opts">${allAreas().map(a=>`<button data-a="spotArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
     <label class="l">Linked daily place (optional)</label><div class="opts">${['market','restaurant','park','work','bank','social','ajo'].map(id=>`<button data-a="spotLoc" data-v="${id}" class="${(f.loc||'')===id?'on':''}">${LOCS[id].ic} ${LOCS[id].n}</button>`).join('')}</div>
     <label class="l">Landmark (optional)</label><input id="sf-label" maxlength="48" placeholder="e.g. Near the old gate" value="${esc(f.label||'')}">
     <label class="l">Photo URL (optional)</label><input id="sf-img" maxlength="300" placeholder="https://…" value="${esc(f.img||'')}">
     <label class="l">Icon</label><div class="opts">${ics.map(ic=>`<button data-a="spotIc" data-v="${ic}" class="${f.ic===ic?'on':''}">${ic}</button>`).join('')}</div>
     <label class="l">Note (optional)</label><input id="sf-note" maxlength="120" placeholder="Why friends meet here" value="${esc(f.note||'')}">
-    <button class="btn" style="margin-top:14px" data-a="spotSave">Save spot</button>
-    <div class="muted tiny" style="margin-top:10px">Approximate only — area + landmark. Not exact street for strangers.</div>`;
+    <button class="btn" style="margin-top:14px" data-a="spotSave">Save spot on map</button>
+    <div class="muted tiny" style="margin-top:10px">Pin is approximate for community discovery — not a precise private address.</div>`;
 }
 function spotDetailSheet(id){
   const s=(G.spots||[]).find(x=>x.id===id&&!x.removed);
@@ -450,6 +549,11 @@ function spotDetailSheet(id){
     <div class="muted sm">${esc(s.area)}${s.label?' · '+esc(s.label):''}</div></div></div>`}
     <div class="place-meta" style="margin:8px 12px"><span class="place-tag hot">Community spot</span>${s.by==='player'?'<span class="place-tag">Yours</span>':''}${s.loc&&LOCS[s.loc]?`<span class="place-tag">${LOCS[s.loc].n}</span>`:''}</div>
     ${s.note?`<div class="travel-hint" style="margin:0 12px">${esc(s.note)}</div>`:''}
+    <div class="px" style="margin:10px 0;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" data-a="spotVisit" data-id="${s.id}">Visit this place</button>
+      ${s.lat!=null?`<button class="btn ghost" data-a="spotShowMap" data-id="${s.id}">Show on live map</button>`:''}
+    </div>
+    ${s.lat!=null?`<div class="muted tiny px">${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}${s.address?' · '+esc(s.address):''}</div>`:''}
     <div class="section-label">Friends & people nearby</div>
     <div class="muted tiny px" style="margin-bottom:8px">Connect with people who share this area — chat after you become friends.</div>
     ${peeps.length?peeps.map(n=>{
@@ -630,12 +734,14 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
  return `<div class="sec">Map<small>Places, shops, people — free to move · trust is the point</small></div>
  ${homeBanner()}
  <div class="town-tabs">
+  <button data-a="townMode" data-v="live" class="${mode==='live'?'on':''}">Live map</button>
   <button data-a="townMode" data-v="city" class="${mode==='city'?'on':''}">City map</button>
   <button data-a="townMode" data-v="map" class="${mode==='map'?'on':''}">Daily places</button>
   <button data-a="townMode" data-v="list" class="${mode==='list'?'on':''}">List</button>
   <button data-a="townMode" data-v="biz" class="${mode==='biz'?'on':''}">Businesses</button>
   <button data-a="townMode" data-v="spots" class="${mode==='spots'?'on':''}">My spots</button>
  </div>
+ ${mode==='live'?liveMapBlock():''}
  ${mode==='city'?kanoMapBlock():''}
  ${mode==='map'?`<div class="map-wrap"><div class="map">${order.map(tile).join('')}</div><div class="map-legend"><span>Tap a tile to travel</span><span>Free to move · focus is people & trust</span></div></div>
  ${placePhotoBlock(G.p.loc)}
@@ -1483,7 +1589,28 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     if(setHome(UI.homeForm.area,label,UI.homeForm.style)){UI.modal=null;if(setupSteps().every(s=>s.ok))markOnboarded();commit()} else render();
     break}
 
-  case 'spotAdd':UI.spotForm={name:'',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',ic:'📍',note:'',loc:G.p.loc!=='home'?G.p.loc:'market',img:''};UI.modal={t:'spotAdd'};render();break;
+  case 'spotAdd':UI.spotForm={name:'',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',ic:'📍',note:'',loc:G.p.loc!=='home'?G.p.loc:'market',img:'',lat:null,lng:null,address:''};UI.modal={t:'spotAdd'};render();break;
+  case 'spotGeo':
+  case 'mapLocate':{
+    if(!navigator.geolocation){fx('Location not available on this device.','warn');break}
+    fx('Finding you…','good');
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat=+pos.coords.latitude.toFixed(6),lng=+pos.coords.longitude.toFixed(6);
+      if(d.a==='mapLocate'){
+        if(_liveMap) _liveMap.setView([lat,lng],16);
+        L&&_liveMap&&L.circleMarker([lat,lng],{radius:8,color:'#5b8cff'}).addTo(_liveMap).bindPopup('You are here').openPopup();
+      } else {
+        UI.spotForm.lat=lat;UI.spotForm.lng=lng;UI.spotForm.area=nearestArea(lat,lng);
+        render();
+      }
+    },()=>fx('Could not get location. Allow location access or tap the map.','warn'),{enableHighAccuracy:true,timeout:12000});
+  }break;
+  case 'spotVisit':{
+    if(visitSpot(d.id)){UI.modal=null;UI.tab='town';UI.townMode='live';UI.mapFocus=d.id;commit()}
+  }break;
+  case 'spotShowMap':{
+    UI.modal=null;UI.tab='town';UI.townMode='live';UI.mapFocus=d.id;render();
+  }break;
   case 'spotArea':UI.spotForm.area=d.v;render();break;
   case 'spotLoc':UI.spotForm.loc=d.v;render();break;
   case 'spotIc':UI.spotForm.ic=d.v;render();break;
@@ -1492,8 +1619,8 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const label=(document.getElementById('sf-label')||{}).value||UI.spotForm.label;
     const note=(document.getElementById('sf-note')||{}).value||UI.spotForm.note;
     const img=(document.getElementById('sf-img')||{}).value||UI.spotForm.img;
-    const s=addSpot({name,area:UI.spotForm.area,label,ic:UI.spotForm.ic,note,loc:UI.spotForm.loc,img});
-    if(s){UI.modal={t:'spot',id:s.id};commit()} else render();
+    const s=addSpot({name,area:UI.spotForm.area,label,ic:UI.spotForm.ic,note,loc:UI.spotForm.loc,img,lat:UI.spotForm.lat,lng:UI.spotForm.lng,address:UI.spotForm.address});
+    if(s){UI.modal={t:'spot',id:s.id};UI.townMode='live';UI.mapFocus=s.id;commit()} else render();
   }break;
   case 'spotOpen':UI.modal={t:'spot',id:d.id};render();break;
   case 'spotRemove':run(removeSpot,d.id);UI.modal=null;break;
