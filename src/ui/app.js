@@ -31,38 +31,72 @@ function render(){
  flush()}
 
 function createView(){const f=UI.form;return `<div class="title"><div class="road"><span>🚌</span><span>🛺</span></div>
-<h1>Kano City</h1><p>Live a Nigerian life. Build your reputation. Build relationships. Build wealth.</p>
+<div class="brand-mark">AJO LOOP</div>
+<h1>Kano City</h1><p>Live a Nigerian life. Build your circle. Guard your name.</p>
 <div class="card flat"><label class="l" style="margin-top:0">Your name</label><input type="text" id="f-name" maxlength="16" placeholder="e.g. Abubakar" value="${esc(f.name)}" autocomplete="off">
 <label class="l">Age</label><input type="number" id="f-age" min="18" max="60" value="${f.age}">
 <label class="l">I am</label><div class="opts">${['Male','Female','Other'].map(g=>`<button data-a="gender" data-v="${g}" class="${f.gender===g?'on':''}">${g}</button>`).join('')}</div>
 <button class="btn" data-a="begin" style="margin-top:8px">Start with ₦20,000</button></div>
-<p class="tiny center">Your cash, your name, your people. Guard all three.</p></div>`}
+<p class="tiny center muted">Virtual game cash on this device — not real-money Ajo.</p></div>`}
 
-function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length;
- return `<header class="hud"><div class="r1"><div class="day">Day ${G.day} — ${WD[(G.day-1)%7]}<span>${String(G.hour).padStart(2,'0')}:00 · 1 min = 1 hr</span></div><div class="cash" id="cash">${fmt(p.cash)}</div><button class="bell" data-a="notes" aria-label="Notifications">🔔${unread?`<b>${unread}</b>`:''}</button></div>
- <div class="r2"><div><div class="mini">⚡ Energy</div>${bar(p.energy,col(p.energy))}</div><div><div class="mini">🍲 Hunger</div>${bar(p.hunger,colH(p.hunger))}</div><div><div class="mini">😊 Mood</div>${bar(p.happiness,col(p.happiness))}</div><span class="chip t" id="chT">🤝 ${Math.round(p.trust)}</span><span class="chip rp" id="chR">⭐ ${Math.round(p.rep)}</span></div>
+function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length,loc=LOCS[p.loc];
+ return `<header class="hud"><div class="r1"><div class="day">Day ${G.day} · ${WD[(G.day-1)%7]}<span>${String(G.hour).padStart(2,'0')}:00 · ${loc.ic} ${loc.n}</span></div><div class="center"><span class="cash-label">Cash (game)</span><div class="cash sm" id="cash">${fmt(p.cash)}</div></div><button class="bell" data-a="notes" aria-label="Notifications">🔔${unread?`<b>${unread}</b>`:''}</button></div>
+ <div class="r2"><div class="stat-tap" data-a="statHint" data-k="energy" title="Energy"><div class="mini">⚡ Energy</div>${bar(p.energy,col(p.energy))}</div><div class="stat-tap" data-a="statHint" data-k="hunger" title="Hunger"><div class="mini">🍲 Hunger</div>${bar(p.hunger,colH(p.hunger))}</div><div class="stat-tap" data-a="statHint" data-k="mood" title="Mood"><div class="mini">😊 Mood</div>${bar(p.happiness,col(p.happiness))}</div><span class="chip t" id="chT">🤝 ${Math.round(p.trust)}</span><span class="chip rp" id="chR">⭐ ${Math.round(p.rep)}</span></div>
  <div class="hb"><i id="hb" style="width:${UI.prog/60*100}%"></i></div></header>`}
 
 function navHtml(){const dueAjo=G.ajos.some(a=>a.status==='active'&&a.members.includes('player')&&!cyc(a,'player')&&G.day>=dueDay(a)-1);
  const gInv=G.groups.some(g=>!g.dead&&g.inv.some(i=>i.to==='player'&&invState(i)==='pending'));
- const t=[['life','🏠','Life'],['town','🗺️','Town'],['people','👥','People'],['groups','🏘️','Groups'],['ajo','🤝','Ajo'],['more','📒','More']];
- return `<nav>${t.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${UI.tab===k?'on':''}"><span>${i}</span>${l}${(k==='ajo'&&dueAjo)||(k==='groups'&&gInv)?'<i class="dot"></i>':''}</button>`).join('')}</nav>`}
+ const t=[['life','🏠','Life'],['town','🗺️','Town'],['people','👥','People'],['groups','🏘️','Groups'],['ajo','🤝','Ajo'],['more','☰','More']];
+ return `<nav aria-label="Main">${t.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${UI.tab===k?'on':''}" aria-current="${UI.tab===k?'page':'false'}"><span aria-hidden="true">${i}</span>${l}${(k==='ajo'&&dueAjo)||(k==='groups'&&gInv)?'<i class="dot" aria-label="Needs attention"></i>':''}</button>`).join('')}</nav>`}
 
 function gauge(v,c,ic){return `<div class="gauge" style="--c:${c};--v:${v}"><div>${Math.round(v)}</div></div>`}
 
+function nextActions(){
+ const p=G.p,out=[];
+ const debts=G.debts.filter(d=>d.m==='player'&&!d.paid);
+ if(debts.length) out.push({ic:'💸',l:'Pay what you owe',s:'Clear Ajo debt to repair trust',a:'tabAjo'});
+ if(p.hunger>=70) out.push({ic:'🍲',l:'Eat something',s:p.loc==='home'?'Cook at home or go to Mama Put':'Hunger is high — food restores you',a:p.loc==='home'?'cook':(p.loc==='restaurant'?'eat':'goto'),to:p.loc==='restaurant'?null:'restaurant'});
+ if(p.energy<=25) out.push({ic:'😴',l:'Rest',s:p.loc==='home'?'Recover energy at home':'Go home and rest',a:p.loc==='home'?'rest':'goto',to:'home'});
+ if(!p.job) out.push({ic:'💼',l:'Find work',s:'Jobs are posted at the Workplace',a:'goto',to:'work'});
+ else if(p.shiftDay!==G.day&&G.hour<=14) out.push({ic:'💼',l:'Work your shift',s:JOBS.find(x=>x.id===p.job)?.n||'Earn today\'s pay',a:p.loc==='work'?'work':'goto',to:p.loc==='work'?null:'work'});
+ if(G.biz&&G.biz.stock>0&&p.loc!=='market'&&G.hour<=18) out.push({ic:'🛒',l:'Tend the Mini Shop',s:G.biz.stock+' drinks in stock',a:'goto',to:'market'});
+ if(G.biz&&G.biz.stock<=0) out.push({ic:'📦',l:'Restock the shop',s:'Out of stock at the Market',a:'goto',to:'market'});
+ const aj=myAjos().filter(a=>a.status==='active')[0];
+ if(aj&&!cyc(aj,'player')&&G.day>=dueDay(aj)-2) out.push({ic:'🤝',l:'Pay Ajo contribution',s:esc(aj.name)+' · '+fmt(aj.amt),a:'tabAjo'});
+ if(!G.npcs.some(n=>n.met)) out.push({ic:'👋',l:'Meet someone',s:'Start at Kasuwa Market or Mama Put',a:'goto',to:'market'});
+ if(out.length<2&&p.loc==='home'&&G.hour<20) out.push({ic:'🗺️',l:'Explore town',s:'Markets, work, suya — pick a place',a:'tab',v:'town'});
+ return out.slice(0,2);
+}
 function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n=>n.met).sort((a,b)=>b.rel-a.rel);
  const aj=myAjos().filter(a=>a.status==='active')[0];
  const debts=G.debts.filter(d=>d.m==='player'&&!d.paid);
- return `<section class="card hero"><div class="row"><div class="av">${avatar(p.gender)}</div><div><h2>${esc(p.name)}</h2><div class="muted sm">${titleFor()} · ${p.age} yrs · ${j?j.n:'Looking for work'}</div></div></div>
- <div class="quote">Money gets you things. Trust gets you opportunities.</div>
- <button class="btn ghost" data-a="sleep">⏭ Skip to next day (testing)</button></section>
+ const acts=nextActions();
+ const loc=LOCS[p.loc];
+ return `<section class="card hero"><div class="row"><div class="av">${avatar(p.gender)}</div><div style="min-width:0;flex:1"><h2>${esc(p.name)}</h2><div class="muted sm">${titleFor()} · ${p.age} · ${j?j.n:'Looking for work'}</div><div class="loc-chip" style="margin-top:8px"><span class="dot-live"></span>${loc.ic} ${loc.n}</div></div></div>
+ <div class="quote">Money gets you things. Trust gets you opportunities.</div></section>
  ${blocked()?`<div class="warnbox">🚫 People are wary of you. You cannot start or join an Ajo for ${p.blockedUntil-G.day} more day(s). Pay what you owe to repair your name.</div>`:''}
- <div class="grid2 px"><div class="card center"><div class="muted sm" style="font-weight:800">Trust</div>${gauge(p.trust,col(p.trust))}<b>${trustTier(p.trust)}</b><div class="tiny muted">How reliable people think you are</div></div>
- <div class="card center"><div class="muted sm" style="font-weight:800">Reputation</div>${gauge(p.rep,col(p.rep))}<b>${repTier(p.rep)}</b><div class="tiny muted">How the wider community sees you</div></div></div>
- <section class="card"><div class="row sp"><b>💰 Money</b><span class="chip">Net worth ${fmt(netWorth())}</span></div><div class="row sp" style="margin-top:8px"><span class="muted sm">In hand</span><b>${fmt(p.cash)}</b></div><div class="row sp"><span class="muted sm">Saved at bank</span><b>${fmt(p.savings)}</b></div>${G.biz?`<div class="row sp"><span class="muted sm">Shop stock (${G.biz.stock} drinks)</span><b>${fmt(G.biz.stock*G.biz.avg)}</b></div>`:''}</section>
- <section class="card"><b>👥 Social</b><div class="row sp" style="margin:6px 0 10px"><span class="muted sm">${met.length} relationship${met.length===1?'':'s'}</span><span class="muted sm">${met.filter(n=>n.rel>=60).length} close</span></div>${met.length?met.slice(0,3).map(n=>`<div class="row sp sm" style="margin-top:6px"><span>${n.em} ${n.n}</span><span class="muted">${relLabel(n)} · ${Math.round(n.rel)}</span></div>`).join(''):'<div class="muted sm">Nobody yet. Walk to the Market and say hello.</div>'}</section>
- <section class="card"><b>🤝 Ajo</b>${aj?`<div class="row sp" style="margin-top:8px"><span class="muted sm">${esc(aj.name)}</span><b>${fmt(aj.amt)}</b></div><div class="row sp"><span class="muted sm">Next payment</span><b>${cyc(aj,'player')?'Paid ✓ (Day '+dueDay(aj)+')':(dueDay(aj)-G.day<=0?'Today':'in '+(dueDay(aj)-G.day)+' day(s)')}</b></div>`:`<div class="muted sm" style="margin-top:6px">Not in an active Ajo. ${myAjos().length?'Your circle is getting ready.':'Build trust, then ask around at the Ajo Center.'}</div>`}${debts.length?`<div class="warnbox" style="margin:10px 0 0">You owe ${fmt(debts.reduce((s,d)=>s+d.amt,0))} to your Ajo.</div>`:''}</section>
- <section class="card"><b>🛒 Business</b>${G.biz?`<div class="row sp" style="margin-top:8px"><span class="muted sm">Mini Shop · ${G.biz.stock} in stock</span><b>Profit ${fmt(G.biz.profit)}</b></div>`:`<div class="muted sm" style="margin-top:6px">No business yet. Work → Save → Open a Mini Shop for ${fmt(SHOP_COST)}.</div>`}</section>
+ ${acts.length?`<div class="section-label">Suggested next</div><div class="px">${acts.map(a=>{
+   const ds=[a.a?`data-a="${a.a}"`:'' ,a.to?`data-to="${a.to}"`:'' ,a.v?`data-v="${a.v}"`:''].filter(Boolean).join(' ');
+   return `<button class="next-act" ${ds}><div class="ic">${a.ic}</div><div><b>${a.l}</b><small>${a.s}</small></div><span class="go">›</span></button>`;
+ }).join('')}</div>`:''}
+ <div class="section-label">Community standing <span class="badge-game">Game</span></div>
+ <div class="grid2 px"><div class="card trust-card"><div class="muted sm" style="font-weight:800">Trust</div>${gauge(p.trust,col(p.trust))}<b>${trustTier(p.trust)}</b><div class="why">Kept promises, on-time Ajo, showing up for work. Missed payments hurt this.</div></div>
+ <div class="card trust-card"><div class="muted sm" style="font-weight:800">Reputation</div>${gauge(p.rep,col(p.rep))}<b>${repTier(p.rep)}</b><div class="why">How the wider town sees you — generosity, business, completing circles.</div></div></div>
+ <div class="section-label">Virtual money <span class="badge-game">Game cash</span></div>
+ <section class="card"><div class="row sp"><b>💰 Wallet</b><span class="chip">Net ${fmt(netWorth())}</span></div>
+ <div class="money-row"><span class="label">Cash in hand</span><span class="val gold">${fmt(p.cash)}</span></div>
+ <div class="money-row"><span class="label">Bank savings</span><span class="val">${fmt(p.savings)}</span></div>
+ ${G.biz?`<div class="money-row"><span class="label">Shop stock (${G.biz.stock})</span><span class="val">${fmt(Math.round(G.biz.stock*G.biz.avg))}</span></div>`:''}
+ <div class="tiny muted" style="margin-top:8px">This is simulation money on this device. It is not real-money Ajo.</div></section>
+ <div class="section-label">Your circle</div>
+ <section class="card"><div class="row sp"><b>👥 People</b><button class="btn sm ghost" data-a="tab" data-v="people">See all</button></div>
+ <div class="row sp" style="margin:6px 0 10px"><span class="muted sm">${met.length} met</span><span class="muted sm">${met.filter(n=>n.rel>=60).length} close</span></div>
+ ${met.length?met.slice(0,3).map(n=>`<button class="row sp sm" style="margin-top:6px;width:100%;background:none;text-align:left" data-a="npc" data-id="${n.id}"><span>${n.em} ${n.n}</span><span class="muted">${relLabel(n)}</span></button>`).join(''):'<div class="empty"><div class="big">👋</div>Nobody yet. Go to the Market and say hello.</div>'}</section>
+ <section class="card"><div class="row sp"><b>🤝 Ajo</b><span class="badge-ajo">Separate from game cash</span></div>
+ ${aj?`<div class="money-row" style="margin-top:8px"><span class="label">${esc(aj.name)}</span><span class="val">${fmt(aj.amt)}</span></div><div class="money-row"><span class="label">Next contribution</span><span class="val">${cyc(aj,'player')?'Paid ✓':'Day '+dueDay(aj)}</span></div><button class="btn ghost sm" style="margin-top:8px" data-a="tabAjo">Open Ajo</button>`
+ :`<div class="muted sm" style="margin-top:8px">${myAjos().length?'Your circle is getting ready.':'Build trust, then visit the Ajo Center. Joining is never automatic from a social group.'}</div>`}
+ ${debts.length?`<div class="warnbox" style="margin:10px 0 0">You owe ${fmt(debts.reduce((s,d)=>s+d.amt,0))} on Ajo contributions.</div>`:''}</section>
+ <section class="card"><b>🛒 Business</b>${G.biz?`<div class="money-row" style="margin-top:8px"><span class="label">Mini Shop · ${G.biz.stock} in stock</span><span class="val">Profit ${fmt(G.biz.profit)}</span></div>`:`<div class="muted sm" style="margin-top:6px">No business yet. Work → save → open a Mini Shop for ${fmt(SHOP_COST)} at the Market.</div>`}</section>
  ${G.promises.length?`<section class="card"><b>🤞🏾 Promises</b>${G.promises.map(pr=>`<div class="row sp" style="margin-top:8px"><span class="sm">${npc(pr.npc).n} · ${fmt(pr.amt)} by Day ${pr.due}</span><button class="btn sm" data-a="keep" data-id="${pr.id}">Keep it</button></div>`).join('')}</section>`:''}`}
 
 function locActions(){const p=G.p,L=p.loc,A=[];const add=(ic,l,s,a,d={},dis)=>A.push({ic,l,s,a,d,dis});const j=JOBS.find(x=>x.id===p.job);const hereN=here();
@@ -82,7 +116,7 @@ function locActions(){const p=G.p,L=p.loc,A=[];const add=(ic,l,s,a,d={},dis)=>A.
 function townView(){const L=LOCS[G.p.loc],acts=locActions(),hn=here();
  const order=['home','market','restaurant','park','_c','work','bank','social','ajo'];
  const tile=id=>{if(id==='_c')return `<div class="tile center"><div>✦</div><b>KANO CITY</b></div>`;const l=LOCS[id],h=G.p.loc===id,n=G.npcs.filter(x=>npcLoc(x)===id).length;return `<button class="tile ${h?'here':''}" data-a="travel" data-to="${id}" ${h?'disabled':''}><span class="ti">${l.ic}</span><b>${l.n}</b>${h?'<em class="me">You</em>':`<small>${n?n+' here':'&nbsp;'}</small>`}</button>`};
- return `<div class="sec">Kano City<small>Tap a place to go there. Keke ₦200 and 1h (₦100 from Keke Park). No cash? You walk.</small></div>
+ return `<div class="sec">Explore Kano<small>Tap a place to travel. Keke ₦200 · 1h (₦100 from the Park). No cash? You walk.</small></div>
  <div class="map">${order.map(tile).join('')}</div>
  <section class="card"><div class="row"><div style="font-size:40px">${L.ic}</div><div><h2>${L.n}</h2><div class="muted sm">${L.d}</div></div></div></section>
  <div class="px">${acts.map(a=>`<button class="act" data-a="${a.a}" ${a.d.n?`data-n="${a.d.n}"`:''} ${a.dis?'disabled':''}><div class="ic">${a.ic}</div><div><b>${a.l}</b><small>${a.dis&&a.dis!=='No one here'?a.dis:a.s}</small></div><span class="go">›</span></button>`).join('')}</div>
@@ -92,8 +126,9 @@ function townView(){const L=LOCS[G.p.loc],acts=locActions(),hn=here();
 function personRow(n){return `<button class="person" data-a="npc" data-id="${n.id}"><div class="av">${n.em}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ}${n.met?' · '+relLabel(n):' · New face'}</div></div>${n.met?`<div class="score" style="color:${col(n.rel)}">${Math.round(n.rel)}</div>`:'<span class="chip">?</span>'}</button>`}
 
 function peopleView(){const met=G.npcs.filter(n=>n.met).sort((a,b)=>b.rel-a.rel),un=G.npcs.filter(n=>!n.met);
- return `<div class="sec">Your Network<small>${met.length} of ${G.npcs.length} people known. Who do you know? Who trusts you?</small></div>${met.length?met.map(personRow).join(''):'<div class="card muted">You do not know anyone yet. Go to the Market or Mama Put Kitchen and say hello.</div>'}
- ${un.length?`<div class="sec">Still to meet<small>Faces you have seen around town</small></div>${un.map(n=>`<div class="person" style="opacity:.75"><div class="av">${n.em.slice(0,2)}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ}</div></div><span class="chip">${LOCS[n.spots[0]].ic} ${LOCS[n.spots[0]].n}</span></div>`).join('')}`:''}`}
+ return `<div class="sec">People<small>${met.length} of ${G.npcs.length} known · relationships are earned in town</small></div>
+ ${met.length?`<div class="section-label">Your network</div>${met.map(personRow).join('')}`:'<div class="card empty"><div class="big">👋</div>No friends yet.<div class="muted sm" style="margin-top:8px">Go to Kasuwa Market or Mama Put and say hello.</div><button class="btn sm" style="margin-top:12px" data-a="goto" data-to="market">Go to Market</button></div>'}
+ ${un.length?`<div class="section-label">Around town</div><div class="muted tiny px" style="margin-bottom:6px">You have not met them yet — find them at their usual spots.</div>${un.map(n=>`<div class="person" style="opacity:.8"><div class="av">${n.em}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ}</div></div><span class="chip">${LOCS[n.spots[0]].ic} ${LOCS[n.spots[0]].n}</span></div>`).join('')}`:''}`}
 
 function ajoView(){const mine=myAjos(),open=G.ajos.filter(a=>a.status==='open'&&a.host!=='player'&&!a.members.includes('player')),done=G.ajos.filter(a=>a.status==='done'&&a.members.includes('player')),debts=G.debts.filter(d=>d.m==='player'&&!d.paid);
  return `<div class="sec">Ajo<small>Save together. Everyone pays in; one person takes the pot each round. It only works on trust.</small></div>
@@ -119,7 +154,9 @@ function journeyV(){const s=G.snap.concat([{day:G.day,nw:netWorth(),trust:Math.r
  return `<section class="card"><b>📈 Your life so far</b>${spark(s.map(x=>x.nw),'#ffc928','Net worth (₦)')}${spark(s.map(x=>x.trust),'#22c177','Trust')}${spark(s.map(x=>x.rep),'#5cc8ff','Reputation')}</section>
  <section class="card"><b>🏁 Milestones</b>${ms.length?ms.map(m=>`<div class="tx"><span>${esc(m.txt)}</span><span class="muted tiny">Day ${m.day}</span></div>`).join(''):'<div class="muted sm">Your story starts now.</div>'}</section>`}
 function shopV(){const b=G.biz;return b?`<section class="card"><b>🥤 Mini Shop</b><div class="row sp" style="margin-top:8px"><span class="muted">Stock</span><b>${b.stock} drinks</b></div><div class="row sp"><span class="muted">Sold</span><b>${b.sold}</b></div><div class="row sp"><span class="muted">Revenue</span><b>${fmt(b.rev)}</b></div><div class="row sp"><span class="muted">Profit</span><b class="pos">${fmt(b.profit)}</b></div><div class="muted tiny" style="margin-top:8px">Buy at ~${fmt(UNIT_COST)}, sell at ${fmt(UNIT_PRICE)}. Friends send customers.</div></section><section class="card"><b>Shop activity</b>${b.sold||G.btx.length?G.btx.slice(0,15).map(t=>`<div class="tx"><span>${esc(t.txt)}</span><span class="${t.amt>0?'pos':'neg'}">${t.amt>0?'+':'−'}${fmt(t.amt)}</span></div>`).join(''):''}</section>`:`<section class="card"><b>No shop yet</b><div class="muted sm" style="margin-top:6px">Open the Mini Shop at the Market for ${fmt(SHOP_COST)}.</div></section>`}
-function settingsV(){return `<section class="card"><b>Reset game</b><div class="muted sm" style="margin:6px 0 10px">Deletes your life and starts over.</div><button class="btn ${UI.confirmReset?'red':'ghost'}" data-a="reset">${UI.confirmReset?'Tap again to erase everything':'Start a new life'}</button></section><section class="card muted sm">Progress saves automatically on this device. Game logic is separate from the screens, ready to move onto a Supabase backend so real players can share an Ajo.</section>`}
+function settingsV(){return `<section class="card"><b>About this build</b><div class="muted sm" style="margin:6px 0">Ajoloop offline demo. Progress saves on this device only. Virtual cash is not real-money Ajo.</div></section>
+<section class="card"><b>Developer</b><div class="muted sm" style="margin:6px 0 10px">Not part of normal play. Skip time for testing.</div><button class="btn ghost dev" data-a="sleep">⏭ Skip to next day</button></section>
+<section class="card"><b>Reset game</b><div class="muted sm" style="margin:6px 0 10px">Deletes your life on this device and starts over.</div><button class="btn ${UI.confirmReset?'red':'ghost'}" data-a="reset">${UI.confirmReset?'Tap again to erase everything':'Start a new life'}</button></section>`}
 
 /* ---- sheets ---- */
 function sheetHtml(){let h='';
@@ -407,6 +444,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'hire':if(hire(d.id))UI.modal=null;commit();break;
   case 'work':run(work);break;case 'quit':run(quit);break;
   case 'sleep':UI.modal=null;run(sleep);break;
+  case 'statHint':{const k=d.k;const hints={energy:G.p.energy<=30?'Low energy — rest at Home.':'Energy drops as you act. Rest at Home to recover.',hunger:G.p.hunger>=70?'Hungry — cook, snack, or eat out.':'Hunger rises over time. Eat before work.',mood:'Mood rises with social time, food, and family calls.'};fx(hints[k]||'','warm');flush();break}
   case 'travel':case 'goto':UI.modal=null;if(travel(d.to))UI.tab='town';commit();break;
   case 'cook':run(cook);break;case 'rest':run(rest);break;case 'call':run(call);break;
   case 'snack':run(snack);break;case 'eat':run(eat);break;case 'gig':run(gig);break;
