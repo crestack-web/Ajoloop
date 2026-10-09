@@ -22,13 +22,13 @@ npm run build        # production → dist/
 npm run export:legacy  # single-file kano-city.html
 ```
 
-## Demo path (for stakeholders)
+## First-run flow
 
-1. Create a character  
-2. Home → **Start demo path**  
-3. Follow the checklist (home → people → chat → business → group → Ajo → payout)  
-4. Ajo tab → public loops → Request → Chat  
-5. Create Ajo → Demo fill → Roll stones → Start → resolve round  
+1. Create your character  
+2. **Next steps** on Home: set home area → meet someone → chat → Ajo  
+3. **Ajo**: browse public loops or create your own, invite people, stones, chat  
+4. **Map**: visit businesses (request → approval builds trust)  
+5. **More → Next day** to advance Ajo cycles  
 
 ## Deploy (Vercel)
 

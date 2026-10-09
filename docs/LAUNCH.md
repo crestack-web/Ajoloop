@@ -1,34 +1,33 @@
-# Launch readiness (offline MVP)
+# Launch readiness
+
+## Current product (no demo path)
+
+Users go through **Next steps** on Home:
+
+1. Set home area  
+2. Meet someone  
+3. Start a conversation  
+4. Join or create an Ajo  
+
+Ajo works app-wide (no travel to a center). Transport has no fees. Trust comes from chat, approved visits, and Ajo behaviour.
 
 ## Pipelines
 
-| Pipeline | Command | Status |
-|----------|---------|--------|
-| Unit / groups engine | `npm test` | 249 checks |
-| Product smoke | `npm run test:smoke` | Core flow |
-| Dev server | `npm run dev` | Vite |
-| Production build | `npm run build` | `dist/` |
-| Legacy HTML | `npm run export:legacy` | `kano-city.html` |
-| Hosting | Vercel via `vercel.json` | SPA rewrite |
+| Pipeline | Command |
+|----------|---------|
+| Groups engine | `npm test` |
+| Product smoke | `npm run test:smoke` |
+| Build | `npm run build` |
+| Legacy HTML | `npm run export:legacy` |
+| CI | GitHub Actions on `main` |
+| Host | Vercel |
 
-## User flows covered
+## Next step (backend)
 
-1. Onboarding (name, age, gender)  
-2. Demo path unlock  
-3. Home checklist  
-4. Home area + nearby  
-5. Business list + visit request/approve  
-6. People + chat + trust acts  
-7. Groups create/join  
-8. Public Ajo list + join request  
-9. Circle chat + activities  
-10. Create Ajo → fill → stones → roll → start → payout + fee  
+1. **Accounts** — phone/email auth  
+2. **Sync** — replace localStorage via `src/data/client.js`  
+3. **Realtime circle chat** — replace NPC replies  
+4. **Payments** — contributions & payouts; fee on organizer pot  
+5. **Server stone roll** — fair RNG  
 
-## Not live yet (honest)
-
-- Real multiplayer accounts  
-- Real bank / mobile-money payments  
-- Server-side stone roll RNG  
-- Push notifications  
-
-Offline demo proves UX and rules before those connect.
+Offline MVP validates UX and rules until those land.

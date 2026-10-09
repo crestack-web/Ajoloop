@@ -106,7 +106,7 @@ T('10. social group actions never create a financial obligation',()=>{
 
 T('11a. a group-linked Ajo keeps its own membership and permissions',()=>{
  const id=mine();G.p.trust=60;const pid=proposeAjo(id,'player',{name:'Crew Ajo',size:3,amt:2000,freq:7});ok(pid);
- ok(!ajoFromProposal(id,'player',pid),'must be at the Ajo Center, same as any Ajo');G.p.loc='ajo';const aid=ajoFromProposal(id,'player',pid);ok(aid,'created through the existing createAjo');
+ const aid=ajoFromProposal(id,'player',pid);ok(aid,'created through the existing createAjo (no location gate)');
  const a=ajoOf(aid);eq(a.group,id);eq(a.members,['player'],'only the organiser is in; group members are NOT copied');eq(a.status,'open');eq(grp(id).ajoP[0].st,'created');
  meet('musa',70);R(0);createInvite(id,'player',{to:'musa'});ok(!a.members.includes('musa'),'group member is still not an Ajo member');
  ok(invite(aid,'musa'),'they are asked through the normal Ajo invite');ok(a.members.includes('musa'),'and join the Ajo on its own terms');

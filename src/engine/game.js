@@ -107,10 +107,10 @@ function tick(h){const p=G.p;G.hour+=h;p.hunger=clamp(p.hunger+1.5*h);p.energy=c
 
 function newGame(name,age,gender){
  G={v:1,day:1,hour:6,nid:1,
- p:{name,age,gender,job:null,cash:20000,savings:0,energy:100,hunger:20,happiness:60,rep:50,trust:50,biz:10,social:10,reliab:50,loc:'home',blockedUntil:0,shiftDay:0,missed:0,boastDay:0,oppDay:0,oppN:0,bizRepDay:0},
+ p:{name,age,gender,job:null,cash:20000,savings:0,energy:100,hunger:20,happiness:60,rep:50,trust:52,biz:10,social:10,reliab:50,loc:'home',blockedUntil:0,shiftDay:0,missed:0,boastDay:0,oppDay:0,oppN:0,bizRepDay:0},
  npcs:NP0.map(n=>({...n,met:false,lastSeen:0,hist:[],tk:{d:0,c:0},said:''})),
  tx:[],btx:[],biz:null,ajos:SEED(),debts:[],promises:[],sched:[],notes:[],th:[],rh:[],mile:{},ev:null,lastEv:'',openJobs:['shop','rider','sales'],snap:[]};
- initGroups();initPlaces();snap();note('Welcome to Kano City. You have ₦20,000. Find work, meet people — and protect your name.','info');return G}
+ initGroups();initPlaces();ensureSetup();snap();note('Welcome to Kano City. You have ₦20,000. Find work, meet people — and protect your name.','info');return G}
 function snap(){G.snap.push({day:G.day,cash:G.p.cash,nw:netWorth(),trust:Math.round(G.p.trust),rep:Math.round(G.p.rep)});if(G.snap.length>120)G.snap.shift()}
 
 /* ---- movement & survival ---- */
@@ -168,7 +168,7 @@ const cyc=(a,m,c)=>a.contribs.find(x=>x.cycle===(c===undefined?a.cycle:c)&&x.m==
 function joinCheck(a){if(a.members.includes('player'))return 'You are already in this Ajo.';if(a.status!=='open')return 'This Ajo is closed.';if(blocked())return 'Blocked for '+(G.p.blockedUntil-G.day)+' more day(s) after your missed payment.';if(G.p.trust<40)return 'Members worry about your reliability (Trust is below 40).';if(myAjos().length>=2)return 'You can only be in 2 Ajo groups at once.';
  if(a.vis==='public'||a.invited)return null;
  const h=npc(a.host);if(h&&h.rel<40)return h.n+' does not know you well enough yet (needs 40 relationship or a public circle).';return null}
-function atAjo(){if(G.demo)return true;return G.p.loc==='ajo'?true:no('Go to the Ajo Center for this (or enable Demo path).')}
+function atAjo(){return true}
 function joinAjo(id,viaInvite){const a=ajoOf(id);if(!viaInvite&&!atAjo())return false;const why=joinCheck(a);if(why)return no(why);a.members.push('player');miles('ajo','Joined your first Ajo: '+a.name);note('You joined '+a.name+'.','ajo');fx('You joined '+a.name+'!','warm');if(a.members.length>=a.size)toStones(a);return true}
 
 function publicAjos(){
@@ -191,7 +191,7 @@ function requestJoinAjo(id){
   note('Join request sent to '+a.name+'.','ajo');fx('Request sent','warm');
   // NPC hosts auto-decide
   if(a.host!=='player'){
-    const h=npc(a.host);const ok=G.demo||Math.random()<clamp(.35+(G.p.trust-40)/80+(h?h.rel/200:0),.2,.95);
+    const h=npc(a.host);const ok=Math.random()<clamp(.4+(G.p.trust-40)/70+(h?h.rel/150:0),.25,.92);
     const req=a.joinReqs[a.joinReqs.length-1];
     if(ok){req.st='accepted';if(!a.members.includes('player')){a.members.push('player');ajoAct(a,'join',G.p.name+' joined the circle.');note(a.name+' accepted you.','ajo');fx('You are in!','good');if(a.members.length>=a.size)toStones(a)}
     }else{req.st='declined';note(a.name+' declined your request.','ajo');fx('Not this time','cold')}
@@ -265,7 +265,7 @@ function createAjo(name,size,amt,freq){if(!atAjo())return false;if(blocked())ret
  const a={id:'p'+G.nid++,name:name||'Kano Hustlers',host:'player',size,amt,freq,members:['player'],status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[]};
  G.ajos.unshift(a);miles('ajohost','Started your own Ajo');ajoAct(a,'system','Circle created. Public discovery is on — people can request to join.');note('Ajo created. Invite your people or wait for public requests. Round 1 goes to you. Fee '+Math.round(AJO_FEE_PCT*100)+'% on first pot only.','ajo');return a.id}
 function invite(aid,nid){const a=ajoOf(aid),n=npc(nid);if(a.status!=='open'||a.host!=='player')return false;if(!n.met)return no('Meet '+n.n+' first.');if(a.inv[nid]===G.day)return no(n.n+' already answered today.');a.inv[nid]=G.day;
- const p=G.demo?0.92:clamp(.1+n.rel/100*.8+(G.p.trust-50)/200,.05,.95);if(Math.random()<p){a.members.push(nid);fx(n.n+': "I am in!"','warm');note(n.n+' joined '+a.name+'.','ajo');if(a.members.length>=a.size)toStones(a)}else fx(n.n+': "Let me think about it... not now."','cold');return true}
+ const p=clamp(.25+n.rel/100*.7+(G.p.trust-50)/150,.15,.95);if(Math.random()<p){a.members.push(nid);fx(n.n+': "I am in!"','warm');note(n.n+' joined '+a.name+'.','ajo');if(a.members.length>=a.size)toStones(a)}else fx(n.n+': "Let me think about it... not now."','cold');return true}
 function toStones(a){
  a.status='stones';if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';
  // NPCs auto-pick free stones
@@ -825,7 +825,7 @@ function requestBizVisit(bid){
   if(b.owner!=='player'){
     const n=npc(b.owner); if(n&&!n.met){n.met=true;n.lastSeen=G.day}
     // NPC owners: simulate review (demo almost always accepts)
-    const accept=G.demo||Math.random()<0.75;
+    const accept=Math.random()<0.8;
     if(accept) approveBizVisit(v.id,true);
     else {v.st='declined';note(b.name+' could not host a visit today.','ajo');fx('Visit declined','cold')}
   } else {
@@ -1013,7 +1013,13 @@ function demoAdvanceToPayout(id){
   return true;
 }
 
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false}
+function markOnboarded(){G.p.onboarded=true;note('You are set up. Build trust, visit shops, invite people into Ajo.','ajo');fx('Welcome to your circle','good');return true}
+function ensureSetup(){
+  // After character create, player should set home — not a demo unlock
+  if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
+  if(G.p.onboarded==null)G.p.onboarded=false;
+}
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);ensureSetup()}
 
 /* ---- persistence ---- */
 const Store={async load(){try{if(window.storage){const r=await window.storage.get(KEY,false);if(r&&r.value)return JSON.parse(r.value)}}catch(e){}try{const v=localStorage.getItem(KEY);if(v)return JSON.parse(v)}catch(e){}return Store.mem?JSON.parse(Store.mem):null},
