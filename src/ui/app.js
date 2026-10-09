@@ -616,7 +616,22 @@ addEventListener('hashchange',()=>{deepLink();render()});
 
 // Boot after DOM is ready
 export async function startApp() {
-  if (typeof boot === 'function') await boot();
+  try {
+    if (typeof Store === 'undefined' || typeof boot !== 'function') {
+      throw new Error('Game engine failed to load (Store/boot missing).');
+    }
+    await boot();
+  } catch (err) {
+    console.error(err);
+    const el = document.getElementById('app');
+    if (el) {
+      el.innerHTML = `<div style="padding:24px;font-family:system-ui;color:#f6f2ff;max-width:400px;margin:40px auto">
+        <h1 style="color:#ffc928;font-size:22px">Could not start Ajoloop</h1>
+        <p style="color:#b6add9;line-height:1.45">${String(err && err.message || err)}</p>
+        <p style="color:#b6add9;font-size:13px">Try a hard refresh. If this persists, open <code>kano-city.html</code> or redeploy the latest build.</p>
+      </div>`;
+    }
+  }
 }
 
 if (document.readyState === 'loading') {
