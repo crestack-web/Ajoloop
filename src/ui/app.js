@@ -404,16 +404,20 @@ function destroyLiveMaps(){
 }
 
 function liveMapBlock(){
+  const peopleN=(typeof peopleOnMap==='function'?peopleOnMap():[]).length;
+  const showP=UI.mapShowPeople!==false, showPl=UI.mapShowPlaces!==false;
   return `<div class="live-map-wrap">
     <div id="live-map" class="live-map"></div>
     <div class="live-map-legend">
-      <span>📍 Spots</span><span>🏪 Shops</span><span>🏠 Home</span><span>Tap pin to open</span>
+      <span>👤 People (${peopleN})</span><span>📍 Spots</span><span>🏪 Shops</span><span>Tap a character to open</span>
     </div>
     <div class="px" style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn sm" data-a="spotAdd">＋ Drop a pin / add spot</button>
+      <button class="btn sm ${showP?'':'ghost'}" data-a="mapTogglePeople">${showP?'👤 People on':'👤 People off'}</button>
+      <button class="btn sm ${showPl?'':'ghost'}" data-a="mapTogglePlaces">${showPl?'📍 Places on':'📍 Places off'}</button>
+      <button class="btn sm" data-a="spotAdd">＋ Add spot</button>
       <button class="btn sm ghost" data-a="mapLocate">📍 My location</button>
     </div>
-    <div class="muted tiny px">Real Kano map — pin places friends can find and visit.</div>
+    <div class="muted tiny px">Characters show where people are in Kano right now. Tap a face to meet or chat.</div>
   </div>`;
 }
 
@@ -427,25 +431,47 @@ function mountLiveMap(){
     maxZoom:19,
     attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
   }).addTo(_liveMap);
-  const pins=mapPins().filter(p=>p.lat!=null&&p.lng!=null&&(p.kind==='spot'||p.kind==='biz'||p.kind==='public'||p.kind==='home'));
-  pins.forEach(p=>{
-    const color=p.kind==='spot'?'#ffc928':p.kind==='biz'?'#5b8cff':p.kind==='home'?'#22c177':'#c4b5fd';
-    const icon=L.divIcon({
-      className:'lm-pin',
-      html:`<div class="lm-dot" style="background:${color}"><span>${p.ic||'📍'}</span></div>`,
-      iconSize:[36,36],iconAnchor:[18,18]
+  const showPeople=UI.mapShowPeople!==false;
+  const showPlaces=UI.mapShowPlaces!==false;
+  if(showPlaces){
+    const pins=mapPins().filter(p=>p.lat!=null&&p.lng!=null&&(p.kind==='spot'||p.kind==='biz'||p.kind==='public'||p.kind==='home'));
+    pins.forEach(p=>{
+      const color=p.kind==='spot'?'#ffc928':p.kind==='biz'?'#5b8cff':p.kind==='home'?'#22c177':'#c4b5fd';
+      const icon=L.divIcon({
+        className:'lm-pin',
+        html:`<div class="lm-dot" style="background:${color}"><span>${p.ic||'📍'}</span></div>`,
+        iconSize:[36,36],iconAnchor:[18,18]
+      });
+      const m=L.marker([p.lat,p.lng],{icon,zIndexOffset:100}).addTo(_liveMap);
+      m.bindPopup(`<b>${esc(p.n)}</b><br><span style="opacity:.85">${esc(p.sub||'')}</span>`);
+      m.on('click',()=>{
+        if(p.kind==='spot'){UI.modal={t:'spot',id:p.id};render()}
+        else if(p.kind==='biz'){UI.modal={t:'biz',id:p.id};render()}
+        else if(p.kind==='home'){UI.modal={t:'home'};render()}
+      });
     });
-    const m=L.marker([p.lat,p.lng],{icon}).addTo(_liveMap);
-    m.bindPopup(`<b>${esc(p.n)}</b><br><span style="opacity:.85">${esc(p.sub||'')}</span>`);
-    m.on('click',()=>{
-      if(p.kind==='spot'){UI.modal={t:'spot',id:p.id};render()}
-      else if(p.kind==='biz'){UI.modal={t:'biz',id:p.id};render()}
-      else if(p.kind==='home'){UI.modal={t:'home'};render()}
+  }
+  if(showPeople){
+    peopleOnMap().forEach(p=>{
+      const face=p.avatar?renderAvatar(p.avatar,36):(p.em?`<span class="lm-em">${p.em}</span>`:'👤');
+      const ring=p.me?'#ffc928':'#5b8cff';
+      const icon=L.divIcon({
+        className:'lm-pin lm-person',
+        html:`<div class="lm-char" style="box-shadow:0 0 0 2px ${ring},0 4px 12px rgba(0,0,0,.4)">${face}${p.me?'<i class="lm-me">You</i>':''}</div>`,
+        iconSize:[44,48],iconAnchor:[22,48]
+      });
+      const m=L.marker([p.lat,p.lng],{icon,zIndexOffset:p.me?600:400}).addTo(_liveMap);
+      m.bindPopup(`<b>${esc(p.n)}</b><br><span style="opacity:.85">${esc(p.sub||'')}</span>`);
+      m.on('click',()=>{
+        if(p.me){UI.tab='more';render()}
+        else if(p.id){UI.modal={t:'npc',id:p.id};render()}
+      });
     });
-  });
+  }
   if(UI.mapFocus){
-    const f=pins.find(p=>p.id===UI.mapFocus);
-    if(f) _liveMap.setView([f.lat,f.lng],16);
+    const all=[...(typeof mapPins==='function'?mapPins():[]),...(typeof peopleOnMap==='function'?peopleOnMap():[])];
+    const f=all.find(p=>p.id===UI.mapFocus);
+    if(f&&f.lat!=null) _liveMap.setView([f.lat,f.lng],16);
     UI.mapFocus=null;
   }
   setTimeout(()=>{try{_liveMap.invalidateSize()}catch(e){}},80);
@@ -1591,6 +1617,8 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
 
   case 'spotAdd':UI.spotForm={name:'',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',ic:'📍',note:'',loc:G.p.loc!=='home'?G.p.loc:'market',img:'',lat:null,lng:null,address:''};UI.modal={t:'spotAdd'};render();break;
   case 'spotGeo':
+  case 'mapTogglePeople':UI.mapShowPeople=!(UI.mapShowPeople!==false);render();break;
+  case 'mapTogglePlaces':UI.mapShowPlaces=!(UI.mapShowPlaces!==false);render();break;
   case 'mapLocate':{
     if(!navigator.geolocation){fx('Location not available on this device.','warn');break}
     fx('Finding you…','good');
