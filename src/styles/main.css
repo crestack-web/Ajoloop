@@ -489,3 +489,21 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
 .leaflet-popup-content{margin:10px 12px;font-size:13px;font-weight:700}
 .leaflet-control-attribution{font-size:9px;background:rgba(20,14,50,.75)!important;color:#aaa}
 .leaflet-bar a{background:#241c5c!important;color:#f6f2ff!important;border-color:rgba(255,255,255,.1)!important}
+
+
+/* Character pins on live map */
+.lm-person{background:transparent!important;border:0!important}
+.lm-char{
+  width:40px;height:40px;border-radius:50%;
+  background:#241c5c;overflow:hidden;
+  display:grid;place-items:center;
+  position:relative;
+}
+.lm-char .av-svg{width:36px;height:40px;display:block}
+.lm-char .lm-em{font-size:22px;line-height:1}
+.lm-char .lm-me{
+  position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);
+  font-size:8px;font-weight:900;font-style:normal;
+  background:#ffc928;color:#1a1448;padding:1px 4px;border-radius:6px;
+  white-space:nowrap;
+}
