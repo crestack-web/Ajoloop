@@ -951,7 +951,7 @@ function initPlaces(){
     seeds.forEach(b=>{
       if(G.bizs.some(x=>x.id===b.id)) return;
       if(b.owner!=='player'&&!npc(b.owner)) return;
-      G.bizs.push({...b,trust:40+Math.floor(Math.random()*20),visits:0,created:G.day,products:[
+      G.bizs.push({...b,avatar:defaultStoreAvatar(b.cat||'Other'),trust:40+Math.floor(Math.random()*20),visits:0,created:G.day,products:[
         {id:'p1',n:b.cat==='Fashion'?'Alteration / piece':(b.cat==='Food & Kitchen'?'Plate of the day':(b.cat==='Transport'?'Short hop':'Everyday goods')),price:b.cat==='Fashion'?2500:(b.cat==='Food & Kitchen'?1500:2000)}
       ]});
     });
@@ -993,18 +993,34 @@ function createPlayerBiz({name,cat,area,label,ic,bio,avatar}){
   const b={id,owner:'player',name,cat,area,label:(label||'').slice(0,40),ic:ic||'🏪',bio:(bio||'').slice(0,120),open:true,trust:45,visits:0,created:G.day,
     loc:areaLoc[area]||'market',
     products:[{id:'p1',n:'Popular item',price:2000}],
-    avatar:avatar||defaultStoreAvatar(G.p&&G.p.gender)};
+    avatar:(avatar&&avatar.kind==='building'?avatar:null)||defaultStoreAvatar(cat)};
   G.bizs.push(b);
   note('Business listed: '+name+' in '+area+'. Your store character is visible to visitors.');
   return b;
 }
-function defaultStoreAvatar(gender){
-  const base=defaultAvatar(gender||'Female');
-  return Object.assign({},base,{top:'dashiki',accessory:base.gender==='Female'?'hoops':'none',hair:base.gender==='Female'?'gele':'kufi',store:true});
+function defaultStoreAvatar(cat){
+  // Building / storefront character — not a human
+  const byCat={
+    'Provisions':{style:'kiosk',wall:'cream',roof:'tin',sign:'board',door:'open',window:true},
+    'Food & Kitchen':{style:'stall',wall:'red',roof:'awning',sign:'painted',door:'open',window:false},
+    'Fashion':{style:'boutique',wall:'blue',roof:'flat',sign:'board',door:'closed',window:true},
+    'Phones & Tech':{style:'shop',wall:'blue',roof:'flat',sign:'board',door:'open',window:true},
+    'Services':{style:'shop',wall:'sand',roof:'tin',sign:'board',door:'closed',window:true},
+    'Transport':{style:'container',wall:'yellow',roof:'flat',sign:'painted',door:'open',window:false},
+    'Beauty':{style:'boutique',wall:'green',roof:'awning',sign:'board',door:'curtain',window:true},
+    'Other':{style:'shop',wall:'cream',roof:'tin',sign:'board',door:'open',window:true}
+  };
+  const base=byCat[cat]||byCat['Other'];
+  return Object.assign({store:true,kind:'building',ic:'🏪'}, base);
+}
+function storeAvatarFromBiz(b){
+  if(b&&b.avatar&&b.avatar.kind==='building') return b.avatar;
+  // Upgrade old human-style store avatars to buildings
+  return defaultStoreAvatar(b&&b.cat);
 }
 function setStoreAvatar(parts){
   const b=playerBiz(); if(!b) return no('List a business first.');
-  b.avatar=Object.assign({},b.avatar||defaultStoreAvatar(G.p.gender),parts||{},{store:true});
+  b.avatar=Object.assign({},storeAvatarFromBiz(b),parts||{},{store:true,kind:'building'});
   return true;
 }
 function setWorkProfile(cat,title){
@@ -1436,7 +1452,7 @@ function ensureSetup(){
   if(G.p.onboarded==null)G.p.onboarded=false;
 }
 function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};(G.bizs||[]).forEach(b=>{
-  if(b.owner==='player'&&!b.avatar)b.avatar=defaultStoreAvatar(G.p.gender);
+  if(!b.avatar||b.avatar.kind!=='building')b.avatar=defaultStoreAvatar(b.cat||'Other');
   if(!b.loc){const areaLoc={Fagge:'market',Gwale:'restaurant',Nasarawa:'social','Kano Municipal':'work',Tarauni:'market',Dala:'social',Kumbotso:'market',Ungogo:'park'};b.loc=areaLoc[b.area]||'market'}
 });ensureSetup()}
 
