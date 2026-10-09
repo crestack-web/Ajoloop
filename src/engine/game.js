@@ -749,7 +749,10 @@ function groupInviteCheck(n){if(!G.groups)return;G.groups.forEach(g=>{if(g.dead|
  if(!n.met||n.rel<36||g.inv.some(i=>i.to==='player'))return;
  g.inv.push({id:'i'+G.nid++,code:null,by:n.id,to:'player',day:G.day,exp:G.day+14,max:1,uses:0,acc:[],rev:false,dec:false,resent:0});gtrack('invitation_sent',g,{by:n.id,direct:true});
  note(n.n+' invited you to a private group, '+g.name+'.','grp');fx(n.n+' invited you to a group!','warm')})}
-function groupsDaily(){if(!G.groups)return;G.rl={};G.cf={};
+function groupsDaily(){
+  maybeNpcFriendRequests();
+  resolvePendingFriendReqs();
+if(!G.groups)return;G.rl={};G.cf={};
  G.groups.forEach(g=>{if(g.dead)return;const mems=Object.keys(g.mem),npcs=mems.filter(m=>npc(m)&&!G.susp.includes(m)),staffMe=rk(g,'player')>=2;
   if(g.owner!=='player'&&g.mem[g.owner])g.mem[g.owner].last=G.day;
   if(npcs.length&&Math.random()<.5){const t=pick(CHAT[g.cat]||CHAT['Friends & Family']);if(!g.posts.slice(-6).some(p=>p.txt===t))gPush(g,pick(npcs),t,'msg',null)}
@@ -827,6 +830,8 @@ function initPlaces(){
   if(!G.bizs) G.bizs=[];
   if(!G.visits) G.visits=[];
   if(!G.chats) G.chats={};
+  if(!G.spots) G.spots=[];
+  if(!G.friendReqs) G.friendReqs=[];
   if(!G.p.nearbyOptIn) G.p.nearbyOptIn=false;
   // Seed a few NPC businesses once
   if(!G.bizs.length){
@@ -891,6 +896,132 @@ function nearbyPeople(){
   const a=G.p.home.area;
   return G.npcs.filter(n=>n.met&&!G.blk.includes(n.id)&&(n.area===a||(n.spots&&n.homeArea===a)||(bizByOwner(n.id)&&bizByOwner(n.id).area===a)));
 }
+
+/* ---- Custom spots (community hangouts) ---- */
+const SPOT_ICS=['📍','🕌','🏟️','🌳','☕','🛒','🏫','🏥','🚏','🎵'];
+function addSpot({name,area,label,ic,note}){
+  name=(name||'').trim().slice(0,32);
+  if(name.length<2) return fx('Name your spot.','warn');
+  if(!GANO_AREAS_HAS(area)) return fx('Pick a Kano area for this spot.','warn');
+  if((G.spots||[]).filter(s=>s.by==='player'&&!s.removed).length>=12) return fx('You already listed 12 spots.','warn');
+  const id='sp_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  const s={id,name,area,label:(label||'').trim().slice(0,48),ic:ic||'📍',note:(note||'').trim().slice(0,120),by:'player',created:G.day,public:true};
+  G.spots.push(s);
+  note('Spot added: '+s.name+' in '+s.area+'. People in your community can see it and meet friends there.','ajo');
+  fx('Spot listed','good');
+  return s;
+}
+function removeSpot(id){
+  const s=(G.spots||[]).find(x=>x.id===id&&x.by==='player');
+  if(!s) return fx('Spot not found.','warn');
+  s.removed=true;
+  note('Removed spot: '+s.name);
+  return true;
+}
+function mySpots(){return (G.spots||[]).filter(s=>s.by==='player'&&!s.removed)}
+function communitySpots(){
+  // Spots visible to the community: same home area when nearby is on, or any public player spots in known areas
+  const area=(G.p.home&&G.p.home.done)?G.p.home.area:null;
+  const list=(G.spots||[]).filter(s=>!s.removed&&s.public);
+  if(!area||!G.p.nearbyOptIn) return list.filter(s=>s.by==='player');
+  return list.filter(s=>s.area===area||s.by==='player');
+}
+function peopleAtSpot(spotId){
+  const s=(G.spots||[]).find(x=>x.id===spotId);
+  if(!s) return [];
+  // NPCs whose home area matches, or who have met and "frequent" this area
+  return G.npcs.filter(n=>n.met&&!G.blk.includes(n.id)&&(n.homeArea===s.area||(bizByOwner(n.id)&&bizByOwner(n.id).area===s.area))).slice(0,8);
+}
+
+/* ---- Friend requests ---- */
+function friendStatus(uid){
+  if(!uid||uid==='player') return 'none';
+  const reqs=G.friendReqs||[];
+  if(reqs.some(r=>r.status==='accepted'&&((r.from==='player'&&r.to===uid)||(r.from===uid&&r.to==='player')))) return 'friends';
+  if(reqs.some(r=>r.status==='pending'&&r.from==='player'&&r.to===uid)) return 'pending_out';
+  if(reqs.some(r=>r.status==='pending'&&r.from===uid&&r.to==='player')) return 'pending_in';
+  // Legacy close relationship still counts as friends for chat
+  const n=npc(uid);
+  if(n&&n.met&&n.rel>=60) return 'friends';
+  return 'none';
+}
+function isFriend(uid){return friendStatus(uid)==='friends'}
+function pendingFriendReqs(){return (G.friendReqs||[]).filter(r=>r.status==='pending'&&r.to==='player')}
+function outgoingFriendReqs(){return (G.friendReqs||[]).filter(r=>r.status==='pending'&&r.from==='player')}
+function sendFriendRequest(uid){
+  const n=npc(uid); if(!n) return fx('Person not found.','warn');
+  if(!n.met) return fx('Meet them in town first, then add as friend.','warn');
+  if(G.blk.includes(uid)) return fx('You blocked this person.','warn');
+  const st=friendStatus(uid);
+  if(st==='friends') return fx('You are already friends with '+n.n+'.','warm');
+  if(st==='pending_out') return fx('Friend request already sent.','warm');
+  if(st==='pending_in') return acceptFriendRequest(pendingFriendReqs().find(r=>r.from===uid).id);
+  const id='fr_'+Date.now().toString(36);
+  G.friendReqs.push({id,from:'player',to:uid,status:'pending',day:G.day});
+  note('Friend request sent to '+n.n+'. They can accept or reject.','ajo');
+  // NPC auto-responds based on relationship + reliability (demo offline)
+  const chance=clamp((n.rel||30)/100*0.7+(n.tr||50)/100*0.35+(n.tags.includes('social')?0.15:0),0.15,0.95);
+  if(Math.random()<chance){
+    const r=G.friendReqs.find(x=>x.id===id);
+    if(r){r.status='accepted';r.resolvedDay=G.day;rel(uid,5,'Accepted your friend request');n.lastSeen=G.day;
+      note(n.n+' accepted your friend request. You can chat now.','good');
+      fx(n.n+' is now a friend','good');
+    }
+  } else if(n.rel<25&&Math.random()<0.5){
+    const r=G.friendReqs.find(x=>x.id===id);
+    if(r){r.status='rejected';r.resolvedDay=G.day;note(n.n+' declined your friend request.','info')}
+  } else {
+    note(n.n+' has not responded yet — check back later.','info');
+  }
+  return true;
+}
+function acceptFriendRequest(id){
+  const r=(G.friendReqs||[]).find(x=>x.id===id&&x.status==='pending'&&x.to==='player');
+  if(!r) return fx('Request not found.','warn');
+  r.status='accepted';r.resolvedDay=G.day;
+  const n=npc(r.from);
+  if(n){rel(r.from,6,'You accepted their friend request');n.met=true;n.lastSeen=G.day;
+    note('You and '+n.n+' are now friends. Chat is open.','good');
+    fx('Friends with '+n.n,'good');
+  }
+  return true;
+}
+function rejectFriendRequest(id){
+  const r=(G.friendReqs||[]).find(x=>x.id===id&&x.status==='pending'&&x.to==='player');
+  if(!r) return fx('Request not found.','warn');
+  r.status='rejected';r.resolvedDay=G.day;
+  const n=npc(r.from);
+  note(n?('Declined '+n.n+"'s friend request."):'Request declined.');
+  return true;
+}
+function cancelFriendRequest(uid){
+  const r=(G.friendReqs||[]).find(x=>x.status==='pending'&&x.from==='player'&&x.to===uid);
+  if(!r) return fx('No pending request.','warn');
+  r.status='cancelled';r.resolvedDay=G.day;
+  note('Friend request cancelled.');
+  return true;
+}
+
+function resolvePendingFriendReqs(){
+  (G.friendReqs||[]).filter(r=>r.status==='pending'&&r.from==='player'&&r.day<G.day).forEach(r=>{
+    const n=npc(r.to); if(!n){r.status='cancelled';return}
+    const chance=clamp((n.rel||30)/100*0.75+(n.tr||50)/100*0.3,0.2,0.92);
+    if(Math.random()<chance){r.status='accepted';r.resolvedDay=G.day;rel(r.to,4,'Accepted your friend request');note(n.n+' accepted your friend request. You can chat now.','good')}
+    else if(Math.random()<0.4){r.status='rejected';r.resolvedDay=G.day;note(n.n+' declined your friend request.','info')}
+  });
+}
+
+function maybeNpcFriendRequests(){
+  // Occasional inbound requests from met NPCs who are not friends yet
+  if(Math.random()>0.35) return;
+  const cands=G.npcs.filter(n=>n.met&&!G.blk.includes(n.id)&&friendStatus(n.id)==='none'&&n.rel>=28);
+  if(!cands.length) return;
+  const n=pick(cands);
+  if((G.friendReqs||[]).some(r=>r.from===n.id&&r.to==='player'&&r.status==='pending')) return;
+  G.friendReqs.push({id:'fr_'+Date.now().toString(36),from:n.id,to:'player',status:'pending',day:G.day});
+  note(n.n+' sent you a friend request.','ajo');
+}
+
 function bizByOwner(uid){return G.bizs.find(b=>b.owner===uid&&!b.closed)}
 function visitBiz(bid){
   // legacy alias → request a visit
@@ -1006,6 +1137,7 @@ function chatSend(uid,text,o={}){
   if(!text) return;
   if(G.blk.includes(uid)) return fx('You blocked this person.','warn');
   const n=npc(uid); if(!n) return;
+  if(!isFriend(uid)) return fx('Become friends first — send a request and wait for them to accept.','warn');
   if(!n.met){n.met=true;n.lastSeen=G.day}
   const th=chatThread(uid);
   const msg={by:'player',t:text,day:G.day,hour:G.hour,kind};
@@ -1041,6 +1173,11 @@ function mapPins(){
     const h=KANO_MAP.areas[G.p.home.area];
     pins.push({id:'home',kind:'home',n:'Your home',x:h.x-3,y:h.y+3,ic:'🏠',sub:G.p.home.area+(G.p.home.label?' · '+G.p.home.label:'')});
   }
+  communitySpots().forEach(s=>{
+    const base=KANO_MAP.areas[s.area]||{x:50,y:50};
+    const jitter=(s.id.charCodeAt(s.id.length-1)%9)-4;
+    pins.push({id:s.id,kind:'spot',n:s.name,x:clamp(base.x+jitter,6,94),y:clamp(base.y+jitter+2,6,94),ic:s.ic||'📍',sub:s.area+(s.label?' · '+s.label:''),spot:s});
+  });
   return pins;
 }
 
