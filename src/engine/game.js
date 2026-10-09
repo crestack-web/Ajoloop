@@ -842,7 +842,8 @@ function initPlaces(){
   if(!G.friendReqs) G.friendReqs=[];
   if(!G.p.nearbyOptIn) G.p.nearbyOptIn=false;
   // Seed a few NPC businesses once
-  if(!G.bizs.length){
+  // Top-up seed Kano businesses (new installs + older saves)
+  {
     const seeds=[
       {id:'bz_musa',owner:'musa',name:'Musa Provisions',cat:'Provisions',area:'Fagge',label:'Near Kasuwa gate',loc:'market',ic:'🏪',bio:'Rice, oil, soap — fair measure at the market.',open:true,
         img:'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=600&q=80'},
@@ -862,6 +863,7 @@ function initPlaces(){
         img:'https://images.unsplash.com/photo-1619566636858-adf3ef4644b9?w=600&q=80'}
     ];
     seeds.forEach(b=>{
+      if(G.bizs.some(x=>x.id===b.id)) return;
       if(b.owner!=='player'&&!npc(b.owner)) return;
       G.bizs.push({...b,trust:40+Math.floor(Math.random()*20),visits:0,created:G.day,products:[
         {id:'p1',n:b.cat==='Fashion'?'Alteration / piece':(b.cat==='Food & Kitchen'?'Plate of the day':(b.cat==='Transport'?'Short hop':'Everyday goods')),price:b.cat==='Fashion'?2500:(b.cat==='Food & Kitchen'?1500:2000)}
@@ -1318,7 +1320,10 @@ function ensureSetup(){
   if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
   if(G.p.onboarded==null)G.p.onboarded=false;
 }
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);if(!G.p.work)G.p.work={cat:'',title:'',set:false};(G.bizs||[]).forEach(b=>{if(b.owner==='player'&&!b.avatar)b.avatar=defaultStoreAvatar(G.p.gender)});ensureSetup()}
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);if(!G.p.work)G.p.work={cat:'',title:'',set:false};(G.bizs||[]).forEach(b=>{
+  if(b.owner==='player'&&!b.avatar)b.avatar=defaultStoreAvatar(G.p.gender);
+  if(!b.loc){const areaLoc={Fagge:'market',Gwale:'restaurant',Nasarawa:'social','Kano Municipal':'work',Tarauni:'market',Dala:'social',Kumbotso:'market',Ungogo:'park'};b.loc=areaLoc[b.area]||'market'}
+});ensureSetup()}
 
 /* ---- persistence ---- */
 const Store={async load(){try{if(window.storage){const r=await window.storage.get(KEY,false);if(r&&r.value)return JSON.parse(r.value)}}catch(e){}try{const v=localStorage.getItem(KEY);if(v)return JSON.parse(v)}catch(e){}return Store.mem?JSON.parse(Store.mem):null},
