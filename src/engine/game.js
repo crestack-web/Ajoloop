@@ -539,13 +539,52 @@ function redeemCode(code,u='player'){if(G.susp.includes(u))return no('This accou
 function gPush(g,u,txt,kind,parent){const p={id:'p'+G.nid++,by:u,day:G.day,hr:G.hour,kind,txt,parent,hid:false};g.posts.push(p);if(g.posts.length>200)g.posts.shift();
  if(g.mem[u])g.mem[u].last=G.day;g.last=G.day;if(!g.fi){g.fi=true;gtrack('first_interaction',g,{by:u})}
  if(kind==='announce'&&u!=='player'&&g.mem.player)gnote(g.name+': new announcement from '+nm(u)+'.');return p}
-function gpost(gid,u,txt,o={}){const kind=o.kind==='announce'?'announce':'msg';const g=gguard(gid,u,kind==='announce'?'announce':'post',kind==='announce'?'Only admins can post announcements.':null);if(!g)return false;
- txt=String(txt||'').trim();if(!txt)return no('Write something first.');if(txt.length>280)return no('Keep it under 280 characters.');
- if((txt.match(/https?:\/\//gi)||[]).length>1)return no('Too many links. That looks like spam.');
- if(g.posts.filter(p=>p.by===u).slice(-5).some(p=>p.txt.toLowerCase()===txt.toLowerCase()))return no('You already posted that.');
+function gpost(gid,u,txt,o={}){
+ const kind=o.kind==='announce'?'announce':(o.kind==='poll'?'poll':'msg');
+ const need=kind==='announce'?'announce':'post';
+ const g=gguard(gid,u,need,kind==='announce'?'Only admins can post announcements.':null);if(!g)return false;
+ txt=String(txt||'').trim();if(!txt)return no(kind==='poll'?'Write a poll question.':'Write something first.');
+ if(txt.length>280)return no('Keep it under 280 characters.');
+ if(kind!=='poll'&&(txt.match(/https?:\/\//gi)||[]).length>1)return no('Too many links. That looks like spam.');
+ if(kind!=='poll'&&g.posts.filter(p=>p.by===u).slice(-5).some(p=>p.txt.toLowerCase()===txt.toLowerCase()))return no('You already posted that.');
  if(o.parent&&!g.posts.some(p=>p.id===o.parent&&!p.parent))return no('That post is gone.');
- if(!grate(u,'post:'+g.id,kind==='announce'?3:8,'You have posted a lot today. Give others a turn.'))return false;
- const p=gPush(g,u,txt,kind,o.parent||null);if(u==='player'&&kind==='msg')npcReply(g,p);return p.id}
+ if(!grate(u,'post:'+g.id,kind==='announce'?3:(kind==='poll'?4:8),'You have posted a lot today. Give others a turn.'))return false;
+ const p={id:'p'+G.nid++,by:u,day:G.day,hr:G.hour,kind,txt,parent:o.parent||null,hid:false};
+ if(kind==='poll'){
+  let opts=(o.options||[]).map(t=>String(t||'').trim()).filter(Boolean).slice(0,6);
+  if(opts.length<2)return no('Add at least two choices for the poll.');
+  if(opts.length>6)opts=opts.slice(0,6);
+  p.options=opts.map((t,i)=>({id:'o'+i,t:t.slice(0,60),votes:[]}));
+ }
+ g.posts.push(p);if(g.mem[u])g.mem[u].last=G.day;g.last=G.day;if(!g.fi){g.fi=true;gtrack('first_interaction',g,{by:u})}
+ // NPC members sometimes engage
+ if(kind==='msg'&&Math.random()<0.45){
+  const others=Object.keys(g.mem).filter(m=>m!=='player'&&m!==u);
+  if(others.length){const m=pick(others);const replies=['Noted.','I agree.','Who is joining?','Count me in.','God willing.','Let us keep it respectful.'];
+   g.posts.push({id:'p'+G.nid++,by:m,day:G.day,hr:G.hour,kind:'msg',txt:pick(replies),parent:null,hid:false})}
+ }
+ if(kind==='poll'){
+  // NPCs may cast early votes
+  Object.keys(g.mem).filter(m=>m!=='player').forEach(m=>{
+   if(Math.random()<0.55){const o=pick(p.options);if(!o.votes.includes(m))o.votes.push(m)}
+  });
+ }
+ gtrack(kind==='poll'?'poll_created':'post_created',g,{by:u,kind});
+ return p.id;
+}
+function votePoll(gid,pid,oid,u='player'){
+ const g=grp(gid);if(!g||!g.mem[u])return no('Join the group to vote.');
+ const p=g.posts.find(x=>x.id===pid&&x.kind==='poll'&&!x.hid);if(!p)return no('Poll not found.');
+ if(!p.options||!p.options.some(o=>o.id===oid))return no('Invalid choice.');
+ p.options.forEach(o=>{o.votes=(o.votes||[]).filter(v=>v!==u)});
+ const opt=p.options.find(o=>o.id===oid);opt.votes.push(u);
+ if(g.mem[u])g.mem[u].last=G.day;
+ fx('Vote recorded','warm');
+ return true;
+}
+function createGroupPoll(gid,question,options){
+ return gpost(gid,'player',question,{kind:'poll',options});
+}
 function npcReply(g,p){if(Math.random()>.6)return;const c=Object.keys(g.mem).filter(m=>m!=='player'&&npc(m)&&!g.ban.includes(m));if(!c.length)return;gPush(g,pick(c),pick(REPLY),'msg',p.parent||p.id)}
 function postsFor(gid,v='player'){const g=grp(gid);if(!g||g.ban.includes(v))return null;
  if(!g.mem[v]){if(g.vis==='public')return g.posts.filter(p=>p.kind==='announce'&&!p.hid).map(p=>({...p}));return null}

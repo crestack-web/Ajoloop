@@ -382,3 +382,14 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
 .av-opt.on{border-color:var(--danfo);background:rgba(255,201,40,.12)}
 .av-opt .swatch{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.2);display:block}
 .av-cats{gap:6px}
+
+.wa-poll{margin:10px 8px;padding:12px;border-radius:16px;background:#2a2272;border:1px solid rgba(255,201,40,.25)}
+.wa-poll-q{font-weight:800;font-size:15px;margin-bottom:4px}
+.wa-poll-opt{display:block;width:100%;text-align:left;margin-top:8px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.2);color:#f0eeff;font-weight:700;font-size:13px}
+.wa-poll-opt.on{border-color:var(--danfo);background:rgba(255,201,40,.15);color:#ffe8a0}
+.wa-poll-bar{display:block;height:4px;background:rgba(255,255,255,.1);border-radius:4px;margin:6px 0 4px;overflow:hidden}
+.wa-poll-bar i{display:block;height:100%;background:var(--danfo);border-radius:4px}
+.wa-poll-n{font-size:11px;opacity:.75}
+.wa-poll-form{padding:12px;background:#1a1448;border-top:1px solid rgba(255,201,40,.2)}
+.wa-poll-form input{width:100%;margin-top:8px;border-radius:12px;border:0;padding:10px 12px;background:#2a2272;color:#fff;font-weight:600}
+.msg.poll{background:rgba(42,34,114,.6)}

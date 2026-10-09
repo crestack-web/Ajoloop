@@ -393,6 +393,17 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
 .av-opt .swatch{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.2);display:block}
 .av-cats{gap:6px}
 
+.wa-poll{margin:10px 8px;padding:12px;border-radius:16px;background:#2a2272;border:1px solid rgba(255,201,40,.25)}
+.wa-poll-q{font-weight:800;font-size:15px;margin-bottom:4px}
+.wa-poll-opt{display:block;width:100%;text-align:left;margin-top:8px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.2);color:#f0eeff;font-weight:700;font-size:13px}
+.wa-poll-opt.on{border-color:var(--danfo);background:rgba(255,201,40,.15);color:#ffe8a0}
+.wa-poll-bar{display:block;height:4px;background:rgba(255,255,255,.1);border-radius:4px;margin:6px 0 4px;overflow:hidden}
+.wa-poll-bar i{display:block;height:100%;background:var(--danfo);border-radius:4px}
+.wa-poll-n{font-size:11px;opacity:.75}
+.wa-poll-form{padding:12px;background:#1a1448;border-top:1px solid rgba(255,201,40,.2)}
+.wa-poll-form input{width:100%;margin-top:8px;border-radius:12px;border:0;padding:10px 12px;background:#2a2272;color:#fff;font-weight:600}
+.msg.poll{background:rgba(42,34,114,.6)}
+
 </style>
 </head>
 <body>
@@ -940,13 +951,52 @@ function redeemCode(code,u='player'){if(G.susp.includes(u))return no('This accou
 function gPush(g,u,txt,kind,parent){const p={id:'p'+G.nid++,by:u,day:G.day,hr:G.hour,kind,txt,parent,hid:false};g.posts.push(p);if(g.posts.length>200)g.posts.shift();
  if(g.mem[u])g.mem[u].last=G.day;g.last=G.day;if(!g.fi){g.fi=true;gtrack('first_interaction',g,{by:u})}
  if(kind==='announce'&&u!=='player'&&g.mem.player)gnote(g.name+': new announcement from '+nm(u)+'.');return p}
-function gpost(gid,u,txt,o={}){const kind=o.kind==='announce'?'announce':'msg';const g=gguard(gid,u,kind==='announce'?'announce':'post',kind==='announce'?'Only admins can post announcements.':null);if(!g)return false;
- txt=String(txt||'').trim();if(!txt)return no('Write something first.');if(txt.length>280)return no('Keep it under 280 characters.');
- if((txt.match(/https?:\/\//gi)||[]).length>1)return no('Too many links. That looks like spam.');
- if(g.posts.filter(p=>p.by===u).slice(-5).some(p=>p.txt.toLowerCase()===txt.toLowerCase()))return no('You already posted that.');
+function gpost(gid,u,txt,o={}){
+ const kind=o.kind==='announce'?'announce':(o.kind==='poll'?'poll':'msg');
+ const need=kind==='announce'?'announce':'post';
+ const g=gguard(gid,u,need,kind==='announce'?'Only admins can post announcements.':null);if(!g)return false;
+ txt=String(txt||'').trim();if(!txt)return no(kind==='poll'?'Write a poll question.':'Write something first.');
+ if(txt.length>280)return no('Keep it under 280 characters.');
+ if(kind!=='poll'&&(txt.match(/https?:\/\//gi)||[]).length>1)return no('Too many links. That looks like spam.');
+ if(kind!=='poll'&&g.posts.filter(p=>p.by===u).slice(-5).some(p=>p.txt.toLowerCase()===txt.toLowerCase()))return no('You already posted that.');
  if(o.parent&&!g.posts.some(p=>p.id===o.parent&&!p.parent))return no('That post is gone.');
- if(!grate(u,'post:'+g.id,kind==='announce'?3:8,'You have posted a lot today. Give others a turn.'))return false;
- const p=gPush(g,u,txt,kind,o.parent||null);if(u==='player'&&kind==='msg')npcReply(g,p);return p.id}
+ if(!grate(u,'post:'+g.id,kind==='announce'?3:(kind==='poll'?4:8),'You have posted a lot today. Give others a turn.'))return false;
+ const p={id:'p'+G.nid++,by:u,day:G.day,hr:G.hour,kind,txt,parent:o.parent||null,hid:false};
+ if(kind==='poll'){
+  let opts=(o.options||[]).map(t=>String(t||'').trim()).filter(Boolean).slice(0,6);
+  if(opts.length<2)return no('Add at least two choices for the poll.');
+  if(opts.length>6)opts=opts.slice(0,6);
+  p.options=opts.map((t,i)=>({id:'o'+i,t:t.slice(0,60),votes:[]}));
+ }
+ g.posts.push(p);if(g.mem[u])g.mem[u].last=G.day;g.last=G.day;if(!g.fi){g.fi=true;gtrack('first_interaction',g,{by:u})}
+ // NPC members sometimes engage
+ if(kind==='msg'&&Math.random()<0.45){
+  const others=Object.keys(g.mem).filter(m=>m!=='player'&&m!==u);
+  if(others.length){const m=pick(others);const replies=['Noted.','I agree.','Who is joining?','Count me in.','God willing.','Let us keep it respectful.'];
+   g.posts.push({id:'p'+G.nid++,by:m,day:G.day,hr:G.hour,kind:'msg',txt:pick(replies),parent:null,hid:false})}
+ }
+ if(kind==='poll'){
+  // NPCs may cast early votes
+  Object.keys(g.mem).filter(m=>m!=='player').forEach(m=>{
+   if(Math.random()<0.55){const o=pick(p.options);if(!o.votes.includes(m))o.votes.push(m)}
+  });
+ }
+ gtrack(kind==='poll'?'poll_created':'post_created',g,{by:u,kind});
+ return p.id;
+}
+function votePoll(gid,pid,oid,u='player'){
+ const g=grp(gid);if(!g||!g.mem[u])return no('Join the group to vote.');
+ const p=g.posts.find(x=>x.id===pid&&x.kind==='poll'&&!x.hid);if(!p)return no('Poll not found.');
+ if(!p.options||!p.options.some(o=>o.id===oid))return no('Invalid choice.');
+ p.options.forEach(o=>{o.votes=(o.votes||[]).filter(v=>v!==u)});
+ const opt=p.options.find(o=>o.id===oid);opt.votes.push(u);
+ if(g.mem[u])g.mem[u].last=G.day;
+ fx('Vote recorded','warm');
+ return true;
+}
+function createGroupPoll(gid,question,options){
+ return gpost(gid,'player',question,{kind:'poll',options});
+}
 function npcReply(g,p){if(Math.random()>.6)return;const c=Object.keys(g.mem).filter(m=>m!=='player'&&npc(m)&&!g.ban.includes(m));if(!c.length)return;gPush(g,pick(c),pick(REPLY),'msg',p.parent||p.id)}
 function postsFor(gid,v='player'){const g=grp(gid);if(!g||g.ban.includes(v))return null;
  if(!g.mem[v]){if(g.vis==='public')return g.posts.filter(p=>p.kind==='announce'&&!p.hid).map(p=>({...p}));return null}
@@ -1571,6 +1621,12 @@ function render(){
   if(log)log.scrollTop=log.scrollHeight;
   flush();return;
  }
+ if(UI.modal&&UI.modal.t==='grpChat'){
+  app.innerHTML=groupChatPage(UI.modal.id);
+  const log=document.getElementById('wa-log');
+  if(log)log.scrollTop=log.scrollHeight;
+  flush();return;
+ }
  const sc0=document.getElementById('sheet'),st0=sc0?sc0.scrollTop:0;
  app.innerHTML=hud()+'<main>'+({life:lifeView,town:townView,people:peopleView,groups:groupsView,ajo:ajoView,more:moreView}[UI.tab])()+'</main>'+navHtml()+sheetHtml();
  if(st0){const s1=document.getElementById('sheet');if(s1)s1.scrollTop=st0}
@@ -2121,6 +2177,74 @@ function avatarSheet(createMode){
 </div>`;
 }
 
+
+function groupChatPage(gid){
+  const g=grp(gid); if(!g||g.dead) return `<div class="wa-page"><header class="wa-head"><button class="wa-back" data-a="close">‹</button><div class="wa-title"><b>Group</b></div></header><div class="empty">Not available</div></div>`;
+  if(!g.mem.player) return `<div class="wa-page"><header class="wa-head"><button class="wa-back" data-a="close">‹</button></header><div class="empty">Join this group to chat</div></div>`;
+  const memN=Object.keys(g.mem).length;
+  const ps=(postsFor(gid)||[]).filter(p=>!p.parent);
+  let msgs='', lastDay=null;
+  ps.forEach(p=>{
+    if(p.day!==lastDay){msgs+=`<div class="wa-day">Day ${p.day}</div>`;lastDay=p.day}
+    if(p.kind==='poll'){
+      const total=(p.options||[]).reduce((s,o)=>s+(o.votes||[]).length,0)||1;
+      const my=(p.options||[]).find(o=>(o.votes||[]).includes('player'));
+      msgs+=`<div class="wa-poll"><div class="wa-poll-q">📊 ${esc(p.txt)}</div><div class="tiny muted" style="margin-bottom:8px">${esc(nm(p.by))} · ${total} vote${total===1?'':'s'}</div>
+        ${(p.options||[]).map(o=>{
+          const n=(o.votes||[]).length, pct=Math.round(n/total*100);
+          const on=my&&my.id===o.id;
+          return `<button class="wa-poll-opt ${on?'on':''}" data-a="g_vote" data-id="${gid}" data-p="${p.id}" data-o="${o.id}">
+            <span class="wa-poll-t">${esc(o.t)}</span>
+            <span class="wa-poll-bar"><i style="width:${pct}%"></i></span>
+            <span class="wa-poll-n">${n} · ${pct}%</span>
+          </button>`;
+        }).join('')}</div>`;
+      return;
+    }
+    if(p.kind==='announce'){
+      msgs+=`<div class="wa-sys">📣 ${esc(nm(p.by))}: ${esc(p.txt)}</div>`;
+      return;
+    }
+    const me=p.by==='player';
+    msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'}"><div class="wa-name">${me?'You':esc(nm(p.by))}</div><div class="wa-text">${esc(p.txt)}</div><div class="wa-time">Day ${p.day}</div></div></div>`;
+  });
+  if(!ps.length)msgs=`<div class="wa-sys">Only members see this chat.</div><div class="empty" style="margin-top:24px">Say hello to the group.</div>`;
+
+  const pollOpen=UI.gi.pollOpen;
+  return `<div class="wa-page">
+  <header class="wa-head">
+    <button class="wa-back" data-a="grpChatBack" data-id="${gid}" aria-label="Back">‹</button>
+    <div class="wa-av">${g.av||'🏘️'}</div>
+    <button class="wa-title" data-a="g_open" data-id="${gid}">
+      <b>${esc(g.name)}</b>
+      <span>${memN} member${memN===1?'':'s'}</span>
+    </button>
+  </header>
+  <div class="wa-log" id="wa-log">${msgs}</div>
+  ${pollOpen?`<div class="wa-poll-form">
+    <b>New poll</b>
+    <input id="poll-q" maxlength="120" placeholder="Ask a question…" value="${esc(UI.gi.pollQ||'')}">
+    <input id="poll-o1" maxlength="60" placeholder="Option 1" value="${esc((UI.gi.pollOpts||[])[0]||'')}">
+    <input id="poll-o2" maxlength="60" placeholder="Option 2" value="${esc((UI.gi.pollOpts||[])[1]||'')}">
+    <input id="poll-o3" maxlength="60" placeholder="Option 3 (optional)" value="${esc((UI.gi.pollOpts||[])[2]||'')}">
+    <div class="row" style="gap:8px;margin-top:8px">
+      <button class="btn ghost sm" data-a="g_pollCancel">Cancel</button>
+      <button class="btn sm" data-a="g_pollSend" data-id="${gid}">Post poll</button>
+    </div>
+  </div>`:''}
+  <div class="wa-quick">
+    <button data-a="g_pollOpen" data-id="${gid}">📊 Poll</button>
+    <button data-a="g_quick" data-id="${gid}" data-t="Who is free this weekend?">Weekend?</button>
+    <button data-a="g_quick" data-id="${gid}" data-t="Reminder: keep this space respectful.">Respect</button>
+  </div>
+  <footer class="wa-compose">
+    <button class="wa-plus" type="button" data-a="g_pollOpen" data-id="${gid}" aria-label="Poll">📊</button>
+    <input id="grp-chat-in" maxlength="280" placeholder="Message" autocomplete="off" value="${esc(UI.gi.msg||'')}">
+    <button class="wa-send" data-a="g_chatSend" data-id="${gid}" aria-label="Send">➤</button>
+  </footer>
+</div>`;
+}
+
 function ajoChatPage(a){
   if(!a) return `<div class="wa-page"><header class="wa-head"><button class="wa-back" data-a="close">‹</button><div class="wa-title"><b>Circle</b></div></header><div class="empty">Not found</div></div>`;
   const host=a.host==='player'?G.p:npc(a.host);
@@ -2352,7 +2476,16 @@ function groupsView(){const mine=G.groups.filter(g=>!g.dead&&g.mem.player);
  <section class="card"><b>Your interests</b><div class="muted tiny">Stored on this device only — used to suggest groups.</div><div class="opts">${G_CATS.map(c=>`<button data-a="g_int" data-v="${c}" class="${G.p.ints.includes(c)?'on':''}">${c}</button>`).join('')}</div>
  <label class="l">Show groups near me</label><div class="muted tiny">Off by default. No GPS: you pick an area yourself.</div><div class="opts"><button data-a="g_area" data-v="" class="${G.p.shareArea?'':'on'}">Off</button>${G_AREAS.map(a=>`<button data-a="g_area" data-v="${a}" class="${G.p.area===a?'on':''}">${a}</button>`).join('')}</div></section>`}
 
-const gpostHtml=(g,p,isRep,staff)=>`<div class="msg ${isRep?'reply':''} ${p.kind==='announce'?'ann':''}"><div class="by">${p.kind==='announce'?'📣 ':''}${esc(nm(p.by))} ${npcTag(p.by)} <span class="muted">· Day ${p.day}</span></div>${p.hid?'<i class="muted">[hidden by a moderator]</i> ':''}${esc(p.txt)}${staff===null?'':`<div class="mact">${!isRep&&p.kind==='msg'?`<button data-a="g_reply" data-p="${p.id}">Reply</button>`:''}${p.by!=='player'?`<button data-a="g_rep" data-p="${p.id}">Report</button>`:''}${staff&&!p.hid?`<button data-a="g_hide" data-p="${p.id}">Hide</button>`:''}</div>${UI.gconf==='rep:'+p.id?`<div class="opts">${['Spam','Abuse or bullying','Scam','Other'].map(r=>`<button data-a="g_report" data-p="${p.id}" data-r="${r}">${r}</button>`).join('')}</div>`:''}`}</div>`;
+const gpostHtml=(g,p,isRep,staff)=>{
+  if(p.kind==='poll'){
+    const total=(p.options||[]).reduce((s,o)=>s+(o.votes||[]).length,0)||1;
+    return `<div class="msg poll"><div class="by">📊 ${esc(nm(p.by))} · Day ${p.day}</div><b>${esc(p.txt)}</b>
+      ${(p.options||[]).map(o=>{const n=(o.votes||[]).length;const on=(o.votes||[]).includes('player');
+        return `<button class="wa-poll-opt ${on?'on':''}" style="margin-top:6px" data-a="g_vote" data-id="${g.id}" data-p="${p.id}" data-o="${o.id}">${esc(o.t)} · ${n}</button>`;}).join('')}
+    </div>`;
+  }
+  return `<div class="msg ${isRep?'reply':''} ${p.kind==='announce'?'ann':''}"><div class="by">${p.kind==='announce'?'📣 ':''}${esc(nm(p.by))} ${npcTag(p.by)} <span class="muted">· Day ${p.day}</span></div>${p.hid?'<i class="muted">[hidden by a moderator]</i> ':''}${esc(p.txt)}${staff===null?'':`<div class="mact">${!isRep&&p.kind==='msg'?`<button data-a="g_reply" data-p="${p.id}">Reply</button>`:''}${p.by!=='player'?`<button data-a="g_rep" data-p="${p.id}">Report</button>`:''}${staff&&!p.hid?`<button data-a="g_hide" data-p="${p.id}">Hide</button>`:''}</div>${UI.gconf==='rep:'+p.id?`<div class="opts">${['Spam','Abuse or bullying','Scam','Other'].map(r=>`<button data-a="g_report" data-p="${p.id}" data-r="${r}">${r}</button>`).join('')}</div>`:''}`}</div>`;
+};
 
 function grpSheet(id){const v=viewGroup(id);if(!v)return `<h2>Group unavailable</h2><div class="muted sm" style="margin-top:8px">This group is private, or it does not exist.</div>`;
  const g=grp(id),head=`<div class="row" style="margin:6px 0 4px"><div class="av" style="width:56px;height:56px;font-size:32px">${v.av}</div><div style="min-width:0"><h2>${esc(v.name)}</h2><div class="muted sm">${esc(v.cat)} · ${v.count} member${v.count===1?'':'s'}${v.area?' · '+esc(v.area):''}</div></div></div><div style="margin-bottom:8px">${visPill(v)}${v.member?rolePill(v.role):''}${(v.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`;
@@ -2376,6 +2509,7 @@ function gHome(g,v){const me=rk(g,'player'),canInv=gcan(g,'player','invite')&&!(
  const succ=g.owner==='player'?nextOwner(g,'player'):null;
  return `<div class="muted sm">${esc(v.desc)||'No description yet.'}</div>
  ${canInv?`<button class="btn" style="margin-top:12px" data-a="g_inv" data-id="${g.id}">＋ Invite friends</button>`:''}
+ <button class="btn" style="margin-top:8px" data-a="grpChatOpen" data-id="${g.id}">💬 Open group chat</button>
  ${v.rules.length?`<section class="card"><b>📜 Rules</b>${v.rules.map((r,i)=>`<div class="sm" style="margin-top:6px">${i+1}. ${esc(r)}</div>`).join('')}</section>`:''}
  <section class="card"><b>📣 Announcements</b><div style="margin-top:8px">${v.announcements.length?v.announcements.map(p=>gpostHtml(g,p,false,null)).join(''):'<div class="muted sm">No announcements yet.'+(hand?' Post one from Manage.':'')+'</div>'}</div></section>
  <section class="card"><b>🗓️ Coming up</b>${v.events.length?v.events.slice(0,3).map(e=>`<div class="tx"><span>${e.kind==='meetup'?'🗓️':'🏆'} ${esc(e.title)}</span><span class="muted tiny">${e.kind==='meetup'?dayRel(e.day):'until Day '+e.dl}</span></div>`).join('')+`<button class="btn ghost sm" style="margin-top:8px" data-a="g_tab" data-v="events">See activities</button>`:'<div class="muted sm" style="margin-top:6px">Nothing planned yet.</div>'}</section>
@@ -2387,10 +2521,10 @@ function gHome(g,v){const me=rk(g,'player'),canInv=gcan(g,'player','invite')&&!(
  <button class="btn ${UI.gconf==='leave'?'red':'ghost'}" style="margin-top:8px" data-a="g_leave">${UI.gconf==='leave'?'Tap again to leave':'Leave group'}</button>
  <div class="muted tiny" style="margin-top:6px">Leaving a group does not change any Ajo you joined or anything you owe.${succ?' You are the owner: '+esc(nm(succ))+' would take over.':''}</div>`}
 
-function gChat(g,v){const ps=postsFor(g.id)||[],staff=rk(g,'player')>=2,top=ps.filter(p=>!p.parent).slice(-40),rp=ps.find(p=>p.id===UI.gi.replyTo);
- return `${top.length?top.map(p=>gpostHtml(g,p,false,staff)+ps.filter(c=>c.parent===p.id).map(c=>gpostHtml(g,c,true,staff)).join('')).join(''):'<div class="card muted center">No messages yet. Say hello 👋</div>'}
- <div class="composer">${rp?`<div class="row sp tiny muted" style="margin-bottom:4px"><span>Replying to ${esc(nm(rp.by))}</span><button data-a="g_cancelreply" style="background:none;color:var(--danfo);font-weight:800">Cancel</button></div>`:''}${GT('msg','Write a message',280,'','g_send')}<button class="btn sm" style="margin-top:8px" data-a="g_send">Send</button></div>
- <div class="muted tiny" style="margin-top:8px">Be kind. Report anything abusive. Simulated neighbours (NPC) chat here too.</div>`}
+function gChat(g,v){
+ return `<div class="card"><b>Group chat</b><div class="muted sm" style="margin:8px 0 12px">WhatsApp-style chat for members — messages and polls.</div>
+  <button class="btn" data-a="grpChatOpen" data-id="${g.id}">💬 Open group chat</button></div>
+  <div class="muted tiny" style="margin-top:10px">Be kind. Report abuse. Neighbours may reply offline.</div>`}
 
 function gEvents(g,v){const adm=rk(g,'player')>=3,evs=g.evs.filter(e=>G.day<=e.dl||e.done).sort((a,b)=>(a.day||a.dl)-(b.day||b.dl)),E=UI.ge;
  const card=e=>{const going=e.going.includes('player'),sim=e.going.filter(m=>m!=='player').length;
@@ -2465,7 +2599,7 @@ function deepLink(){if(!G)return;let h='';try{h=(location.hash||'').slice(1)}cat
 function gClick(a,d){const M=UI.modal||{};
  switch(a){
   case 'g_open':UI.modal={t:'grp',id:d.id};UI.gt='home';UI.gi.replyTo=null;UI.gs=null;UI.gconf=null;visitGroup(d.id);commit();break;
-  case 'g_tab':UI.gt=d.v;UI.gconf=null;UI.gs=null;render();break;
+  case 'g_tab':if(d.v==='chat'&&UI.modal&&UI.modal.id){UI.modal={t:'grpChat',id:UI.modal.id};render();break}UI.gt=d.v;UI.gconf=null;UI.gs=null;render();break;
   case 'g_back':UI.modal={t:'grp',id:M.id};render();break;
   case 'g_set':{const o=UI[d.o]||(UI[d.o]={});o[d.k]=d.v==='true'?true:d.v==='false'?false:d.v;render();break}
   case 'g_cat':UI.gcat=UI.gcat===d.v?'':d.v;render();break;
@@ -2482,6 +2616,21 @@ function gClick(a,d){const M=UI.modal||{};
   case 'g_ans':run(answerInvite,d.id,d.i,d.y==='1');break;
   case 'g_leave':if(UI.gconf!=='leave'){UI.gconf='leave';render()}else{UI.gconf=null;if(leaveGroup(M.id,'player'))UI.modal=null;commit()}break;
   case 'g_show':{const g=grp(M.id);if(g&&g.mem.player)setShow(M.id,'player',!g.mem.player.show);commit();break}
+  case 'grpChatOpen':UI.gi.pollOpen=false;UI.modal={t:'grpChat',id:d.id};render();break;
+  case 'grpChatBack':UI.modal={t:'grp',id:d.id};UI.gt='home';render();break;
+  case 'g_chatSend':{
+    const t=(document.getElementById('grp-chat-in')||{}).value||UI.gi.msg||'';
+    if(gpost(d.id,'player',t)){UI.gi.msg='';}
+    commit();break}
+  case 'g_quick':if(gpost(d.id,'player',d.t))commit();break;
+  case 'g_pollOpen':UI.gi.pollOpen=true;UI.gi.pollQ='';UI.gi.pollOpts=['','',''];render();break;
+  case 'g_pollCancel':UI.gi.pollOpen=false;render();break;
+  case 'g_pollSend':{
+    const q=(document.getElementById('poll-q')||{}).value||'';
+    const opts=[1,2,3].map(i=>(document.getElementById('poll-o'+i)||{}).value||'').filter(Boolean);
+    if(createGroupPoll(d.id,q,opts)){UI.gi.pollOpen=false;UI.gi.pollQ='';UI.gi.pollOpts=[];}
+    commit();break}
+  case 'g_vote':run(votePoll,d.id,d.p,d.o);break;
   case 'g_send':{if(gpost(M.id,'player',UI.gi.msg,{parent:UI.gi.replyTo||null})){UI.gi.msg='';UI.gi.replyTo=null}commit();break}
   case 'g_reply':UI.gi.replyTo=d.p;render();break;
   case 'g_cancelreply':UI.gi.replyTo=null;render();break;
