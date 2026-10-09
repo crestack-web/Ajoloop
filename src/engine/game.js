@@ -15,14 +15,22 @@ const hash=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))|0;return Math.a
 const AJO_BLOCK=7, RENT=3000, LIVING=300, SHOP_COST=15000, UNIT_COST=500, UNIT_PRICE=700;
 
 const LOCS={
- home:{n:'Home',ic:'🏠',d:'Your room in the compound. Quiet, and the ceiling fan mostly works.'},
- market:{n:'Kasuwa Market',ic:'🛒',d:'Stalls, shouting, sacks of rice. Everyone is selling something.'},
- restaurant:{n:'Mama Put Kitchen',ic:'🍲',d:'Jollof, tuwo and gist. The best place to learn who is who.'},
- park:{n:'Keke Park',ic:'🛺',d:'Keke, danfo and drivers who know every shortcut in town.'},
- work:{n:'Workplace',ic:'💼',d:'Jobs on the noticeboard. Show up, work hard, get paid.'},
- bank:{n:'Arewa Bank',ic:'🏦',d:'Cold air-conditioning and a long queue. A safe place for savings.'},
- social:{n:'Suya Spot',ic:'🔥',d:'Suya smoke, loud music, louder opinions.'},
- ajo:{n:'Ajo Center',ic:'🤝',d:'Where savings circles form and trust gets tested.'}
+ home:{n:'Home',ic:'🏠',area:null,label:'Your compound',d:'Your room in the compound. Quiet, and the ceiling fan mostly works.',
+  img:null},
+ market:{n:'Kasuwa Market',ic:'🛒',area:'Fagge',label:'Kurmi / city market belt',d:'Stalls, shouting, sacks of rice. Real traders, real deals — and your neighbours shopping too.',
+  img:'https://images.unsplash.com/photo-1555529902-5261145633bf?w=800&q=80'},
+ restaurant:{n:'Mama Put Row',ic:'🍲',area:'Gwale',label:'Street kitchens & canteens',d:'Jollof, tuwo and gist. Shared tables where trust starts over a plate.',
+  img:'https://images.unsplash.com/photo-1604329760661-e7fb410d3ab4?w=800&q=80'},
+ park:{n:'Keke Park',ic:'🛺',area:'Kano Municipal',label:'Motor park & junctions',d:'Keke, danfo and drivers who know every shortcut in Kano.',
+  img:'https://images.unsplash.com/photo-1544620341-9adcbc10023b?w=800&q=80'},
+ work:{n:'Workplace Strip',ic:'💼',area:'Kano Municipal',label:'Offices & workshops',d:'Jobs on the noticeboard. Shops, clerks, and side hustles in one belt.',
+  img:'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80'},
+ bank:{n:'Arewa Bank Strip',ic:'🏦',area:'Kano Municipal',label:'Banking corridor',d:'Cold air-conditioning and a long queue. Savings, salaries, and serious talk.',
+  img:'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80'},
+ social:{n:'Suya Junction',ic:'🔥',area:'Nasarawa',label:'Evening suya & hangout',d:'Suya smoke, loud music, louder opinions — where reputation spreads fast.',
+  img:'https://images.unsplash.com/photo-1555939594-58edc777ff85?w=800&q=80'},
+ ajo:{n:'Ajo Meeting Spots',ic:'🤝',area:'Fagge',label:'Circles meet here',d:'Where savings circles form — mosque yards, shops, and compounds across Kano.',
+  img:'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&q=80'}
 };
 const JOBS=[
  {id:'shop',n:'Shop Assistant',ic:'🏪',pay:5000,en:20,d:'Steady work at Mallam Haruna Stores.'},
@@ -836,16 +844,43 @@ function initPlaces(){
   // Seed a few NPC businesses once
   if(!G.bizs.length){
     const seeds=[
-      {id:'bz_musa',owner:'musa',name:'Musa Provisions',cat:'Provisions',area:'Fagge',label:'Near Kasuwa gate',ic:'🏪',bio:'Rice, oil, soap — fair measure.',open:true},
-      {id:'bz_aisha',owner:'aisha',name:"Aisha's Stitches",cat:'Fashion',area:'Gwale',label:'By the primary school',ic:'🧵',bio:'Ankara, alterations, school uniforms.',open:true},
-      {id:'bz_sani',owner:'sani',name:'Sani Phones',cat:'Phones & Tech',area:'Tarauni',label:'Along the main road',ic:'📱',bio:'Screens, chargers, airtime.',open:true}
+      {id:'bz_musa',owner:'musa',name:'Musa Provisions',cat:'Provisions',area:'Fagge',label:'Near Kasuwa gate',loc:'market',ic:'🏪',bio:'Rice, oil, soap — fair measure at the market.',open:true,
+        img:'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=600&q=80'},
+      {id:'bz_aisha',owner:'aisha',name:"Aisha's Stitches",cat:'Fashion',area:'Gwale',label:'By the primary school',loc:'market',ic:'🧵',bio:'Ankara, alterations, school uniforms.',open:true,
+        img:'https://images.unsplash.com/photo-1558171813-4c088753af8f?w=600&q=80'},
+      {id:'bz_sani',owner:'sani',name:'Sani Phones',cat:'Phones & Tech',area:'Tarauni',label:'Along the main road',loc:'market',ic:'📱',bio:'Screens, chargers, airtime.',open:true,
+        img:'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&q=80'},
+      {id:'bz_fatima',owner:'fatima',name:"Fatima's Kitchen",cat:'Food & Kitchen',area:'Gwale',label:'Mama Put Row',loc:'restaurant',ic:'🍲',bio:'Jollof, tuwo, and party catering.',open:true,
+        img:'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=600&q=80'},
+      {id:'bz_yusuf',owner:'yusuf',name:'Yusuf Keke Hub',cat:'Transport',area:'Kano Municipal',label:'Keke Park stand',loc:'park',ic:'🛺',bio:'Short hops across the municipal.',open:true,
+        img:'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=600&q=80'},
+      {id:'bz_halima',owner:'halima',name:'Halima Beauty',cat:'Beauty',area:'Nasarawa',label:'Near Suya Junction',loc:'social',ic:'💅',bio:'Braids, gel, and evening looks.',open:true,
+        img:'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600&q=80'},
+      {id:'bz_ibrahim',owner:'ibrahim',name:'Ibrahim Desk Services',cat:'Services',area:'Kano Municipal',label:'Bank strip offices',loc:'bank',ic:'📋',bio:'Forms, photocopies, small business help.',open:true,
+        img:'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=600&q=80'},
+      {id:'bz_hauwa',owner:'hauwa',name:'Hauwa Fresh Fruit',cat:'Provisions',area:'Fagge',label:'Kasuwa edge',loc:'market',ic:'🍊',bio:'Seasonal fruit, early morning stock.',open:true,
+        img:'https://images.unsplash.com/photo-1619566636858-adf3ef4644b9?w=600&q=80'}
     ];
     seeds.forEach(b=>{
-      if(!npc(b.owner)) return;
-      G.bizs.push({...b,trust:40,visits:0,created:G.day,products:[
-        {id:'p1',n:b.cat==='Fashion'?'Alteration / piece':(b.cat==='Food & Kitchen'?'Plate of the day':'Everyday goods'),price:b.cat==='Fashion'?2500:2000}
+      if(b.owner!=='player'&&!npc(b.owner)) return;
+      G.bizs.push({...b,trust:40+Math.floor(Math.random()*20),visits:0,created:G.day,products:[
+        {id:'p1',n:b.cat==='Fashion'?'Alteration / piece':(b.cat==='Food & Kitchen'?'Plate of the day':(b.cat==='Transport'?'Short hop':'Everyday goods')),price:b.cat==='Fashion'?2500:(b.cat==='Food & Kitchen'?1500:2000)}
       ]});
     });
+  }
+  // Seed a few community spots in Kano if empty (demo neighbours' hangouts)
+  if(!(G.spots||[]).some(s=>s.by!=='player'&&!s.removed)){
+    const seedSpots=[
+      {id:'sp_seed_1',name:'Kurmi Market shade',area:'Fagge',label:'Under the old trees',ic:'🌳',note:'Traders rest here between sales.',by:'community',loc:'market',public:true,created:1,
+        img:'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=600&q=80'},
+      {id:'sp_seed_2',name:'Gwale evening suya bench',area:'Nasarawa',label:'Suya Junction corner',ic:'🔥',note:'Friends meet after work.',by:'community',loc:'social',public:true,created:1,
+        img:'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=600&q=80'},
+      {id:'sp_seed_3',name:'Municipal motor-park stall',area:'Kano Municipal',label:'Keke Park',ic:'🚏',note:'Drivers and passengers share news.',by:'community',loc:'park',public:true,created:1,
+        img:'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600&q=80'},
+      {id:'sp_seed_4',name:'Mosque yard circle',area:'Fagge',label:'After jumu'ah',ic:'🕌',note:'Quiet place for Ajo talk.',by:'community',loc:'ajo',public:true,created:1,
+        img:'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=600&q=80'}
+    ];
+    seedSpots.forEach(s=>G.spots.push(s));
   }
   // Assign neighbourhoods so "nearby" works offline
   const areaCycle=allAreas();
@@ -866,7 +901,9 @@ function createPlayerBiz({name,cat,area,label,ic,bio,avatar}){
   if(!GANO_AREAS_HAS(area)) return fx('Choose an area for the shop.','warn');
   if(G.bizs.some(b=>b.owner==='player'&&!b.closed)) return fx('You already run a listed business. Edit it instead.','warn');
   const id='bz_p_'+Date.now().toString(36);
+  const areaLoc={Fagge:'market',Gwale:'restaurant',Nasarawa:'social','Kano Municipal':'work',Tarauni:'market',Dala:'social',Kumbotso:'market',Ungogo:'park'};
   const b={id,owner:'player',name,cat,area,label:(label||'').slice(0,40),ic:ic||'🏪',bio:(bio||'').slice(0,120),open:true,trust:45,visits:0,created:G.day,
+    loc:areaLoc[area]||'market',
     products:[{id:'p1',n:'Popular item',price:2000}],
     avatar:avatar||defaultStoreAvatar(G.p&&G.p.gender)};
   G.bizs.push(b);
@@ -899,13 +936,14 @@ function nearbyPeople(){
 
 /* ---- Custom spots (community hangouts) ---- */
 const SPOT_ICS=['📍','🕌','🏟️','🌳','☕','🛒','🏫','🏥','🚏','🎵'];
-function addSpot({name,area,label,ic,note}){
+function addSpot({name,area,label,ic,note,loc,img}){
   name=(name||'').trim().slice(0,32);
   if(name.length<2) return fx('Name your spot.','warn');
   if(!GANO_AREAS_HAS(area)) return fx('Pick a Kano area for this spot.','warn');
   if((G.spots||[]).filter(s=>s.by==='player'&&!s.removed).length>=12) return fx('You already listed 12 spots.','warn');
   const id='sp_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-  const s={id,name,area,label:(label||'').trim().slice(0,48),ic:ic||'📍',note:(note||'').trim().slice(0,120),by:'player',created:G.day,public:true};
+  const locKey=loc&&LOCS[loc]?loc:null;
+  const s={id,name,area,label:(label||'').trim().slice(0,48),ic:ic||'📍',note:(note||'').trim().slice(0,120),by:'player',created:G.day,public:true,loc:locKey,img:(img||'').trim().slice(0,300)||null};
   G.spots.push(s);
   note('Spot added: '+s.name+' in '+s.area+'. People in your community can see it and meet friends there.','ajo');
   fx('Spot listed','good');
@@ -926,6 +964,24 @@ function communitySpots(){
   if(!area||!G.p.nearbyOptIn) return list.filter(s=>s.by==='player');
   return list.filter(s=>s.area===area||s.by==='player');
 }
+
+function businessesAtLoc(locId){
+  const L=LOCS[locId]; if(!L) return [];
+  return (G.bizs||[]).filter(b=>!b.closed&&(b.loc===locId||(L.area&&b.area===L.area)));
+}
+function spotsAtLoc(locId){
+  const L=LOCS[locId]; if(!L) return [];
+  return (G.spots||[]).filter(s=>!s.removed&&s.public&&(s.loc===locId||(L.area&&s.area===L.area)));
+}
+function placeCover(locId){
+  const L=LOCS[locId]; if(!L) return null;
+  if(L.img) return L.img;
+  const b=businessesAtLoc(locId).find(x=>x.img);
+  if(b) return b.img;
+  const s=spotsAtLoc(locId).find(x=>x.img);
+  return s?s.img:null;
+}
+
 function peopleAtSpot(spotId){
   const s=(G.spots||[]).find(x=>x.id===spotId);
   if(!s) return [];
