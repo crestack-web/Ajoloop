@@ -356,8 +356,9 @@ function peopleView(){
  ${body}`}
 
 function ajoView(){const mine=myAjos(),open=G.ajos.filter(a=>a.status==='open'&&a.host!=='player'&&!a.members.includes('player')),done=G.ajos.filter(a=>a.status==='done'&&a.members.includes('player')),debts=G.debts.filter(d=>d.m==='player'&&!d.paid);
- return `<div class="sec">Ajo<small>Save together. Everyone pays in; one person takes the pot each round. It only works on trust.</small></div>
- ${G.p.loc!=='ajo'?'<div class="note">You are not at the Ajo Center. You can view and pay from here, but creating, joining and voting need a visit.</div>':''}
+ return `<div class="sec">Ajo<small>Traditional circle: invite your people · organizer takes round 1 · stones decide the rest</small></div>
+ <div class="note-sep">Round 1 pot goes to the organizer. Ajoloop takes an agent fee from that first pot only (${Math.round(AJO_FEE_PCT*100)}%). Later rounds use the stone roll. Game cash offline — not live bank transfers.</div>
+ ${G.p.loc!=='ajo'?'<div class="note">You are not at the Ajo Center. You can view and pay from here; creating, joining and rolling stones need a visit.</div>':''}
  ${blocked()?`<div class="warnbox">🚫 Blocked from new Ajo for ${G.p.blockedUntil-G.day} more day(s). Pay what you owe.</div>`:''}
  ${debts.map(d=>`<div class="card"><div class="row sp"><div><b>Debt: ${fmt(d.amt)}</b><div class="muted sm">${esc(ajoOf(d.ajo).name)} · owed to ${nm(d.to)}</div></div><button class="btn sm red" data-a="debt" data-id="${d.id}">Pay</button></div></div>`).join('')}
  ${mine.map(ajoCard).join('')}
@@ -365,10 +366,11 @@ function ajoView(){const mine=myAjos(),open=G.ajos.filter(a=>a.status==='open'&&
  ${open.length?`<div class="sec">Open to join<small>Needs Trust 40+ and a friendly host (or an invite)</small></div>${open.map(a=>{const why=joinCheck(a),h=npc(a.host);return `<button class="person" data-a="ajoOpen" data-id="${a.id}"><div class="av">${h.em}</div><div class="meta"><b>${esc(a.name)}</b><div class="l">${h.n}'s Ajo · ${fmt(a.amt)} / ${a.freq} days · ${a.members.length}/${a.size}</div></div>${a.invited?'<span class="pill ok">Invited</span>':why?'<span class="pill wait">Locked</span>':'<span class="pill ok">Open</span>'}</button>`}).join('')}`:''}
  ${done.length?`<div class="sec">Completed</div>${done.map(ajoCard).join('')}`:''}`}
 
-function ajoCard(a){const st={open:'Gathering members',voting:'Voting',active:'Running',done:'Complete'}[a.status];const mem=a.members.length;
- let line='';if(a.status==='active'){const d=dueDay(a);line=`<div class="row sp sm" style="margin-top:8px"><span class="muted">Cycle ${a.cycle+1}/${a.size} · due Day ${d}</span><span>→ ${nm(a.order[a.cycle])}</span></div>`}
- if(a.group&&grp(a.group)&&grp(a.group).mem.player)line+='<div class="tiny muted" style="margin-top:6px">🏘️ Suggested in the group '+esc(grp(a.group).name)+'. Separate from group membership.</div>';
- return `<button class="card" style="width:calc(100% - 24px);text-align:left;display:block" data-a="ajoOpen" data-id="${a.id}"><div class="row sp"><b style="font-size:17px">${esc(a.name)}</b><span class="pill wait">${st}</span></div><div class="muted sm" style="margin-top:4px">${fmt(a.amt)} every ${a.freq} days · pot ${fmt(a.amt*a.size)} · ${mem}/${a.size} members</div>${line}</button>`}
+function ajoCard(a){const st={open:'Gathering',stones:a.rolled?'Order set':'Pick stones',voting:'Voting',active:'Running',done:'Complete'}[a.status]||a.status;const mem=a.members.length;
+ let line='';if(a.status==='active'){const d=dueDay(a);line=`<div class="row sp sm" style="margin-top:8px"><span class="muted">Round ${a.cycle+1}/${a.size} · due Day ${d}</span><span>→ ${nm(a.order[a.cycle])}</span></div>`}
+ if(a.status==='stones')line=`<div class="tiny muted" style="margin-top:6px">${a.rolled?'Stone order locked. Ready to start.':'Choose your stone · organizer is always first'}</div>`;
+ if(a.group&&grp(a.group)&&grp(a.group).mem.player)line+='<div class="tiny muted" style="margin-top:6px">🏘️ Linked from group '+esc(grp(a.group).name)+' — money is still separate.</div>';
+ return `<button class="card" style="width:calc(100% - 24px);text-align:left;display:block" data-a="ajoOpen" data-id="${a.id}"><div class="row sp"><b style="font-size:17px">${esc(a.name)}</b><span class="pill wait">${st}</span></div><div class="muted sm" style="margin-top:4px">${fmt(a.amt)} every ${a.freq} days · pot ${fmt(a.amt*(a.size-1))} round 1 · ${mem}/${a.size}</div>${line}</button>`}
 
 function moreView(){const seg=[['ledger','Money'],['rep','Trust & Rep'],['journey','Journey'],['shop','Shop'],['gstats','Groups'],['settings','Settings']];
  return `<div class="seg">${seg.map(([k,l])=>`<button data-a="more" data-v="${k}" class="${UI.more===k?'on':''}">${l}</button>`).join('')}</div>`+({ledger:ledgerV,rep:repV,journey:journeyV,shop:shopV,gstats:gstatsV,settings:settingsV}[UI.more])()}
@@ -419,33 +421,85 @@ function npcSheet(n){const here_=npcLoc(n)===G.p.loc,p=G.p;const know=n.rel>=50;
  ${n.hist.length?`<div class="section-label">Between you two</div>${n.hist.slice(0,6).map(h=>`<div class="tx sm"><span>${esc(h.why)} <span class="muted tiny">Day ${h.day}</span></span><span class="${h.d>0?'pos':'neg'}">${h.d>0?'+':''}${h.d}</span></div>`).join('')}`:''}`}
 
 function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${vals.map(v=>`<button data-a="anset" data-k="${k}" data-v="${v}" class="${f[k]===v?'on':''}">${fm?fm(v):v}</button>`).join('')}</div>`;
- return `<h2>Create an Ajo</h2><div class="muted sm" style="margin-top:4px">You need ${f.size-1} people who trust you enough to join.</div>
+ const pot1=f.amt*(f.size-1),fee=Math.round(pot1*AJO_FEE_PCT),hostGets=pot1-fee;
+ return `<h2>Create an Ajo</h2><div class="muted sm" style="margin-top:4px">Invite people who trust you. Traditional rules apply.</div>
  <label class="l">Name</label><input type="text" id="f-ajo" maxlength="24" value="${esc(f.name)}">
  <label class="l">Members</label>${opt('size',[3,4,5,6])}
  <label class="l">Contribution</label>${opt('amt',[2000,5000,10000],fmt)}
  <label class="l">Every</label>${opt('freq',[3,7,14],v=>v+' days')}
- <div class="card" style="background:var(--card)"><div class="row sp"><span class="muted">Total pot</span><b style="font-size:20px;color:var(--danfo)">${fmt(f.amt*f.size)}</b></div><div class="muted tiny">Everyone receives the pot once.</div></div>
- <button class="btn" data-a="ajoMake" ${G.p.loc!=='ajo'?'disabled':''}>${G.p.loc!=='ajo'?'Visit the Ajo Center to create':'Create Ajo'}</button>`}
+ <div class="card" style="background:var(--card)"><b>How payout works</b>
+ <div class="muted sm" style="margin-top:8px;line-height:1.45">
+ <b>Round 1</b> → You (organizer). Members pay; you do not contribute that round.<br>
+ <b>Ajoloop fee</b> → ${Math.round(AJO_FEE_PCT*100)}% of round 1 pot only (agent fee).<br>
+ <b>Later rounds</b> → Members pick stones; a fair roll sets the order.<br>
+ </div>
+ <div class="money-row" style="margin-top:10px"><span class="label">Round 1 pot (est.)</span><span class="val">${fmt(pot1)}</span></div>
+ <div class="money-row"><span class="label">Platform fee</span><span class="val">${fmt(fee)}</span></div>
+ <div class="money-row"><span class="label">You receive</span><span class="val gold">${fmt(hostGets)}</span></div>
+ </div>
+ <button class="btn" style="margin-top:12px" data-a="ajoCreate">Create circle</button>
+ <div class="tiny muted" style="margin-top:10px">Offline demo uses virtual cash. Real collections need a payment partner later.</div>`}
 
-function ajoSheet(a){const P=G.p,isMem=a.members.includes('player');let h=`<h2>${esc(a.name)}</h2><div class="muted sm" style="margin:4px 0 10px">${fmt(a.amt)} every ${a.freq} days · ${a.size} members · pot <b style="color:var(--danfo)">${fmt(a.amt*a.size)}</b></div>`;
- const memRows=a.members.map(m=>{const n=m==='player'?null:npc(m),c=a.status==='active'?cyc(a,m):null;const tr=m==='player'?Math.round(P.trust):(n.rel>=50?Math.round(n.tr):'?');
-  return `<div class="tx"><div class="row"><span style="font-size:22px">${m==='player'?avatar(P.gender):n.em}</span><div><b>${m==='player'?'You':n.n}</b><div class="tiny muted">Trust ${tr}${m===a.host?' · host':''}</div></div></div>${a.status==='active'?`<span class="pill ${c?(c.st==='paid'?'ok':'no'):'wait'}">${c?(c.st==='paid'?'Paid':'Missed'):'Pending'}</span>`:''}</div>`}).join('');
+function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
+ const P=G.p,host=a.host==='player'?null:npc(a.host),st=a.status;
+ let h=`<div class="row"><div class="av">${a.host==='player'?avatar(P.gender):(host?host.em:'🤝')}</div><div><h2>${esc(a.name)}</h2><div class="muted sm">${fmt(a.amt)} every ${a.freq} days · ${a.members.length}/${a.size}</div></div></div>`;
+ h+=`<div class="card" style="margin-top:10px;background:var(--card)"><div class="tiny muted" style="font-weight:800">TRADITIONAL RULES</div>
+ <div class="sm" style="margin-top:6px;line-height:1.4">Organizer takes <b>round 1</b>. Ajoloop fee <b>${Math.round((a.feePct||AJO_FEE_PCT)*100)}%</b> on that pot only. Later pots follow the <b>stone roll</b>.</div></div>`;
+
+ // Members
+ const memRows=a.members.map(m=>{
+  const stn=stoneOf(a,m);const isHost=m===a.host;
+  const c=a.status==='active'?cyc(a,m):null;
+  return `<div class="row sp" style="margin-top:8px"><span>${m==='player'?avatar(P.gender):(npc(m)?npc(m).em:'?')} ${nm(m)}${isHost?' · organizer':''}${stn?' '+stn.ic:''}</span>
+  ${a.status==='active'?`<span class="pill ${c?(c.st==='paid'||c.st==='host_skip'?'ok':'no'):'wait'}">${c?(c.st==='host_skip'?'Organizer':c.st==='paid'?'Paid':'Missed'):'Pending'}</span>`:(stn?`<span class="pill ok">${stn.ic} ${stn.n}</span>`:(isHost?'<span class="pill wait">First pot</span>':'<span class="pill wait">No stone</span>'))}</div>`;
+ }).join('');
  h+=`<section class="card"><b>Members (${a.members.length}/${a.size})</b>${memRows}</section>`;
- if(a.status==='open'&&a.host!=='player'){const why=joinCheck(a);h+=`<div class="card" style="background:var(--card)">${why?'🔒 '+why:'✅ You can join. Make sure you can afford '+fmt(a.amt)+' every '+a.freq+' days.'}</div><button class="btn" data-a="join" data-id="${a.id}" ${why||P.loc!=='ajo'?'disabled':''}>${P.loc!=='ajo'&&!why?'Visit the Ajo Center to join':'Join this Ajo'}</button>`}
- if(a.status==='open'&&a.host==='player'){const cands=G.npcs.filter(n=>n.met&&!a.members.includes(n.id)).sort((x,y)=>y.rel-x.rel);h+=`<section class="card"><b>Invite people</b><div class="muted tiny">Closer friends say yes more often. Trust matters too.</div>${cands.length?cands.map(n=>`<div class="tx"><div class="row"><span style="font-size:22px">${n.em}</span><div><b>${n.n}</b><div class="tiny muted">${relLabel(n)} · ${Math.round(n.rel)}</div></div></div><button class="btn sm" data-a="inv" data-id="${a.id}" data-n="${n.id}" ${a.inv[n.id]===G.day?'disabled':''}>Invite</button></div>`).join(''):'<div class="muted sm" style="margin-top:6px">You have not met anyone to invite. Go meet people first.</div>'}</section>`}
- if(a.status==='voting'){
-  h+=`<section class="card"><b>📣 Ask for early payout</b>`;
-  if(!a.req){h+=`<div class="muted sm" style="margin:4px 0 8px">Members vote on your reason. Relationship and trust decide it.</div>${[['emergency','Family emergency'],['business','Expand my business'],['plain','I just need cash']].map(([k,l])=>`<button class="act" data-a="req" data-id="${a.id}" data-r="${k}"><div class="ic">🙏🏾</div><div><b>${l}</b><small>Chances: ${odds(a,k)}</small></div></button>`).join('')}`}
-  else{h+=`<div class="muted sm" style="margin:4px 0">${a.req.reason==='business'?'“I need the money this month to expand my business.”':a.req.reason==='emergency'?'“I have a family emergency.”':'“I just need the money.”'}</div>${a.req.votes.map(v=>`<div class="tx"><span>${nm(v.id)} — <b>${v.y?'Yes':'No'}</b> <span class="tiny muted">${v.why}</span></span><span class="pill ${v.y?'ok':'no'}">${v.y?'Yes':'No'}</span></div>`).join('')}<div style="margin-top:8px;font-weight:900;color:${a.req.passed?'#7dffc4':'#ff9aa5'}">${a.req.passed?'You get priority!':'No priority this time.'}</div>`}
+
+ // Open: invite
+ if(st==='open'&&a.host!=='player'){const why=joinCheck(a);h+=`<div class="card" style="background:var(--card)">${why?'🔒 '+why:'✅ You can join. You must afford '+fmt(a.amt)+' each cycle.'}</div><button class="btn" data-a="join" data-id="${a.id}" ${why||P.loc!=='ajo'?'disabled':''}>${P.loc!=='ajo'&&!why?'Visit the Ajo Center to join':'Join this Ajo'}</button>`}
+ if(st==='open'&&a.host==='player'){const cands=G.npcs.filter(n=>n.met&&!a.members.includes(n.id)).sort((x,y)=>y.rel-x.rel);h+=`<section class="card"><b>Invite your people</b><div class="muted tiny">This is how traditional Ajo starts — people you know.</div>${cands.length?cands.map(n=>`<div class="tx"><div class="row"><span style="font-size:22px">${n.em}</span><div><b>${n.n}</b><div class="tiny muted">${relLabel(n)}</div></div></div><button class="btn sm" data-a="inv" data-id="${a.id}" data-n="${n.id}" ${a.inv[n.id]===G.day?'disabled':''}>Invite</button></div>`).join(''):'<div class="muted sm">Meet people in Town first, then invite them.</div>'}</section>`}
+
+ // Stones phase
+ if(st==='stones'){
+  h+=`<section class="card"><b>🪨 Stones</b><div class="muted sm" style="margin:6px 0 10px">Pick a free stone. The organizer is always paid first; the roll orders everyone else.</div>`;
+  if(!a.stones.player&&a.members.includes('player')&&a.host!=='player'||(!a.stones.player&&a.members.includes('player')&&a.host==='player')){
+   // host also can pick a stone for fun but not required for order - still allow player if member
+  }
+  if(a.members.includes('player')&&!a.stones.player){
+   h+=`<div class="stone-grid">${freeStones(a).map(s=>`<button class="stone-btn" data-a="pickStone" data-id="${a.id}" data-s="${s.id}"><span class="sic">${s.ic}</span><span class="sn">${s.n}</span></button>`).join('')}</div>`;
+  } else if(a.stones.player){
+   const mine=stoneOf(a,'player');h+=`<div class="muted sm">Your stone: <b>${mine?mine.ic+' '+mine.n:''}</b></div>`;
+  }
+  if(a.rolled){
+   h+=`<div class="section-label">Payout order</div>${a.order.map((m,i)=>`<div class="row sp sm" style="margin-top:6px"><span>${i+1}. ${nm(m)}${m===a.host?' (organizer)':''} ${stoneOf(a,m)?stoneOf(a,m).ic:''}</span>${i===0?'<span class="badge-ajo">Round 1</span>':''}</div>`).join('')}`;
+   if(a.members.includes('player'))h+=`<button class="btn" style="margin-top:12px" data-a="ajoStart" data-id="${a.id}" ${P.loc!=='ajo'?'disabled':''}>Start circle (begins tomorrow)</button>`;
+  } else if(stonesReady(a)){
+   h+=`<button class="btn" style="margin-top:12px" data-a="rollStones" data-id="${a.id}" ${a.host==='player'&&P.loc!=='ajo'?'disabled':''}>🎲 Roll the stones</button>`;
+   if(a.host==='player'&&P.loc!=='ajo')h+=`<div class="tiny muted">Go to the Ajo Center to roll.</div>`;
+  } else {
+   h+=`<div class="muted sm" style="margin-top:8px">Waiting for every member to pick a stone…</div>`;
+  }
   h+=`</section>`;
-  if(a.nom){const n=npc(a.nom.npc);h+=`<section class="card"><b>🗳️ ${n.n} asks for early payout</b><div class="muted sm" style="margin:4px 0 8px">Reason: ${a.nom.reason}.</div>`;
-   if(!a.nom.done)h+=`<div class="row"><button class="btn green sm" style="flex:1" data-a="vote" data-id="${a.id}" data-y="1">Support</button><button class="btn red sm" style="flex:1" data-a="vote" data-id="${a.id}" data-y="0">Decline</button></div>`;
-   else h+=a.nom.votes.map(v=>`<div class="tx"><span>${nm(v.id)}</span><span class="pill ${v.y?'ok':'no'}">${v.y?'Yes':'No'}</span></div>`).join('')+`<div style="margin-top:8px;font-weight:900">${a.nom.passed?n.n+' goes early.':'Request did not pass.'}</div>`;
-   h+=`</section>`}
-  h+=`<button class="btn" data-a="start" data-id="${a.id}" ${P.loc!=='ajo'?'disabled':''}>${P.loc!=='ajo'?'Visit the Ajo Center to start':'Start Ajo — first contributions due tomorrow'}</button>`}
- if(a.status==='active'||a.status==='done'){
-  h+=`<section class="card"><b>Payout order</b>${a.order.map((m,i)=>`<div class="tx"><span>${i+1}. ${m==='player'?'<b>You</b>':nm(m)} <span class="tiny muted">Day ${a.startDay+i*a.freq}</span></span>${i<a.cycle?`<span class="pill ok">Paid ${fmt(a.payouts[i]?a.payouts[i].amt:0)}</span>`:i===a.cycle&&a.status==='active'?'<span class="pill wait">Next</span>':''}</div>`).join('')}</section>`;
-  if(a.status==='active'&&isMem){const paid=cyc(a,'player'),d=dueDay(a);h+=`<div class="muted sm" style="margin-bottom:8px">Remaining cycles: ${a.size-a.cycle}. Due Day ${d}${d-G.day>0?' (in '+(d-G.day)+' days)':' (today)'}. Auto-paid tonight if you have the cash — miss it and you lose trust.</div><button class="btn" data-a="pay" data-id="${a.id}" ${paid?'disabled':''}>${paid?'Paid this cycle ✓':'Contribute '+fmt(a.amt)}</button>`}}
+ }
+
+ // Active
+ if(st==='active'){
+  const d=dueDay(a),rec=a.order[a.cycle],paid=!!cyc(a,'player');
+  h+=`<section class="card"><b>Round ${a.cycle+1} of ${a.size}</b>
+   <div class="row sp" style="margin-top:8px"><span class="muted sm">Due</span><b>Day ${d}</b></div>
+   <div class="row sp"><span class="muted sm">Receives pot</span><b>${nm(rec)}${a.cycle===0?' · organizer':''}</b></div>
+   ${a.cycle===0?`<div class="tiny muted" style="margin-top:6px">Fee ${Math.round((a.feePct||AJO_FEE_PCT)*100)}% applies to this pot.</div>`:''}
+   ${a.members.includes('player')&&!paid&&!(a.cycle===0&&a.host==='player')?`<button class="btn" style="margin-top:12px" data-a="pay" data-id="${a.id}">Pay ${fmt(a.amt)}</button>`:''}
+   ${a.cycle===0&&a.host==='player'?`<div class="pill ok" style="margin-top:10px">Organizer — no contribution this round</div>`:''}
+   ${paid?`<div class="pill ok" style="margin-top:10px">You paid this round</div>`:''}
+  </section>`;
+  if(a.order.length){h+=`<section class="card"><b>Order</b>${a.order.map((m,i)=>`<div class="row sp sm" style="margin-top:6px"><span class="${i===a.cycle?'':'muted'}">${i+1}. ${nm(m)} ${stoneOf(a,m)?stoneOf(a,m).ic:''}</span>${i<a.cycle?'<span class="pill ok">Paid out</span>':i===a.cycle?'<span class="pill wait">Current</span>':''}</div>`).join('')}</section>`}
+ }
+
+ // Payouts history
+ if(a.payouts&&a.payouts.length){h+=`<section class="card"><b>Payouts</b>${a.payouts.map(p=>`<div class="tx"><div><b>${nm(p.to)}</b><div class="tiny muted">Round ${p.cycle+1} · Day ${p.day}${p.fee?` · fee ${fmt(p.fee)}`:''}</div></div><span class="pos">${fmt(p.amt)}</span></div>`).join('')}</section>`}
+
+ if(st==='done')h+=`<div class="card empty"><div class="big">✅</div>Circle complete. Everyone who stayed the course got paid.</div>`;
  return h}
 
 function notesSheet(){return `<h2>Notifications</h2><div style="margin-top:12px">${G.notes.length?G.notes.slice(0,30).map(n=>`<div class="note ${n.kind}" style="margin:0 0 8px"><div class="tiny muted">Day ${n.day}</div>${esc(n.txt)}</div>`).join(''):'<div class="muted">Nothing yet.</div>'}</div>`}
@@ -732,7 +786,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'inv':run(invite,d.id,d.n);break;
   case 'req':run(reqPriority,d.id,d.r);break;
   case 'vote':run(voteNom,d.id,d.y==='1');break;
-  case 'start':run(startAjo,d.id);break;
+  case 'start':case 'ajoStart':run(startAjo,d.id);break;
   case 'pay':run(payAjo,d.id);break;
   case 'debt':run(payDebt,+d.id);break;
   case 'reset':if(!UI.confirmReset){UI.confirmReset=true;render()}else{Store.clear();G=null;UI.confirmReset=false;UI.modal=null;UI.tab='life';render()}break;

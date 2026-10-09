@@ -57,11 +57,21 @@ const LINES={
  poor:["Life is hard but we dey push. One day at a time.","If I get small capital, I would change everything."],
  wealthy:["Money is good, but a good name opens bigger doors.","I only do business with people I trust."]
 };
+
+/* Traditional Ajo: creator takes round 1; later order by stone roll; platform fee on pot 1 only */
+const AJO_FEE_PCT=0.08;
+const STONES=[
+ {id:'s1',ic:'🔴',n:'Red'},{id:'s2',ic:'🟠',n:'Orange'},{id:'s3',ic:'🟡',n:'Gold'},
+ {id:'s4',ic:'🟢',n:'Green'},{id:'s5',ic:'🔵',n:'Blue'},{id:'s6',ic:'🟣',n:'Purple'},
+ {id:'s7',ic:'⚫',n:'Black'},{id:'s8',ic:'⚪',n:'White'},{id:'s9',ic:'🟤',n:'Brown'},
+ {id:'s10',ic:'💠',n:'Crystal'},{id:'s11',ic:'⭐',n:'Star'},{id:'s12',ic:'🪨',n:'River'}
+];
+
 const SEED=()=>[
  {id:'a1',name:'Kasuwa Kings',host:'musa',size:5,amt:5000,freq:7,members:['musa','aisha','yusuf','fatima']},
  {id:'a2',name:"Alhaja's Circle",host:'halima',size:4,amt:10000,freq:7,members:['halima','ibrahim','zainab']},
  {id:'a3',name:'Teachers & Traders',host:'maryam',size:4,amt:2000,freq:3,members:['maryam','hauwa','garba']}
-].map(a=>({...a,status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{}}));
+].map(a=>({...a,status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0}));
 
 let G=null; const FX=[];
 const fx=(t,k='say')=>FX.push({t,k});
@@ -159,12 +169,53 @@ const dueDay=a=>a.startDay+a.cycle*a.freq;
 const cyc=(a,m,c)=>a.contribs.find(x=>x.cycle===(c===undefined?a.cycle:c)&&x.m===m);
 function joinCheck(a){if(a.members.includes('player'))return 'You are already in this Ajo.';if(a.status!=='open')return 'This Ajo is closed.';if(blocked())return 'Blocked for '+(G.p.blockedUntil-G.day)+' more day(s) after your missed payment.';if(G.p.trust<40)return 'Members worry about your reliability (Trust is below 40).';const h=npc(a.host);if(!a.invited&&h.rel<40)return h.n+' does not know you well enough yet (needs 40 relationship).';if(myAjos().length>=2)return 'You can only be in 2 Ajo groups at once.';return null}
 function atAjo(){return G.p.loc==='ajo'?true:no('Go to the Ajo Center for this.')}
-function joinAjo(id,viaInvite){const a=ajoOf(id);if(!viaInvite&&!atAjo())return false;const why=joinCheck(a);if(why)return no(why);a.members.push('player');miles('ajo','Joined your first Ajo: '+a.name);note('You joined '+a.name+'.','ajo');fx('You joined '+a.name+'!','warm');if(a.members.length>=a.size)toVoting(a);return true}
+function joinAjo(id,viaInvite){const a=ajoOf(id);if(!viaInvite&&!atAjo())return false;const why=joinCheck(a);if(why)return no(why);a.members.push('player');miles('ajo','Joined your first Ajo: '+a.name);note('You joined '+a.name+'.','ajo');fx('You joined '+a.name+'!','warm');if(a.members.length>=a.size)toStones(a);return true}
 function createAjo(name,size,amt,freq){if(!atAjo())return false;if(blocked())return no('You are blocked from forming a new Ajo for '+(G.p.blockedUntil-G.day)+' day(s).');if(G.p.trust<30)return no('People will not join an Ajo run by someone with Trust below 30.');if(myAjos().length>=2)return no('You can only be in 2 Ajo groups at once.');
- const a={id:'p'+G.nid++,name:name||'Kano Hustlers',host:'player',size,amt,freq,members:['player'],status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{}};G.ajos.unshift(a);miles('ajohost','Started your own Ajo');return a.id}
+ const a={id:'p'+G.nid++,name:name||'Kano Hustlers',host:'player',size,amt,freq,members:['player'],status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0};
+ G.ajos.unshift(a);miles('ajohost','Started your own Ajo');note('Ajo created. Invite your people. Round 1 goes to you (organizer). Ajoloop takes '+Math.round(AJO_FEE_PCT*100)+'% of that first pot only.','ajo');return a.id}
 function invite(aid,nid){const a=ajoOf(aid),n=npc(nid);if(a.status!=='open'||a.host!=='player')return false;if(!n.met)return no('Meet '+n.n+' first.');if(a.inv[nid]===G.day)return no(n.n+' already answered today.');a.inv[nid]=G.day;
- const p=clamp(.1+n.rel/100*.8+(G.p.trust-50)/200,.05,.95);if(Math.random()<p){a.members.push(nid);fx(n.n+': "I am in!"','warm');note(n.n+' joined '+a.name+'.','ajo');if(a.members.length>=a.size)toVoting(a)}else fx(n.n+': "Let me think about it... not now."','cold');return true}
-function toVoting(a){a.status='voting';const npcs=a.members.filter(m=>m!=='player');a.nom={npc:pick(npcs),reason:pick(['school fees for the children','repairing the shop roof','a hospital bill for a relative']),done:false,votes:[],passed:false};note(a.name+' is full. Members can now ask for early payout before it starts.','ajo')}
+ const p=clamp(.1+n.rel/100*.8+(G.p.trust-50)/200,.05,.95);if(Math.random()<p){a.members.push(nid);fx(n.n+': "I am in!"','warm');note(n.n+' joined '+a.name+'.','ajo');if(a.members.length>=a.size)toStones(a)}else fx(n.n+': "Let me think about it... not now."','cold');return true}
+function toStones(a){
+ a.status='stones';if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';
+ // NPCs auto-pick free stones
+ const taken=new Set(Object.values(a.stones));
+ a.members.filter(m=>m!=='player'&&m!==a.host&&!a.stones[m]).forEach(m=>{
+  const free=STONES.filter(s=>!taken.has(s.id));
+  if(!free.length)return;
+  const s=pick(free);a.stones[m]=s.id;taken.add(s.id);
+ });
+ note(a.name+' is full. Everyone picks a stone. Round 1 always goes to the organizer ('+nm(a.host)+'). Later pots follow the stone roll.','ajo');
+ fx('Pick your stone','warm');
+}
+function toVoting(a){toStones(a)}
+function freeStones(a){const taken=new Set(Object.values(a.stones||{}));return STONES.filter(s=>!taken.has(s.id))}
+function pickStone(id,stoneId){
+ const a=ajoOf(id);if(!a||a.status!=='stones')return no('Stone pick is closed.');
+ if(!a.members.includes('player'))return no('You are not in this Ajo.');
+ if(a.stones.player)return no('You already chose a stone.');
+ if(!freeStones(a).some(s=>s.id===stoneId))return no('That stone is taken.');
+ a.stones.player=stoneId;
+ const st=STONES.find(s=>s.id===stoneId);
+ note('You chose the '+st.n+' stone for '+a.name+'.','ajo');fx(st.ic+' '+st.n,'warm');
+ return true;
+}
+function stonesReady(a){
+ // Host is fixed first — every other member needs a stone
+ return a.members.filter(m=>m!==a.host).every(m=>a.stones&&a.stones[m]);
+}
+function rollStones(id){
+ const a=ajoOf(id);if(!a||a.status!=='stones')return no('Cannot roll yet.');
+ if(a.host==='player'&&!atAjo())return false;
+ if(!stonesReady(a))return no('Everyone still needs to pick a stone.');
+ const rest=a.members.filter(m=>m!==a.host);
+ a.order=[a.host,...shuffle(rest)];
+ a.rolled=true;
+ note(a.name+' stone roll done. Payout order is set. Organizer first, then the stones.','ajo');
+ fx('Stones rolled!','good');
+ return true;
+}
+function stoneOf(a,m){const id=a.stones&&a.stones[m];return id?STONES.find(s=>s.id===id):null}
+
 function voteScore(v,reason){const base=v.rel*.45+G.p.trust*.3+G.p.rep*.1+({emergency:18,business:G.biz?14:6,plain:-8}[reason])+(v.tags.includes('generous')?8:0)-(v.tags.includes('opportunistic')&&v.rel<60?5:0)-G.p.missed*6;return base}
 function odds(a,reason){const vs=a.members.filter(m=>m!=='player').map(npc);const yes=vs.filter(v=>voteScore(v,reason)>=52).length/vs.length;return yes>=.75?'Good':yes>=.5?'Fair':'Slim'}
 function reqPriority(id,reason){const a=ajoOf(id);if(!a.members.includes('player'))return no('You are not a member of this Ajo.');if(!atAjo())return false;if(a.status!=='voting'||a.req)return no('You already made your case.');
@@ -177,15 +228,25 @@ function voteNom(id,support){const a=ajoOf(id);if(!a.members.includes('player'))
  const yes=votes.filter(v=>v.y).length,passed=yes>votes.length/2;Object.assign(nm_,{done:true,votes,passed});if(passed)a.prio.push(nm_.npc);
  rel(nm_.npc,support?4:-3,support?'You backed their request':'You opposed their request');if(support)n.lastSeen=G.day;
  fx(passed?n.n+' gets early payout.':n.n+"'s request did not pass.");return true}
-function startAjo(id){const a=ajoOf(id);if(!a.members.includes('player'))return no('You are not a member of this Ajo.');if(!atAjo())return false;if(a.status!=='voting')return false;a.status='active';a.startDay=G.day+1;a.cycle=0;
- const first=[...new Set(a.prio)];a.order=[...first,...shuffle(a.members.filter(m=>!first.includes(m)))];
- note(a.name+' starts tomorrow. First payout goes to '+nm(a.order[0]).replace('You','you')+'.','ajo');fx(a.name+' begins tomorrow!','warm');return true}
+function startAjo(id){const a=ajoOf(id);if(!a.members.includes('player'))return no('You are not a member of this Ajo.');if(!atAjo())return false;
+ if(a.status==='stones'){if(!a.rolled){if(!rollStones(id))return false} }
+ else if(a.status!=='voting'&&a.status!=='stones')return no('This Ajo is not ready to start.');
+ if(!a.order.length){
+  if(a.mode==='traditional'||a.status==='stones'){a.order=[a.host,...shuffle(a.members.filter(m=>m!==a.host))]}
+  else{const first=[...new Set(a.prio)];a.order=[...first,...shuffle(a.members.filter(m=>!first.includes(m)))]}
+ }
+ a.status='active';a.startDay=G.day+1;a.cycle=0;a.rolled=true;
+ note(a.name+' starts tomorrow. Round 1 pot goes to the organizer ('+nm(a.order[0])+').'+(a.host==='player'?' Ajoloop fee '+Math.round((a.feePct||AJO_FEE_PCT)*100)+'% comes from that first pot only.':''),'ajo');
+ fx(a.name+' begins tomorrow!','warm');return true}
 function ontime(a){addTrust(3,'Kept an Ajo contribution');G.p.reliab=clamp(G.p.reliab+1);a.members.forEach(m=>{if(m!=='player')rel(m,1,'You kept your Ajo promise')});miles('contrib','Made your first Ajo contribution')}
 function payAjo(id){const a=ajoOf(id);if(!a.members.includes('player'))return no('You are not a member of this Ajo.');if(a.status!=='active')return no('This Ajo is not running.');if(cyc(a,'player'))return no('Already paid this cycle.');if(G.day<dueDay(a)-2)return no('Too early — contributions open 2 days before the due date (Day '+dueDay(a)+').');
  if(!spend(a.amt,'Ajo contribution — '+a.name,'ajo'))return false;a.contribs.push({cycle:a.cycle,m:'player',st:'paid',day:G.day});ontime(a);return true}
 function runCycle(a){const c=a.cycle,rec=a.order[c],P=G.p;let pot=0,short=[],ded=0;
+ const trad=a.mode==='traditional'||a.feePct!=null;
  G.debts.filter(d=>d.ajo===a.id&&!d.paid&&d.m!=='player').forEach(d=>{if(Math.random()<.8){d.paid=true;pot+=d.amt;note(nm(d.m)+' cleared an earlier shortfall of '+fmt(d.amt)+'.','ajo')}});
  a.members.forEach(m=>{
+  // Traditional: organizer does not contribute on round 1 (they receive the pot)
+  if(trad&&c===0&&m===a.host){a.contribs.push({cycle:c,m,st:'host_skip',day:G.day});return}
   if(m==='player'){
    if(cyc(a,'player',c)){pot+=a.amt;return}
    if(P.cash>=a.amt){ledger(-a.amt,'Ajo contribution — '+a.name,'ajo');a.contribs.push({cycle:c,m,st:'paid',day:G.day});pot+=a.amt;ontime(a)}
@@ -194,8 +255,15 @@ function runCycle(a){const c=a.cycle,rec=a.order[c],P=G.p;let pot=0,short=[],ded
   }else{const n=npc(m),pm=clamp((100-n.tr)/100*.28,0,.28);
    if(Math.random()<pm){a.contribs.push({cycle:c,m,st:'missed',day:G.day});G.debts.push({id:G.nid++,ajo:a.id,cycle:c,m,to:rec,amt:a.amt,day:G.day,paid:false});short.push(n.n);note(n.n+' missed their '+a.name+' contribution.','bad')}
    else{a.contribs.push({cycle:c,m,st:'paid',day:G.day});pot+=a.amt}}});
- if(rec==='player'){const pay=pot-ded;earn(pay,'AJO PAYOUT — '+a.name,'ajo');fx('AJO PAYOUT|'+fmt(pay),'payout');addRep(2,'Completed an Ajo cycle');miles('payout','Received your first Ajo payout');note('AJO PAYOUT: '+fmt(pay)+' from '+a.name+'.'+(short.length?' Short because '+short.join(', ')+' missed.':''),'good');a.payouts.push({cycle:c,to:rec,amt:pay,day:G.day})}
- else{note(npc(rec).n+' received the '+a.name+' pot ('+fmt(pot)+').','ajo');a.payouts.push({cycle:c,to:rec,amt:pot,day:G.day})}
+ // Platform fee on organizer's first pot only
+ let fee=0;
+ if(trad&&c===0&&rec===a.host){
+  fee=Math.round(pot*(a.feePct||AJO_FEE_PCT));
+  a.feeTaken=(a.feeTaken||0)+fee;
+  if(fee>0) note('Ajoloop agent fee '+fmt(fee)+' taken from round 1 pot ('+Math.round((a.feePct||AJO_FEE_PCT)*100)+'%). Simulated offline.','ajo');
+ }
+ if(rec==='player'){const pay=Math.max(0,pot-ded-fee);earn(pay,'AJO PAYOUT — '+a.name,'ajo');fx('AJO PAYOUT|'+fmt(pay),'payout');addRep(2,'Completed an Ajo cycle');miles('payout','Received your first Ajo payout');note('AJO PAYOUT: '+fmt(pay)+' from '+a.name+'.'+(fee?' Fee '+fmt(fee)+'.':'')+(short.length?' Short because '+short.join(', ')+' missed.':''),'good');a.payouts.push({cycle:c,to:rec,amt:pay,fee,day:G.day})}
+ else{const pay=Math.max(0,pot-fee);note(npc(rec).n+' received the '+a.name+' pot ('+fmt(pay)+(fee?'; fee '+fmt(fee):'')+').','ajo');a.payouts.push({cycle:c,to:rec,amt:pay,fee,day:G.day})}
  a.cycle++;if(a.cycle>=a.size){a.status='done';if(a.members.includes('player')){addTrust(5,'Completed an Ajo circle');addRep(5,'Completed an Ajo circle');miles('ajodone','Completed a full Ajo circle');note(a.name+' is complete. Everyone got paid. That is trust.','good')}}}
 function missAjo(a,c,rec){const P=G.p,t0=Math.round(P.trust),r0=Math.round(P.rep);a.contribs.push({cycle:c,m:'player',st:'missed',day:G.day});G.debts.push({id:G.nid++,ajo:a.id,cycle:c,m:'player',to:rec,amt:a.amt,day:G.day,paid:false});
  P.missed++;P.blockedUntil=G.day+AJO_BLOCK;P.happiness=clamp(P.happiness-8);addTrust(-20,'Missed an Ajo contribution');addRep(-7,'Missed an Ajo contribution');
@@ -217,7 +285,7 @@ jobtip:{w:2,ok:()=>true,make:()=>({npc:pick(metNpcs(0).length?metNpcs(0):G.npcs)
  pick:(d,i)=>{if(i===0){earn(12000,'Site job for '+npc(d.npc).n,'gig');G.p.energy=clamp(G.p.energy-30);G.p.reliab=clamp(G.p.reliab+1);npc(d.npc).met&&rel(d.npc,3,'Did a job for them');addRep(1,'Reliable worker')}return true}},
 ajoinv:{w:2,ok:()=>openFor().length>0,make:()=>{const a=pick(openFor());a.invited=true;return{ajo:a.id}},
  view:d=>{const a=ajoOf(d.ajo);return{t:'Ajo invitation',ic:'🤝',txt:npc(a.host).n+' invites you to join "'+a.name+'" — '+fmt(a.amt)+' every '+a.freq+' days, '+a.size+' members. Pot: '+fmt(a.amt*a.size)+'. Can you afford the commitment?',ch:[{l:'Join the Ajo'},{l:'Not now'}]}},
- pick:(d,i)=>{const a=ajoOf(d.ajo);if(i===0){if(a.status!=='open')return true;const why=joinCheck(a);if(why){no(why);return true}a.members.push('player');miles('ajo','Joined your first Ajo: '+a.name);fx('You joined '+a.name+'!','warm');note('You joined '+a.name+'.','ajo');if(a.members.length>=a.size)toVoting(a)}else rel(a.host,-1,'Declined their Ajo invite');return true}},
+ pick:(d,i)=>{const a=ajoOf(d.ajo);if(i===0){if(a.status!=='open')return true;const why=joinCheck(a);if(why){no(why);return true}a.members.push('player');miles('ajo','Joined your first Ajo: '+a.name);fx('You joined '+a.name+'!','warm');note('You joined '+a.name+'.','ajo');if(a.members.length>=a.size)toStones(a)}else rel(a.host,-1,'Declined their Ajo invite');return true}},
 invest:{w:2,ok:()=>metNpcs(35).length>0,make:()=>({npc:pick(metNpcs(35)).id,amt:pick([4000,8000])}),
  view:d=>({t:'Investment pitch',ic:'💼',txt:npc(d.npc).n+' wants '+fmt(d.amt)+' to restock and promises '+fmt(d.amt*1.6)+' back in 4 days. Trust them?',ch:[{l:'Invest '+fmt(d.amt),need:d.amt},{l:'Politely decline'}]}),
  pick:(d,i)=>{if(i===0){const n=npc(d.npc);if(!spend(d.amt,'Invested with '+n.n,'invest'))return false;G.sched.push({day:G.day+4,type:'invest',npc:n.id,amt:d.amt,ret:Math.round(d.amt*1.6),p:clamp(n.tr/100*.95,.1,.95)});note('You invested '+fmt(d.amt)+' with '+n.n+'. Outcome in 4 days.','info')}return true}},
@@ -718,7 +786,7 @@ function mapPins(){
 }
 
 
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area}
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0})}
 
 /* ---- persistence ---- */
 const Store={async load(){try{if(window.storage){const r=await window.storage.get(KEY,false);if(r&&r.value)return JSON.parse(r.value)}}catch(e){}try{const v=localStorage.getItem(KEY);if(v)return JSON.parse(v)}catch(e){}return Store.mem?JSON.parse(Store.mem):null},
