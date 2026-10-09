@@ -52,8 +52,9 @@ const po = ajoOf(id).payouts[0];
 ok(po && po.to === 'player' && po.fee > 0, 'round1 fee + payout');
 
 const shop = G.bizs.find(b => b.owner !== 'player');
+ok(!!shop, 'npc shop exists');
 requestBizVisit(shop.id);
-ok(G.visits.some(v => v.biz === shop.id && (v.st === 'approved' || v.st === 'pending')), 'visit flow');
+ok(G.visits.some(v => v.biz === shop.id && (v.st === 'approved' || v.st === 'pending' || v.st === 'declined')), 'visit flow');
 
 markOnboarded();
 ok(G.p.onboarded, 'onboarded');

@@ -261,13 +261,15 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
   ${debts.length?`<div class="warnbox" style="margin:10px 0 0">You owe ${fmt(debts.reduce((s,d)=>s+d.amt,0))} on contributions.</div>`:''}
  </section>
 
- <div class="section-label">Home & business</div>
+ <div class="section-label">Home, work & business</div>
  <section class="card">
   <div class="row sp"><b>🏠 Home</b><button class="btn sm ghost" data-a="homeEdit">${p.home&&p.home.done?'Edit':'Set'}</button></div>
   <div class="muted sm" style="margin-top:6px">${p.home&&p.home.done?esc(p.home.area)+(p.home.label?' · '+esc(p.home.label):''):'Not set — required for nearby people and shops.'}</div>
+  <div class="row sp" style="margin-top:14px"><b>💼 What I do</b><button class="btn sm ghost" data-a="workEdit">${p.work&&p.work.set?'Edit':'Set'}</button></div>
+  <div class="muted sm" style="margin-top:6px">${p.work&&p.work.set?esc(p.work.title||p.work.cat):'Trade, job, or student — so the circle knows you.'}</div>
   <div class="row sp" style="margin-top:14px"><b>🏪 Business</b><button class="btn sm ghost" data-a="bizManage">${biz?'Manage':'List one'}</button></div>
-  ${biz?`<div class="muted sm" style="margin-top:6px">${esc(biz.name)} · ${esc(biz.area)} · trust ${Math.round(biz.trust||0)}</div>`
-  :`<div class="muted sm" style="margin-top:6px">Optional. List a shop so neighbours can visit and chat with you.</div>`}
+  ${biz?`<div class="row" style="margin-top:8px;gap:10px;align-items:center">${biz.avatar?renderAvatar(biz.avatar,48):''}<div class="muted sm">${esc(biz.name)} · ${esc(biz.area)} · trust ${Math.round(biz.trust||0)}</div></div>`
+  :`<div class="muted sm" style="margin-top:6px">Optional public shop with address and store character.</div>`}
  </section>
 
  <div class="section-label">Near you ${p.nearbyOptIn?'':'· off'}</div>
@@ -418,28 +420,48 @@ function homeSheet(){
 }
 function bizManageSheet(){
   const existing=playerBiz(), f=UI.bizForm;
-  if(existing) return `<div class="sec" style="margin-top:0">${esc(existing.name)}<small>${esc(existing.area)} · ${esc(existing.cat)}</small></div>
-    <div class="muted sm">${esc(existing.bio||'')}</div>
-    <div class="row sp" style="margin-top:12px"><span class="muted sm">Trust</span><b>${Math.round(existing.trust||0)}</b></div>
+  if(existing){
+    if(!existing.avatar)existing.avatar=defaultStoreAvatar(G.p.gender);
+    return `<div class="sec" style="margin-top:0">${esc(existing.name)}<small>${esc(existing.area)} · ${esc(existing.cat)}</small></div>
+    <div class="av-preview">${renderAvatar(existing.avatar,96)}</div>
+    <button class="btn sm ghost" style="display:block;margin:8px auto" data-a="storeAvOpen">Customize store character</button>
+    <div class="muted sm" style="margin-top:8px">${esc(existing.bio||'')}</div>
+    <div class="row sp" style="margin-top:12px"><span class="muted sm">Shop trust</span><b>${Math.round(existing.trust||0)}</b></div>
     <div class="row sp"><span class="muted sm">Visits</span><b>${existing.visits||0}</b></div>
-    <div class="section-label">Products</div>
-    ${(existing.products||[]).map(p=>`<div class="biz-product"><span>${esc(p.n)}</span><b>${fmt(p.price)}</b></div>`).join('')}
-    <div class="tiny muted" style="margin-top:12px">Buying here is game cash for now. Real orders come with the backend.</div>`;
-  return `<div class="sec" style="margin-top:0">List a business<small>Ordinary players can list a shop. Not an Ajo.</small></div>
-    <label class="l">Business name</label><input id="bf-name" maxlength="28" placeholder="e.g. Abubakar Provisions" value="${esc(f.name)}">
+    <div class="row sp"><span class="muted sm">Address</span><b>${esc(existing.area)}${existing.label?' · '+esc(existing.label):''}</b></div>
+    <div class="tiny muted" style="margin-top:12px">Your store character is what neighbours see when they visit.</div>`;
+  }
+  const prev=UI.storeAvForm||defaultStoreAvatar(G.p.gender);
+  return `<div class="sec" style="margin-top:0">List your business<small>Optional — for traders and shop owners. Builds trust when people visit.</small></div>
+    <div class="av-preview">${renderAvatar(prev,88)}</div>
+    <button class="btn sm ghost" style="display:block;margin:8px auto" data-a="storeAvOpenCreate">Customize store character</button>
+    <label class="l">Business name</label><input id="bf-name" maxlength="28" placeholder="e.g. Amina Provisions" value="${esc(f.name)}">
     <label class="l">Category</label><div class="opts">${BIZ_CATS.map(c=>`<button data-a="bizCat" data-v="${c}" class="${f.cat===c?'on':''}">${c}</button>`).join('')}</div>
-    <label class="l">Area</label><div class="opts">${allAreas().map(a=>`<button data-a="bizArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
-    <label class="l">Landmark (optional)</label><input id="bf-label" maxlength="40" placeholder="Near motor park" value="${esc(f.label)}">
-    <label class="l">About</label><input id="bf-bio" maxlength="120" placeholder="What you sell" value="${esc(f.bio)}">
-    <button class="btn" style="margin-top:12px" data-a="bizCreate">Publish on the map</button>`;
+    <label class="l">Area / address</label><div class="opts">${allAreas().map(a=>`<button data-a="bizArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
+    <label class="l">Landmark (optional)</label><input id="bf-label" maxlength="40" placeholder="Near motor park, by the mosque…" value="${esc(f.label)}">
+    <label class="l">About the shop</label><input id="bf-bio" maxlength="120" placeholder="What you sell or offer" value="${esc(f.bio)}">
+    <button class="btn" style="margin-top:12px" data-a="bizCreate">Publish business</button>
+    <div class="tiny muted" style="margin-top:10px">You can skip this and only set “what you do” without a public shop.</div>`;
 }
+function workSheet(){
+  const w=G.p.work||{cat:'',title:''}, f=UI.workForm||{cat:w.cat||'Trader',title:w.title||''};
+  return `<div class="sec" style="margin-top:0">What do you do?<small>Your trade or work — helps the community know you.</small></div>
+    <label class="l">Category</label><div class="opts">${WORK_CATS.map(c=>`<button data-a="workCat" data-v="${c}" class="${f.cat===c?'on':''}">${c}</button>`).join('')}</div>
+    <label class="l">Title (optional)</label><input id="wf-title" maxlength="40" placeholder="e.g. Provisions seller, tailor…" value="${esc(f.title)}">
+    <button class="btn" style="margin-top:12px" data-a="workSave">Save</button>
+    <div class="section-label">Also list a shop?</div>
+    <div class="muted sm" style="margin-bottom:8px">Optional. Add a public business with area and a store character people can visit.</div>
+    <button class="btn ghost" data-a="bizManage">＋ Add my business</button>`;
+}
+
 function bizDetailSheet(b){
   if(!b) return '<div class="muted">Not found</div>';
   const owner=b.owner==='player'?G.p:npc(b.owner);
   const ownerName=b.owner==='player'?G.p.name:(owner?owner.n:'Someone');
   const pending=(G.visits||[]).find(v=>v.biz===b.id&&v.by==='player'&&v.st==='pending');
   const approved=(G.visits||[]).filter(v=>v.biz===b.id&&v.st==='approved').length;
-  return `<div class="row"><div class="av" style="font-size:36px">${b.ic||'🏪'}</div><div><h2>${esc(b.name)}</h2><div class="muted sm">${esc(b.cat)} · ${esc(b.area)}</div></div></div>
+  const face=b.avatar?renderAvatar(b.avatar,56):(b.ic||'🏪');
+  return `<div class="row"><div class="av av-biz">${typeof face==='string'&&face.includes('<svg')?face:`<span style="font-size:36px">${face}</span>`}</div><div><h2>${esc(b.name)}</h2><div class="muted sm">${esc(b.cat)} · ${esc(b.area)}${b.label?' · '+esc(b.label):''}</div></div></div>
     <div class="muted sm" style="margin:10px 0">${esc(b.bio||'')}</div>
     <div class="row sp"><span class="muted sm">Owner</span><b>${esc(ownerName)}${b.owner!=='player'?' <span class="npc-badge">NPC</span>':''}</b></div>
     <div class="row sp"><span class="muted sm">Shop trust</span><b>${Math.round(b.trust||0)}</b></div>
@@ -619,8 +641,8 @@ function settingsV(){return `<section class="card"><b>About Ajoloop</b><div clas
 function sheetHtml(){let h='';
  if(G.ev)return wrap(eventSheet(),true);
  const m=UI.modal;if(!m)return '';
- if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='avatar')h=avatarSheet(!!m.create);if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
- if(m.t==='home')h=homeSheet();if(m.t==='bizManage')h=bizManageSheet();if(m.t==='biz')h=bizDetailSheet(bizById(m.id));if(m.t==='chat')h=chatSheet(m.id);
+ if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='avatar')h=avatarSheet(!!m.create);if(m.t==='storeAvatar')h=storeAvatarSheet(!!m.create);if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
+ if(m.t==='home')h=homeSheet();if(m.t==='work')h=workSheet();if(m.t==='bizManage')h=bizManageSheet();if(m.t==='biz')h=bizDetailSheet(bizById(m.id));if(m.t==='chat')h=chatSheet(m.id);
  return wrap(h)}
 function wrap(h,lock){return `<div class="back" ${lock?'':'data-a="closeBack"'}><div class="sheet" id="sheet">${lock?'':'<button class="x" data-a="close" aria-label="Close">✕</button>'}${h}</div></div>`}
 
@@ -671,6 +693,30 @@ function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${v
  <div class="tiny muted" style="margin-top:10px">Offline demo uses virtual cash. Real collections need a payment partner later.</div>`}
 
 
+
+
+function storeAvatarSheet(createMode){
+  if(!UI.storeAvForm)UI.storeAvForm=Object.assign({},defaultStoreAvatar((G&&G.p&&G.p.gender)||'Female'));
+  const a=UI.storeAvForm; a.store=true; a.gender=a.gender||(G&&G.p&&G.p.gender)||'Female';
+  const cat=UI.avCat||'skin'; const fem=a.gender==='Female';
+  const cats=[['skin','Skin'],['hair','Hair'],['hairColor','Color'],['face','Face'],['eyes','Eyes'],['brows','Brows'],['nose','Nose'],['mouth','Mouth']].concat(fem?[]:[['facial','Beard']]).concat([['accessory','Style'],['top','Clothes']]);
+  const opts=AV[cat]||[];
+  return `<div class="av-builder">
+  <h2>Store character</h2>
+  <div class="muted sm">How your shop appears to visitors — same style as your personal look, for the business.</div>
+  <div class="av-preview lg">${renderAvatar(a,120)}</div>
+  <div class="people-seg av-cats">${cats.map(([k,l])=>`<button data-a="avCat" data-v="${k}" class="${cat===k?'on':''}">${l}</button>`).join('')}</div>
+  <div class="av-opts">${opts.map(o=>{
+    const on=a[cat]===o.id?'on':'';
+    const swatch=o.c?`<i class="swatch" style="background:${o.c}"></i>`:'';
+    return `<button class="av-opt ${on}" data-a="storeAvSet" data-k="${cat}" data-v="${o.id}">${swatch}<span>${esc(o.n)}</span></button>`;
+  }).join('')}</div>
+  <div class="row" style="gap:8px;margin-top:14px">
+    <button class="btn ghost" data-a="storeAvRandom">Shuffle</button>
+    <button class="btn" data-a="storeAvSave" style="flex:1">Save store look</button>
+  </div>
+</div>`;
+}
 
 function avatarSheet(createMode){
   if(!UI.avForm)UI.avForm=Object.assign({},(G&&G.p&&G.p.avatar)||defaultAvatar((G&&G.p&&G.p.gender)||UI.form.gender));
@@ -1226,6 +1272,26 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     if(setHome(UI.homeForm.area,label,UI.homeForm.style)){UI.modal=null;if(setupSteps().every(s=>s.ok))markOnboarded();commit()} else render();
     break}
   case 'nearbyToggle':G.p.nearbyOptIn=!G.p.nearbyOptIn;if(G.p.nearbyOptIn&&!(G.p.home&&G.p.home.done)){fx('Set your home area first.','warm');G.p.nearbyOptIn=false;UI.modal={t:'home'};render();break}note(G.p.nearbyOptIn?'Nearby enabled for your area.':'Nearby disabled.');commit();break;
+  
+  case 'workEdit':UI.workForm={cat:(G.p.work&&G.p.work.cat)||'Trader',title:(G.p.work&&G.p.work.title)||''};UI.modal={t:'work'};render();break;
+  case 'workCat':if(!UI.workForm)UI.workForm={cat:'Trader',title:''};UI.workForm.cat=d.v;render();break;
+  case 'workSave':{
+    const title=(document.getElementById('wf-title')||{}).value||(UI.workForm&&UI.workForm.title)||'';
+    const cat=(UI.workForm&&UI.workForm.cat)||'Other';
+    if(setWorkProfile(cat,title)){UI.modal=null;if(setupSteps().every(s=>s.ok))markOnboarded();commit()} else render();
+    break}
+  case 'storeAvOpen':UI.storeAvForm=Object.assign({},(playerBiz()&&playerBiz().avatar)||defaultStoreAvatar(G.p.gender));UI.avCat='skin';UI.modal={t:'storeAvatar'};render();break;
+  case 'storeAvOpenCreate':UI.storeAvForm=Object.assign({},UI.storeAvForm||defaultStoreAvatar(G.p.gender));UI.avCat='skin';UI.modal={t:'storeAvatar',create:true};render();break;
+  case 'storeAvSet':if(!UI.storeAvForm)UI.storeAvForm=defaultStoreAvatar(G.p.gender);UI.storeAvForm[d.k]=d.v;render();break;
+  case 'storeAvRandom':{
+    const rnd=arr=>arr[Math.floor(Math.random()*arr.length)].id;
+    UI.storeAvForm={gender:G.p.gender,skin:rnd(AV.skin),face:rnd(AV.face),hair:rnd(AV.hair),hairColor:rnd(AV.hairColor),eyes:rnd(AV.eyes),brows:rnd(AV.brows),nose:rnd(AV.nose),mouth:rnd(AV.mouth),facial:'none',accessory:rnd(AV.accessory),top:rnd(AV.top),store:true};
+    render();break}
+  case 'storeAvSave':{
+    if(UI.modal&&UI.modal.create){/* keep on form */}
+    else if(playerBiz())setStoreAvatar(UI.storeAvForm);
+    UI.modal=playerBiz()?{t:'bizManage'}:{t:'bizManage'};
+    commit();break}
   case 'bizManage':UI.bizForm={name:'',cat:'Provisions',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',bio:''};UI.modal={t:'bizManage'};render();break;
   case 'bizCat':UI.bizForm.cat=d.v;render();break;
   case 'bizArea':UI.bizForm.area=d.v;render();break;
@@ -1233,8 +1299,8 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const name=(document.getElementById('bf-name')||{}).value||UI.bizForm.name;
     const label=(document.getElementById('bf-label')||{}).value||UI.bizForm.label;
     const bio=(document.getElementById('bf-bio')||{}).value||UI.bizForm.bio;
-    const b=createPlayerBiz({name,cat:UI.bizForm.cat,area:UI.bizForm.area,label,bio,ic:'🏪'});
-    if(b){UI.modal={t:'biz',id:b.id};commit()} else render();
+    const b=createPlayerBiz({name,cat:UI.bizForm.cat,area:UI.bizForm.area,label,bio,ic:'🏪',avatar:UI.storeAvForm||defaultStoreAvatar(G.p.gender)});
+    if(b){UI.storeAvForm=null;UI.modal={t:'biz',id:b.id};commit()} else render();
     break}
   case 'bizOpen':UI.modal={t:'biz',id:d.id};render();break;
   case 'visitBiz':run(requestBizVisit,d.id);break;
