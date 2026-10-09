@@ -759,9 +759,9 @@ function chatGame(uid,kind){
   if(!n.met){n.met=true;n.lastSeen=G.day}
   const th=chatThread(uid);
   const lines={
-    greet:{me:'Just checking in — how is business?',them:pick(['Alhamdulillah, we are managing.','Quiet today, but we push.','Better when people show up.']) ,rel:2},
+    greet:{me:'Just checking in — how is business?',them:pick(['Alhamdulillah, we are managing.','Quiet today, but we push.','Better when people show up.']),rel:2},
     plan:{me:'We should meet at a public place this week.',them:pick(['Market is fine.','Suya Spot after work?','Tell me a day that works.']),rel:3},
-    stone:{me:'Stone toss — I call open hand.',them:pick(['Ha! I take the other. Next time.','You win this one.','Draw — we go again later.')],rel:2}
+    stone:{me:'Stone toss — I call open hand.',them:pick(['Ha! I take the other. Next time.','You win this one.','Draw — we go again later.']),rel:2}
   };
   const L=lines[kind]||lines.greet;
   th.push({by:'player',t:L.me,day:G.day,hour:G.hour});
