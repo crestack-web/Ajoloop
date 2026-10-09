@@ -381,7 +381,18 @@ function runCycle(a){const c=a.cycle,rec=a.order[c],P=G.p;let pot=0,short=[],ded
   a.feeTaken=(a.feeTaken||0)+fee;
   if(fee>0) note('Ajoloop agent fee '+fmt(fee)+' taken from round 1 pot ('+Math.round((a.feePct||AJO_FEE_PCT)*100)+'%). Simulated offline.','ajo');
  }
- if(rec==='player'){const pay=Math.max(0,pot-ded-fee);earn(pay,'AJO PAYOUT — '+a.name,'ajo');fx('AJO PAYOUT|'+fmt(pay),'payout');addRep(2,'Completed an Ajo cycle');miles('payout','Received your first Ajo payout');note('AJO PAYOUT: '+fmt(pay)+' from '+a.name+'.'+(fee?' Fee '+fmt(fee)+'.':'')+(short.length?' Short because '+short.join(', ')+' missed.':''),'good');a.payouts.push({cycle:c,to:rec,amt:pay,fee,day:G.day})}
+ if(rec==='player'){
+  const adv=(a.advances||[]).filter(x=>x.m==='player'&&!x.settled);
+  ded=adv.reduce((s,x)=>s+x.amt,0);
+  adv.forEach(x=>{x.settled=true;x.settleDay=G.day});
+  const pay=Math.max(0,pot-ded-fee);
+  earn(pay,'AJO PAYOUT — '+a.name,'ajo');
+  fx('AJO PAYOUT|'+fmt(pay),'payout');
+  addRep(2,'Completed an Ajo cycle');
+  miles('payout','Received your first Ajo payout');
+  note('AJO PAYOUT: '+fmt(pay)+' from '+a.name+'.'+(ded?' Circle credit '+fmt(ded)+' deducted.':'')+(fee?' Fee '+fmt(fee)+'.':'')+(short.length?' Short because '+short.join(', ')+' missed.':''),'good');
+  a.payouts.push({cycle:c,to:rec,amt:pay,fee,ded,day:G.day})
+ }
  else{const pay=Math.max(0,pot-fee);note(npc(rec).n+' received the '+a.name+' pot ('+fmt(pay)+(fee?'; fee '+fmt(fee):'')+').','ajo');a.payouts.push({cycle:c,to:rec,amt:pay,fee,day:G.day})}
  a.cycle++;if(a.cycle>=a.size){a.status='done';if(a.members.includes('player')){addTrust(5,'Completed an Ajo circle');addRep(5,'Completed an Ajo circle');miles('ajodone','Completed a full Ajo circle');note(a.name+' is complete. Everyone got paid. That is trust.','good')}}}
 function missAjo(a,c,rec){const P=G.p,t0=Math.round(P.trust),r0=Math.round(P.rep);a.contribs.push({cycle:c,m:'player',st:'missed',day:G.day});G.debts.push({id:G.nid++,ajo:a.id,cycle:c,m:'player',to:rec,amt:a.amt,day:G.day,paid:false});
@@ -1233,6 +1244,85 @@ function maybeNpcFriendRequests(){
 }
 
 function bizByOwner(uid){return G.bizs.find(b=>b.owner===uid&&!b.closed)}
+
+/* ---- Circle credit: buy now, deduct from pot on your turn ---- */
+function activeCircles(){
+  return (G.ajos||[]).filter(a=>a.status==='active'&&a.members.includes('player'));
+}
+function circleCreditPct(){
+  const t=G.p.trust||0, r=G.p.rep||0;
+  if(t<55||r<48) return 0;
+  if(t>=75&&r>=65) return 0.6;
+  if(t>=65&&r>=55) return 0.4;
+  return 0.25;
+}
+function circleCreditEligible(){
+  if(!activeCircles().length) return {ok:false,why:'Join an active Ajo circle first.'};
+  if((G.p.trust||0)<55) return {ok:false,why:'Need Trust 55+ to use circle credit.'};
+  if((G.p.rep||0)<48) return {ok:false,why:'Need Reputation 48+ to use circle credit.'};
+  if(blocked()) return {ok:false,why:'You are blocked from Ajo benefits until the block ends.'};
+  return {ok:true};
+}
+function expectedCirclePot(a){
+  // Approximate full pot for a round
+  return (a.amt||0)*(a.size||0);
+}
+function advancesOutstanding(a,m){
+  return (a.advances||[]).filter(x=>x.m===m&&!x.settled).reduce((s,x)=>s+x.amt,0);
+}
+function circleCreditAvailable(ajoId){
+  const el=circleCreditEligible();
+  if(!el.ok) return {ok:false,why:el.why,limit:0,ajo:null};
+  const list=ajoId?activeCircles().filter(a=>a.id===ajoId):activeCircles();
+  if(!list.length) return {ok:false,why:'No active circle.',limit:0,ajo:null};
+  // Prefer circle with most remaining credit and future turn
+  let best=null,bestLim=0;
+  list.forEach(a=>{
+    const idx=(a.order||[]).indexOf('player');
+    if(idx>=0&&idx<a.cycle) return; // already paid out
+    const pot=expectedCirclePot(a);
+    const max=Math.floor(pot*circleCreditPct());
+    const used=advancesOutstanding(a,'player');
+    const lim=Math.max(0,max-used);
+    if(lim>bestLim){bestLim=lim;best=a}
+  });
+  if(!best||bestLim<=0) return {ok:false,why:'No credit left until your next pot, or your turn already passed.',limit:0,ajo:null};
+  return {ok:true,why:'',limit:bestLim,ajo:best,pct:circleCreditPct()};
+}
+function buyWithCircleCredit(bizId,productId,ajoId){
+  const el=circleCreditAvailable(ajoId);
+  if(!el.ok) return fx(el.why||'Circle credit not available.','warn');
+  const a=el.ajo; if(!a) return fx('No active circle.','warn');
+  const b=bizById(bizId); if(!b||b.closed) return fx('Business not found.','warn');
+  const products=typeof bizProducts==='function'?bizProducts(b): (b.products||[]);
+  const prod=products.find(p=>p.id===productId)||products[0];
+  if(!prod) return fx('Nothing to buy here.','warn');
+  const price=prod.price||0;
+  if(price<=0) return fx('Invalid price.','warn');
+  if(price>el.limit) return fx('This costs '+fmt(price)+'. Your circle credit allows up to '+fmt(el.limit)+'.','warn');
+  if(!a.advances) a.advances=[];
+  a.advances.push({
+    id:'adv_'+Date.now().toString(36),m:'player',amt:price,biz:bizId,product:prod.n,
+    day:G.day,settled:false
+  });
+  // Benefits of the purchase
+  if(/food|meal|plate|kitchen|suya|jollof/i.test(prod.n)||b.cat==='Food & Kitchen'){
+    G.p.hunger=clamp(G.p.hunger-25,0,100);G.p.happiness=clamp(G.p.happiness+4,0,100);
+  } else if(/ride|hop|transport|keke|danfo/i.test(prod.n)||b.cat==='Transport'){
+    G.p.energy=clamp(G.p.energy+6,0,100);
+  } else {
+    G.p.happiness=clamp(G.p.happiness+3,0,100);
+  }
+  b.trust=clamp((b.trust||40)+2,0,100);
+  b.visits=(b.visits||0)+1;
+  // Small trust reward for using circle responsibly
+  G.p.rep=clamp(G.p.rep+0.3,0,100);
+  note('Circle credit: '+prod.n+' at '+b.name+' ('+fmt(price)+') — deducted from your '+a.name+' pot when your turn comes.','ajo');
+  fx('Bought with circle credit','good');
+  miles('circlebuy','Used Ajo circle credit at a shop');
+  return true;
+}
+
 function visitBiz(bid){
   // legacy alias → request a visit
   return requestBizVisit(bid);
@@ -1597,7 +1687,7 @@ function ensureSetup(){
   if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
   if(G.p.onboarded==null)G.p.onboarded=false;
 }
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};if(!G.p.username)G.p.username=(G.p.name||'').replace(/\s+/g,'').slice(0,20);if(!G.p.interests)G.p.interests=G.p.ints||[];if(!G.p.businessStatus)G.p.businessStatus='none';(G.bizs||[]).forEach(b=>{
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.advances)a.advances=[];if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};if(!G.p.username)G.p.username=(G.p.name||'').replace(/\s+/g,'').slice(0,20);if(!G.p.interests)G.p.interests=G.p.ints||[];if(!G.p.businessStatus)G.p.businessStatus='none';(G.bizs||[]).forEach(b=>{
   if(!b.avatar||b.avatar.kind!=='building')b.avatar=defaultStoreAvatar(b.cat||'Other');
   if(!b.loc){const areaLoc={Fagge:'market',Gwale:'restaurant',Nasarawa:'social','Kano Municipal':'work',Tarauni:'market',Dala:'social',Kumbotso:'market',Ungogo:'park'};b.loc=areaLoc[b.area]||'market'}
 });ensureSetup()}
