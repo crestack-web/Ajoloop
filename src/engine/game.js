@@ -113,12 +113,32 @@ function inviteCheck(n){groupInviteCheck(n);G.ajos.forEach(a=>{if(a.host===n.id&
 
 function tick(h){const p=G.p;G.hour+=h;p.hunger=clamp(p.hunger+1.5*h);p.energy=clamp(p.energy-h);if(p.hunger>=80)p.happiness=clamp(p.happiness-.6*h);if(G.hour>=22)endDay(true)}
 
-function newGame(name,age,gender){
+const INTERESTS=['Trade & market','Food & kitchen','Fashion','Phones & tech','Transport','Beauty','Faith & community','Sports','Music','Learning','Business networking','Neighbourhood'];
+const BIZ_STATUS=[
+  {id:'owner',n:'I run a business',ic:'🏪'},
+  {id:'worker',n:'I work for someone',ic:'💼'},
+  {id:'student',n:'I am a student',ic:'📚'},
+  {id:'seeking',n:'Looking for work',ic:'🔎'},
+  {id:'none',n:'Not working right now',ic:'🙂'}
+];
+function newGame(name,age,gender,extra){
+ extra=extra||{};
+ const username=(extra.username||name||'').trim().replace(/^@/,'').slice(0,20);
+ const interests=(extra.interests||[]).filter(Boolean).slice(0,6);
+ const businessStatus=BIZ_STATUS.some(b=>b.id===extra.businessStatus)?extra.businessStatus:'none';
  G={v:1,day:1,hour:6,nid:1,
- p:{name,age,gender,job:null,cash:20000,savings:0,energy:100,hunger:20,happiness:60,rep:50,trust:52,biz:10,social:10,reliab:50,loc:'home',blockedUntil:0,shiftDay:0,missed:0,boastDay:0,oppDay:0,oppN:0,bizRepDay:0,avatar:defaultAvatar(gender),work:{cat:'',title:'',set:false},onboarded:false},
+ p:{name,username,age,gender,interests,businessStatus,job:null,cash:20000,savings:0,energy:100,hunger:20,happiness:60,rep:50,trust:52,biz:10,social:10,reliab:50,loc:'home',blockedUntil:0,shiftDay:0,missed:0,boastDay:0,oppDay:0,oppN:0,bizRepDay:0,avatar:defaultAvatar(gender),work:{cat:'',title:'',set:false},onboarded:false},
  npcs:NP0.map(n=>({...n,met:false,lastSeen:0,hist:[],tk:{d:0,c:0},said:''})),
  tx:[],btx:[],biz:null,ajos:SEED(),debts:[],promises:[],sched:[],notes:[],th:[],rh:[],mile:{},ev:null,lastEv:'',openJobs:['shop','rider','sales'],snap:[]};
- initGroups();initPlaces();ensureSetup();snap();note('Welcome to Kano City. You have ₦20,000. Find work, meet people — and protect your name.','info');return G}
+ initGroups();initPlaces();ensureSetup();
+ // Seed interests onto player ints for groups
+ G.p.ints=interests.slice();
+ if(businessStatus==='owner') G.p.work={cat:'Trader',title:'Business owner',set:true};
+ else if(businessStatus==='worker') G.p.work={cat:'Services',title:'Employed',set:true};
+ else if(businessStatus==='student') G.p.work={cat:'Student',title:'Student',set:true};
+ snap();
+ note('Welcome, '+(username?'@'+username:name)+'. Your circle starts here — meet people, visit places, build trust.','info');
+ return G}
 function snap(){G.snap.push({day:G.day,cash:G.p.cash,nw:netWorth(),trust:Math.round(G.p.trust),rep:Math.round(G.p.rep)});if(G.snap.length>120)G.snap.shift()}
 
 /* ---- movement & survival ---- */
@@ -1455,12 +1475,27 @@ function ensureSetup(){
   if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
   if(G.p.onboarded==null)G.p.onboarded=false;
 }
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};(G.bizs||[]).forEach(b=>{
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};if(!G.p.username)G.p.username=(G.p.name||'').replace(/\s+/g,'').slice(0,20);if(!G.p.interests)G.p.interests=G.p.ints||[];if(!G.p.businessStatus)G.p.businessStatus='none';(G.bizs||[]).forEach(b=>{
   if(!b.avatar||b.avatar.kind!=='building')b.avatar=defaultStoreAvatar(b.cat||'Other');
   if(!b.loc){const areaLoc={Fagge:'market',Gwale:'restaurant',Nasarawa:'social','Kano Municipal':'work',Tarauni:'market',Dala:'social',Kumbotso:'market',Ungogo:'park'};b.loc=areaLoc[b.area]||'market'}
 });ensureSetup()}
 
 /* ---- persistence ---- */
+const AKEY='ajoloop_account_v1';
+const Account={
+  mem:null,
+  load(){
+    try{if(Account.mem)return JSON.parse(Account.mem)}catch(e){}
+    try{const v=localStorage.getItem(AKEY);if(v){Account.mem=v;return JSON.parse(v)}}catch(e){}
+    return null;
+  },
+  save(acc){
+    if(!acc)return;
+    const s=JSON.stringify(acc);Account.mem=s;
+    try{localStorage.setItem(AKEY,s)}catch(e){}
+  },
+  clear(){Account.mem=null;try{localStorage.removeItem(AKEY)}catch(e){}}
+};
 const Store={async load(){try{if(window.storage){const r=await window.storage.get(KEY,false);if(r&&r.value)return JSON.parse(r.value)}}catch(e){}try{const v=localStorage.getItem(KEY);if(v)return JSON.parse(v)}catch(e){}return Store.mem?JSON.parse(Store.mem):null},
  async save(){if(!G)return;const s=JSON.stringify(G);Store.mem=s;try{if(window.storage){await window.storage.set(KEY,s,false);return}}catch(e){}try{localStorage.setItem(KEY,s)}catch(e){}},
  async clear(){Store.mem=null;try{if(window.storage)await window.storage.delete(KEY,false)}catch(e){}try{localStorage.removeItem(KEY)}catch(e){}}};
