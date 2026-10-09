@@ -509,21 +509,6 @@ function mountSpotPicker(){
   setTimeout(()=>{try{_pickMap.invalidateSize()}catch(e){}},120);
 }
 
-function kanoMapBlock(){
-  const pins=mapPins();
-  const sel=UI.mapPin?pins.find(p=>p.id===UI.mapPin):null;
-  return `<div class="kano-map">${pins.map(p=>`<button class="pin ${p.kind} ${UI.mapPin===p.id?'selected':''}" style="left:${p.x}%;top:${p.y}%" data-a="mapPin" data-id="${p.id}" aria-label="${esc(p.n)}"><span class="bubble">${p.ic}</span><span class="pin-label">${esc(p.n)}</span></button>`).join('')}</div>
-  <div class="map-legend-row"><span>🏠 Home</span><span>🏪 Business</span><span>📌 Spot</span><span>📍 Area</span><span>🛒 Public</span></div>
-  ${sel?`<section class="card"><div class="row"><div style="font-size:32px">${sel.ic}</div><div style="flex:1;min-width:0"><h2 style="font-size:18px">${esc(sel.n)}</h2><div class="muted sm">${esc(sel.sub||'')}</div></div></div>
-    ${sel.kind==='biz'?`<div class="row" style="margin-top:12px;gap:8px"><button class="btn sm" data-a="bizOpen" data-id="${sel.id}">Open shop</button><button class="btn sm ghost" data-a="visitBiz" data-id="${sel.id}">Visit</button></div>`:''}
-    ${sel.kind==='spot'?`<div class="muted sm" style="margin-top:8px">${esc((sel.spot&&sel.spot.note)||'Community hangout — meet friends nearby and build trust.')}</div>
-      <div class="row" style="margin-top:12px;gap:8px"><button class="btn sm" data-a="spotOpen" data-id="${sel.id}">Open spot</button></div>`:''}
-    ${sel.kind==='home'?`<div class="muted sm" style="margin-top:8px">Only you see this exact pin. Others see your area when you enable nearby.</div>`:''}
-    ${sel.kind==='area'?`<div class="muted sm" style="margin-top:8px">${(KANO_MAP.areas[sel.n]||{}).blurb||''}</div><div class="section-label">Businesses here</div>${bizesInArea(sel.n).length?bizesInArea(sel.n).map(b=>`<button class="g-card" data-a="bizOpen" data-id="${b.id}" style="margin:0 0 8px;width:100%"><div class="g-av">${b.ic}</div><div class="meta"><b>${esc(b.name)}</b><div class="l">${esc(b.cat)} · trust ${Math.round(b.trust||0)}</div></div></button>`).join(''):'<div class="empty">No listed businesses in this area yet.</div>'}`:''}
-    ${sel.kind==='public'?`<div class="muted sm" style="margin-top:8px">Public place · good spot to suggest a meetup.</div>`:''}
-  </section>`:'<div class="muted tiny px">Tap a pin to inspect a place, shop, or area.</div>'}
-  ${nearbyBlock()}`;
-}
 function nearbyBlock(){
   if(!G.p.nearbyOptIn) return `<div class="card" style="margin:12px"><b>People near you</b><div class="muted sm" style="margin:6px 0">Opt in to see neighbours in your home area. Approximate only — no live GPS.</div>
     <button class="btn sm" data-a="nearbyToggle">Enable nearby</button></div>`;
@@ -737,7 +722,7 @@ function placeListings(locId){
 
 function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(),hn=here();
  const order=['home','market','restaurant','park','_c','work','bank','social','ajo'];
- const mode=UI.townMode||'map';
+ const mode=(UI.townMode==='city'?'live':(UI.townMode||'live'));
  const tile=id=>{
   if(id==='_c')return `<div class="tile center"><div>✦</div><b>KANO</b></div>`;
   const l=LOCS[id],h=G.p.loc===id,n=G.npcs.filter(x=>npcLoc(x)===id).length;
@@ -761,14 +746,12 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
  ${homeBanner()}
  <div class="town-tabs">
   <button data-a="townMode" data-v="live" class="${mode==='live'?'on':''}">Live map</button>
-  <button data-a="townMode" data-v="city" class="${mode==='city'?'on':''}">City map</button>
   <button data-a="townMode" data-v="map" class="${mode==='map'?'on':''}">Daily places</button>
   <button data-a="townMode" data-v="list" class="${mode==='list'?'on':''}">List</button>
   <button data-a="townMode" data-v="biz" class="${mode==='biz'?'on':''}">Businesses</button>
   <button data-a="townMode" data-v="spots" class="${mode==='spots'?'on':''}">My spots</button>
  </div>
  ${mode==='live'?liveMapBlock():''}
- ${mode==='city'?kanoMapBlock():''}
  ${mode==='map'?`<div class="map-wrap"><div class="map">${order.map(tile).join('')}</div><div class="map-legend"><span>Tap a tile to travel</span><span>Free to move · focus is people & trust</span></div></div>
  ${placePhotoBlock(G.p.loc)}
  <div class="card flat" style="margin:0 12px 8px"><div class="travel-hint" style="margin:0">You are here · ${String(G.hour).padStart(2,'0')}:00 · Day ${G.day}. ${meta.blurb}</div>
@@ -1605,8 +1588,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'finishSetup':markOnboarded();UI.modal=null;commit();break;
   case 'begin':{const n=(UI.form.name||'').trim();if(!n){fx('Enter a name first.','warn');flush();return}const age=Math.max(18,Math.min(60,parseInt(UI.form.age)||24));newGame(n,age,UI.form.gender);if(UI.avForm){UI.avForm.gender=UI.form.gender;setAvatar(UI.avForm)}else setAvatar(defaultAvatar(UI.form.gender));UI.tab='life';commit();break}
   case 'tab':UI.tab=d.v;UI.modal=null;render();break;
-  case 'townMode':UI.townMode=d.v;render();break;
-  case 'mapPin':UI.mapPin=d.id;render();break;
+  case 'townMode':UI.townMode=d.v==='city'?'live':d.v;render();break;
   case 'homeEdit':UI.homeForm={area:(G.p.home&&G.p.home.area)||'Fagge',label:(G.p.home&&G.p.home.label)||'',style:(G.p.home&&G.p.home.style)||'compound'};UI.modal={t:'home'};render();break;
   case 'homeArea':UI.homeForm.area=d.v;render();break;
   case 'homeStyle':UI.homeForm.style=d.v;render();break;
