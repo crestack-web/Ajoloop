@@ -1,0 +1,21 @@
+{
+  "name": "ajoloop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ajoloop — Build your circle. Life sim in Kano with Ajo and social groups.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node tests/groups.test.cjs",
+    "test:engine": "node tests/groups.test.cjs",
+    "export:legacy": "node scripts/export-legacy-html.js"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

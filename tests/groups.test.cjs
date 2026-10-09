@@ -2,7 +2,7 @@
    The game's rules sit between //#ENGINE-START and //#ENGINE-END in the HTML, so the tests run the real engine code, not a copy. */
 const fs=require('fs');
 const path=require('path');
-const defaultEngine=path.join(__dirname,'src/engine/game.js');
+const defaultEngine=path.join(__dirname,'../src/engine/game.js');
 const html=fs.readFileSync(process.argv[2]||defaultEngine,'utf8');
 const engine=html.slice(html.indexOf('//#ENGINE-START'),html.indexOf('//#ENGINE-END'));
 const body=`
