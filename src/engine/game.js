@@ -1014,20 +1014,10 @@ function demoAdvanceToPayout(id){
 }
 
 function defaultAvatar(gender){
-  const g=gender||'Male';
-  return {
-    skin:g==='Female'?'s4':'s3',
-    face:'oval',
-    hair:g==='Female'?'braids':'fade',
-    hairColor:'black',
-    eyes:'almond',
-    brows:g==='Female'?'arched':'full',
-    nose:'medium',
-    mouth:'full',
-    facial:'none',
-    accessory:g==='Female'?'hoops':'none',
-    top:g==='Female'?'blouse':'dashiki'
-  };
+  const g=gender||'Female';
+  if(g==='Female')return {gender:'Female',skin:'s4',face:'heart',hair:'longbraids',hairColor:'black',eyes:'almond',brows:'arched',nose:'medium',mouth:'full',facial:'none',accessory:'hoops',top:'ankara'};
+  if(g==='Other')return {gender:'Other',skin:'s3',face:'oval',hair:'afro',hairColor:'black',eyes:'almond',brows:'soft',nose:'medium',mouth:'smile',facial:'none',accessory:'none',top:'tee'};
+  return {gender:'Male',skin:'s3',face:'oval',hair:'fade',hairColor:'black',eyes:'almond',brows:'full',nose:'medium',mouth:'smile',facial:'none',accessory:'none',top:'dashiki'};
 }
 function setAvatar(parts){
   if(!G||!G.p)return false;
