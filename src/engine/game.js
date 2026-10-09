@@ -753,6 +753,26 @@ function chatThread(uid){
   if(!G.chats[k]) G.chats[k]=[];
   return G.chats[k];
 }
+
+function chatGame(uid,kind){
+  const n=npc(uid); if(!n) return;
+  if(!n.met){n.met=true;n.lastSeen=G.day}
+  const th=chatThread(uid);
+  const lines={
+    greet:{me:'Just checking in — how is business?',them:pick(['Alhamdulillah, we are managing.','Quiet today, but we push.','Better when people show up.']) ,rel:2},
+    plan:{me:'We should meet at a public place this week.',them:pick(['Market is fine.','Suya Spot after work?','Tell me a day that works.')],rel:3},
+    stone:{me:'Stone toss — I call open hand.',them:pick(['Ha! I take the other. Next time.','You win this one.','Draw — we go again later.')],rel:2}
+  };
+  const L=lines[kind]||lines.greet;
+  th.push({by:'player',t:L.me,day:G.day,hour:G.hour});
+  th.push({by:uid,t:L.them,day:G.day,hour:G.hour});
+  n.rel=clamp(n.rel+L.rel,0,100);
+  if(kind==='plan') G.p.rep=clamp(G.p.rep+0.2,0,100);
+  if(kind==='greet') G.p.trust=clamp(G.p.trust+0.15,0,100);
+  note('Chat with '+n.n+' — relationship +'+L.rel+'.','ajo');
+  fx('Connection +'+L.rel,'warm');
+}
+
 function chatSend(uid,text){
   text=(text||'').trim().slice(0,200); if(!text) return;
   if(G.blk.includes(uid)) return fx('You blocked this person.','warn');
