@@ -84,7 +84,23 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
  const areaBiz=(p.home&&p.home.area)?bizesInArea(p.home.area).filter(b=>b.owner!=='player').slice(0,4):[];
  const near=G.p.nearbyOptIn?nearbyPeople().slice(0,4):[];
  const gCount=G.groups.filter(g=>!g.dead&&g.mem.player).length;
+ const checks=demoChecklist();
+ const next=checks.find(c=>!c.ok);
  return `
+ ${G.demo?`<div class="demo-banner"><b>Demo path on</b> — full flow testable offline. Same rules as a real backend later.
+  <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+   <button class="btn sm" data-a="sleep">⏭ Next day</button>
+   <button class="btn sm ghost" data-a="demoOff">Exit demo</button>
+  </div></div>`:
+ `<div class="demo-banner soft"><b>Test the real flow</b><div class="muted sm" style="margin:4px 0 8px">Unlock invites, Ajo anywhere, starter neighbours — without changing the rules.</div>
+  <button class="btn sm" data-a="demoOn">Start demo path</button></div>`}
+
+ <section class="card"><div class="row sp"><b>Flow checklist</b><span class="tiny muted">${checks.filter(c=>c.ok).length}/${checks.length}</span></div>
+  ${checks.map(c=>`<div class="check-row ${c.ok?'ok':''}"><span>${c.ok?'✅':'○'} ${esc(c.t)}</span>
+   ${c.ok?'':`<button class="btn sm ghost" data-a="${c.a}" ${c.v?`data-v="${c.v}"`:''}>Go</button>`}</div>`).join('')}
+  ${next?`<div class="muted sm" style="margin-top:8px">Next: <b>${esc(next.t)}</b></div>`:'<div class="pill ok" style="margin-top:8px">Core path complete — advance days to run more Ajo rounds</div>'}
+ </section>
+
  <section class="card hero"><div class="row"><div class="av">${avatar(p.gender)}</div><div style="min-width:0;flex:1">
   <h2>${esc(p.name)}</h2>
   <div class="muted sm">Building community · Trust ${Math.round(p.trust)} · Rep ${Math.round(p.rep)}</div>
@@ -436,9 +452,13 @@ function journeyV(){const s=G.snap.concat([{day:G.day,nw:netWorth(),trust:Math.r
  return `<section class="card"><b>📈 Your life so far</b>${spark(s.map(x=>x.nw),'#ffc928','Net worth (₦)')}${spark(s.map(x=>x.trust),'#22c177','Trust')}${spark(s.map(x=>x.rep),'#5cc8ff','Reputation')}</section>
  <section class="card"><b>🏁 Milestones</b>${ms.length?ms.map(m=>`<div class="tx"><span>${esc(m.txt)}</span><span class="muted tiny">Day ${m.day}</span></div>`).join(''):'<div class="muted sm">Your story starts now.</div>'}</section>`}
 function shopV(){const b=G.biz;return b?`<section class="card"><b>🥤 Mini Shop</b><div class="row sp" style="margin-top:8px"><span class="muted">Stock</span><b>${b.stock} drinks</b></div><div class="row sp"><span class="muted">Sold</span><b>${b.sold}</b></div><div class="row sp"><span class="muted">Revenue</span><b>${fmt(b.rev)}</b></div><div class="row sp"><span class="muted">Profit</span><b class="pos">${fmt(b.profit)}</b></div><div class="muted tiny" style="margin-top:8px">Buy at ~${fmt(UNIT_COST)}, sell at ${fmt(UNIT_PRICE)}. Friends send customers.</div></section><section class="card"><b>Shop activity</b>${b.sold||G.btx.length?G.btx.slice(0,15).map(t=>`<div class="tx"><span>${esc(t.txt)}</span><span class="${t.amt>0?'pos':'neg'}">${t.amt>0?'+':'−'}${fmt(t.amt)}</span></div>`).join(''):''}</section>`:`<section class="card"><b>No shop yet</b><div class="muted sm" style="margin-top:6px">Open the Mini Shop at the Market for ${fmt(SHOP_COST)}.</div></section>`}
-function settingsV(){return `<section class="card"><b>About this build</b><div class="muted sm" style="margin:6px 0">Ajoloop offline demo. Progress saves on this device only. Virtual cash is not real-money Ajo.</div></section>
-<section class="card"><b>Developer</b><div class="muted sm" style="margin:6px 0 10px">Not part of normal play. Skip time for testing.</div><button class="btn ghost dev" data-a="sleep">⏭ Skip to next day</button></section>
-<section class="card"><b>Reset game</b><div class="muted sm" style="margin:6px 0 10px">Deletes your life on this device and starts over.</div><button class="btn ${UI.confirmReset?'red':'ghost'}" data-a="reset">${UI.confirmReset?'Tap again to erase everything':'Start a new life'}</button></section>`}
+function settingsV(){return `<section class="card"><b>About this build</b><div class="muted sm" style="margin:6px 0">Ajoloop offline build for testing product flow before backend. Virtual cash is not real-money Ajo. Chat partners are simulated neighbours.</div></section>
+<section class="card"><b>Demo path</b><div class="muted sm" style="margin:6px 0 10px">Unlocks the full journey: neighbours, Ajo without walking to the center, higher invite success. Rules stay the same.</div>
+ ${G.demo?'<div class="pill ok">Demo on</div>':'<button class="btn" data-a="demoOn">Start demo path</button>'}
+ ${G.demo?'<button class="btn ghost" style="margin-top:8px" data-a="demoOff">Exit demo path</button>':''}
+ <button class="btn ghost" style="margin-top:8px" data-a="sleep">⏭ Skip to next day</button>
+</section>
+<section class="card"><b>Reset</b><div class="muted sm" style="margin:6px 0 10px">Deletes progress on this device.</div><button class="btn ${UI.confirmReset?'red':'ghost'}" data-a="reset">${UI.confirmReset?'Tap again to erase everything':'Start a new life'}</button></section>`}
 
 /* ---- sheets ---- */
 function sheetHtml(){let h='';
@@ -512,7 +532,8 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
 
  // Open: invite
  if(st==='open'&&a.host!=='player'){const why=joinCheck(a);h+=`<div class="card" style="background:var(--card)">${why?'🔒 '+why:'✅ You can join. You must afford '+fmt(a.amt)+' each cycle.'}</div><button class="btn" data-a="join" data-id="${a.id}" ${why||P.loc!=='ajo'?'disabled':''}>${P.loc!=='ajo'&&!why?'Visit the Ajo Center to join':'Join this Ajo'}</button>`}
- if(st==='open'&&a.host==='player'){const cands=G.npcs.filter(n=>n.met&&!a.members.includes(n.id)).sort((x,y)=>y.rel-x.rel);h+=`<section class="card"><b>Invite your people</b><div class="muted tiny">This is how traditional Ajo starts — people you know.</div>${cands.length?cands.map(n=>`<div class="tx"><div class="row"><span style="font-size:22px">${n.em}</span><div><b>${n.n}</b><div class="tiny muted">${relLabel(n)}</div></div></div><button class="btn sm" data-a="inv" data-id="${a.id}" data-n="${n.id}" ${a.inv[n.id]===G.day?'disabled':''}>Invite</button></div>`).join(''):'<div class="muted sm">Meet people in Town first, then invite them.</div>'}</section>`}
+ if(st==='open'&&a.host==='player'){const cands=G.npcs.filter(n=>n.met&&!a.members.includes(n.id)).sort((x,y)=>y.rel-x.rel);h+=`<section class="card"><b>Invite your people</b><div class="muted tiny">This is how traditional Ajo starts — people you know.</div>${cands.length?cands.map(n=>`<div class="tx"><div class="row"><span style="font-size:22px">${n.em}</span><div><b>${n.n}</b><div class="tiny muted">${relLabel(n)}</div></div></div><button class="btn sm" data-a="inv" data-id="${a.id}" data-n="${n.id}" ${a.inv[n.id]===G.day?'disabled':''}>Invite</button></div>`).join(''):'<div class="muted sm">Meet people first (People tab) or start Demo path.</div>'}
+ ${G.demo&&a.members.length<a.size?`<button class="btn sm" style="margin-top:10px" data-a="demoFillAjo" data-id="${a.id}">Demo: fill circle now</button>`:''}</section>`}
 
  // Stones phase
  if(st==='stones'){
@@ -540,7 +561,8 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
  // Active
  if(st==='active'){
   const d=dueDay(a),rec=a.order[a.cycle],paid=!!cyc(a,'player');
-  h+=`<section class="card"><b>Round ${a.cycle+1} of ${a.size}</b>
+  h+=`${G.demo?`<button class="btn sm ghost" style="margin-bottom:10px" data-a="demoAdvance" data-id="${a.id}">Demo: resolve this round now</button>`:''}
+  <section class="card"><b>Round ${a.cycle+1} of ${a.size}</b>
    <div class="row sp" style="margin-top:8px"><span class="muted sm">Due</span><b>Day ${d}</b></div>
    <div class="row sp"><span class="muted sm">Receives pot</span><b>${nm(rec)}${a.cycle===0?' · organizer':''}</b></div>
    ${a.cycle===0?`<div class="tiny muted" style="margin-top:6px">Fee ${Math.round((a.feePct||AJO_FEE_PCT)*100)}% applies to this pot.</div>`:''}
@@ -780,6 +802,10 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
  if(a!=='reset')UI.confirmReset=false;
  switch(a){
   case 'gender':UI.form.gender=d.v;render();break;
+  case 'demoOn':run(startDemoPath);UI.tab='life';break;
+  case 'demoOff':G.demo=false;note('Demo path off.','ajo');commit();break;
+  case 'demoFillAjo':run(demoFillAjo,d.id);break;
+  case 'demoAdvance':run(demoAdvanceToPayout,d.id);break;
   case 'begin':{const n=(UI.form.name||'').trim();if(!n){fx('Enter a name first.','warn');flush();return}const age=Math.max(18,Math.min(60,parseInt(UI.form.age)||24));newGame(n,age,UI.form.gender);UI.tab='life';commit();break}
   case 'tab':UI.tab=d.v;UI.modal=null;render();break;
   case 'townMode':UI.townMode=d.v;render();break;
