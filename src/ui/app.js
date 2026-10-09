@@ -45,7 +45,7 @@ function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length;
  return `<header class="hud"><div class="r1"><div class="day"><span class="brand-mark" style="font-size:11px">AJO LOOP</span>
  <span style="display:block;font-weight:800;font-size:15px">${esc(p.name)}</span>
  <span class="muted" style="font-size:12px;font-weight:700">📍 ${esc(area)}</span></div>
- <div class="center"><span class="cash-label">Circle cash</span><div class="cash sm" id="cash">${fmt(p.cash)}</div></div>
+ <div class="center"><span class="cash-label">Demo wallet</span><div class="cash sm" id="cash">${fmt(p.cash)}</div></div>
  <button class="bell" data-a="notes" aria-label="Notifications">🔔${unread?`<b>${unread}</b>`:''}${dueAjo?'<i class="dot" style="top:2px;right:2px"></i>':''}</button></div>
  <div class="r2" style="grid-template-columns:1fr 1fr auto">
   <div class="stat-tap" data-a="statHint" data-k="trust"><div class="mini">Trust</div><div class="row sp"><b style="color:${col(p.trust)}">${Math.round(p.trust)}</b><span class="tiny muted">${trustTier(p.trust)}</span></div>${bar(p.energy>0?p.trust:p.trust,col(p.trust))}</div>
@@ -159,7 +159,7 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
   <div class="muted sm" style="margin-top:6px">Social communities — separate from money circles.</div>
  </section>
 
- <div class="tiny muted px" style="margin:16px 12px">Work, energy and town gigs still exist under Map if you want them. The heart of Ajoloop is trust, chat, groups and Ajo.</div>
+ <div class="tiny muted px" style="margin:16px 12px">Work, energy and town gigs still exist under Map if you want them. Ajoloop is about trust, visits, groups and real Ajo support — not transport fares.</div>
 `}
 
 function locMeta(id){
@@ -177,9 +177,7 @@ function locMeta(id){
 }
 function travelInfo(to){
  if(to===G.p.loc) return null;
- const fare=G.p.loc==='park'?100:200;
- const canRide=G.p.cash>=fare;
- return {fare,hours:canRide?1:2,mode:canRide?'keke':'walk',canRide};
+ return {fare:0,hours:0,mode:'free',canRide:true};
 }
 function locActions(){const p=G.p,L=p.loc,A=[];
  const add=(ic,l,s,a,d={},dis,g='do',primary=false,cost='')=>A.push({ic,l,s,a,d,dis,g,primary,cost});
@@ -308,37 +306,48 @@ function bizDetailSheet(b){
   if(!b) return '<div class="muted">Not found</div>';
   const owner=b.owner==='player'?G.p:npc(b.owner);
   const ownerName=b.owner==='player'?G.p.name:(owner?owner.n:'Someone');
+  const pending=(G.visits||[]).find(v=>v.biz===b.id&&v.by==='player'&&v.st==='pending');
+  const approved=(G.visits||[]).filter(v=>v.biz===b.id&&v.st==='approved').length;
   return `<div class="row"><div class="av" style="font-size:36px">${b.ic||'🏪'}</div><div><h2>${esc(b.name)}</h2><div class="muted sm">${esc(b.cat)} · ${esc(b.area)}</div></div></div>
     <div class="muted sm" style="margin:10px 0">${esc(b.bio||'')}</div>
     <div class="row sp"><span class="muted sm">Owner</span><b>${esc(ownerName)}${b.owner!=='player'?' <span class="npc-badge">NPC</span>':''}</b></div>
     <div class="row sp"><span class="muted sm">Shop trust</span><b>${Math.round(b.trust||0)}</b></div>
-    <div class="row sp"><span class="muted sm">Visits</span><b>${b.visits||0}</b></div>
+    <div class="row sp"><span class="muted sm">Approved visits</span><b>${b.visits||0}</b></div>
     ${b.label?`<div class="tiny muted">Landmark: ${esc(b.label)}</div>`:''}
-    <div class="section-label">Menu / goods</div>
-    ${(b.products||[]).map(p=>`<div class="biz-product"><div><b>${esc(p.n)}</b></div><div class="row" style="gap:8px"><b>${fmt(p.price)}</b>${b.owner!=='player'?`<button class="btn sm" data-a="buyBiz" data-id="${b.id}" data-p="${p.id}">Buy</button>`:''}</div></div>`).join('')||'<div class="muted sm">No items listed.</div>'}
+    <div class="card" style="margin-top:12px;background:var(--card)"><div class="tiny muted" style="font-weight:800">VISIT (NO TRANSPORT FEE)</div>
+    <div class="sm" style="margin-top:6px;line-height:1.4">You request a visit. The owner confirms you came. Both sides gain trust — like showing up in real life.</div></div>
     <div class="profile-actions" style="margin-top:14px">
-      ${b.owner!=='player'?`<button class="btn" data-a="visitBiz" data-id="${b.id}">📍 Check in visit</button>
-      <button class="btn ghost" data-a="chatOpen" data-id="${b.owner}">💬 Chat with owner</button>`:'<div class="muted sm">This is your listing.</div>'}
+      ${b.owner!=='player'?(
+        pending?`<div class="pill wait">Visit requested — waiting for approval</div>`:
+        `<button class="btn" data-a="visitBiz" data-id="${b.id}">📍 Request visit</button>
+         <button class="btn ghost" data-a="interestBiz" data-id="${b.id}">👍 Show interest</button>
+         <button class="btn ghost" data-a="chatOpen" data-id="${b.owner}">💬 Chat with owner</button>`
+      ):`<div class="muted sm">Your listing. When others request visits, approve them to build trust.</div>
+         ${(G.visits||[]).filter(v=>v.biz===b.id&&v.st==='pending').map(v=>`<div class="inv-card" style="margin-top:8px"><b>Visit request</b>
+           <div class="row" style="gap:8px;margin-top:8px"><button class="btn sm green" data-a="approveVisit" data-vid="${v.id}" data-y="1">Confirm visit</button>
+           <button class="btn sm ghost" data-a="approveVisit" data-vid="${v.id}" data-y="0">Decline</button></div></div>`).join('')}`}
     </div>
-    <div class="tiny muted" style="margin-top:10px">Visits and purchases raise relationship and shop trust in the simulation. Real payments need the online backend.</div>`;
-}
+    <div class="tiny muted" style="margin-top:10px">Ajoloop is about community trust and real Ajo support — not paying for keke in the app.</div>`}
 function chatSheet(uid){
   const n=npc(uid); if(!n) return '<div class="muted">Unknown</div>';
   const th=chatThread(uid);
   const biz=bizByOwner(uid);
-  return `<div class="row"><div class="av">${n.em}</div><div><h2>${n.n}</h2><div class="muted sm">${n.occ} · ${relLabel(n)} · trust with you ${Math.round(n.rel)}</div></div></div>
+  return `<div class="row"><div class="av">${n.em}</div><div><h2>${n.n}</h2><div class="muted sm">${n.occ} · ${relLabel(n)} · ${Math.round(n.rel)} closeness</div></div></div>
     ${biz?`<div class="card" style="margin:10px 0;background:var(--card)"><div class="row sp"><span>${biz.ic||'🏪'} <b>${esc(biz.name)}</b></div><div class="muted sm">${esc(biz.area)}</div>
-      <button class="btn sm ghost" style="margin-top:8px" data-a="bizOpen" data-id="${biz.id}">View shop</button></div>`:''}
-    <div class="chat-log" id="chat-log">${th.length?th.map(m=>`<div class="chat-bubble ${m.by==='player'?'me':'them'}">${esc(m.t)}<div class="tiny" style="opacity:.7;margin-top:4px">Day ${m.day}</div></div>`).join(''):'<div class="empty">Say hello. Regular chat is how trust starts before Ajo.</div>'}</div>
+      <button class="btn sm ghost" style="margin-top:8px" data-a="bizOpen" data-id="${biz.id}">View shop</button>
+      <button class="btn sm" style="margin-top:8px" data-a="visitBiz" data-id="${biz.id}">Request visit</button></div>`:''}
+    <div class="chat-log" id="chat-log">${th.length?th.map(m=>`<div class="chat-bubble ${m.by==='player'?'me':'them'}">${esc(m.t)}<div class="tiny" style="opacity:.7;margin-top:4px">Day ${m.day}</div></div>`).join(''):'<div class="empty">Talk first. Trust grows from conversation, visits, and kept promises.</div>'}</div>
     <div class="row" style="gap:8px;margin-top:8px"><input id="chat-in" maxlength="200" placeholder="Message…" value="${esc(UI.chatText||'')}" style="flex:1">
     <button class="btn sm" data-a="chatSend" data-id="${uid}">Send</button></div>
-    <div class="section-label">Together</div>
+    <div class="section-label">Grow closer</div>
     <div class="row" style="gap:8px;flex-wrap:wrap">
-      <button class="btn sm ghost" data-a="chatGame" data-id="${uid}" data-g="greet">👋 Check in</button>
-      <button class="btn sm ghost" data-a="chatGame" data-id="${uid}" data-g="plan">📅 Suggest meetup</button>
-      <button class="btn sm ghost" data-a="chatGame" data-id="${uid}" data-g="stone">🪨 Stone toss</button>
+      <button class="btn sm ghost" data-a="trustAct" data-id="${uid}" data-g="wave">👋 Greet</button>
+      <button class="btn sm ghost" data-a="trustAct" data-id="${uid}" data-g="intro">🤝 Introduce</button>
+      <button class="btn sm ghost" data-a="trustAct" data-id="${uid}" data-g="help">🆘 Offer help</button>
+      <button class="btn sm ghost" data-a="trustAct" data-id="${uid}" data-g="vouch">🗣️ Vouch</button>
+      <button class="btn sm ghost" data-a="chatGame" data-id="${uid}" data-g="plan">📅 Meetup</button>
     </div>
-    <div class="tiny muted" style="margin-top:8px">Small actions in chat raise familiarity. Offline replies are simulated; real players come with the backend.</div>`}
+    <div class="tiny muted" style="margin-top:8px">These small acts raise closeness and trust over time — the same way community works offline.</div>`}
 
 function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(),hn=here();
  const order=['home','market','restaurant','park','_c','work','bank','social','ajo'];
@@ -350,7 +359,7 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
  };
  const dirItem=id=>{
   const l=LOCS[id],h=G.p.loc===id,n=G.npcs.filter(x=>npcLoc(x)===id).length,m=locMeta(id),info=travelInfo(id);
-  const trail=h?'You are here':(info?(info.mode==='keke'?`Keke ${fmt(info.fare)} · ${info.hours}h`:`Walk · ${info.hours}h`):'');
+  const trail=h?'You are here':(info?'Open to visit':'');
   return `<button class="dir-item ${h?'here':''}" data-a="${h?'':'travel'}" ${h?'disabled':`data-to="${id}"`}><div class="di-ic">${l.ic}</div><div style="min-width:0;flex:1"><b>${l.n}</b><div class="tiny muted">${m.blurb}</div><div class="tiny muted" style="margin-top:2px">${n?n+' people · ':''}${trail}</div></div><span class="go">${h?'●':'›'}</span></button>`;
  };
  const groups=[['needs','Look after yourself'],['work','Work & money'],['social','People & vibe'],['rest','End the day'],['do','Here']];
@@ -360,7 +369,7 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
   return `<div class="act-group"><div class="ag-label">${label}</div>${list.map(actButton).join('')}</div>`;
  }).join('');
  const openJobs=G.openJobs?G.openJobs.length:0;
- return `<div class="sec">Town<small>Daily places · city map · businesses</small></div>
+ return `<div class="sec">Map<small>Places, shops, people — free to move · trust is the point</small></div>
  ${homeBanner()}
  <div class="town-tabs">
   <button data-a="townMode" data-v="city" class="${mode==='city'?'on':''}">City map</button>
@@ -369,7 +378,7 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
   <button data-a="townMode" data-v="biz" class="${mode==='biz'?'on':''}">Businesses</button>
  </div>
  ${mode==='city'?kanoMapBlock():''}
- ${mode==='map'?`<div class="map-wrap"><div class="map">${order.map(tile).join('')}</div><div class="map-legend"><span>Tap a tile to travel</span><span>Keke ₦200 · from Park ₦100</span></div></div>
+ ${mode==='map'?`<div class="map-wrap"><div class="map">${order.map(tile).join('')}</div><div class="map-legend"><span>Tap a tile to travel</span><span>Free to move · focus is people & trust</span></div></div>
  <section class="card"><div class="place-hero"><div class="ph-ic">${L.ic}</div><div style="min-width:0;flex:1"><h2>${L.n}</h2><div class="muted sm">${L.d}</div><div class="place-meta">${meta.tags.map(t=>`<span class="place-tag hot">${t}</span>`).join('')}${hn.length?`<span class="place-tag people">${hn.length} here now</span>`:'<span class="place-tag">Quiet now</span>'}${G.p.loc==='work'&&openJobs?`<span class="place-tag hot">${openJobs} jobs open</span>`:''}</div>
  <div class="travel-hint">You are here · ${String(G.hour).padStart(2,'0')}:00 · Day ${G.day}. ${meta.blurb}</div></div></div></section>
  ${acts.length?grouped:'<div class="card empty"><div class="big">🗺️</div>Nothing to do here right now.</div>'}
@@ -885,7 +894,10 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     if(b){UI.modal={t:'biz',id:b.id};commit()} else render();
     break}
   case 'bizOpen':UI.modal={t:'biz',id:d.id};render();break;
-  case 'visitBiz':run(visitBiz,d.id);break;
+  case 'visitBiz':run(requestBizVisit,d.id);break;
+  case 'interestBiz':run(interestBiz,d.id);break;
+  case 'approveVisit':run(approveBizVisit,d.vid,d.y==='1');break;
+  case 'trustAct':run(trustActivity,d.id,d.g);break;
   case 'buyBiz':run(buyAtBiz,d.id,d.p);break;
   case 'chatOpen':UI.chatWith=d.id;UI.chatText='';UI.modal={t:'chat',id:d.id};render();break;
   case 'chatGame':run(chatGame,d.id,d.g);break;

@@ -114,10 +114,8 @@ function newGame(name,age,gender){
 function snap(){G.snap.push({day:G.day,cash:G.p.cash,nw:netWorth(),trust:Math.round(G.p.trust),rep:Math.round(G.p.rep)});if(G.snap.length>120)G.snap.shift()}
 
 /* ---- movement & survival ---- */
-function travel(to){if(to===G.p.loc)return false;const cost=G.p.loc==='park'?100:200;
- if(G.p.cash>=cost){if(!canTime(1))return no(LATE);G.p.loc=to;ledger(-cost,'Transport (keke)','transport');tick(1)}
- else{if(!canTime(2))return no(LATE);G.p.loc=to;G.p.energy=clamp(G.p.energy-8);fx('No money for keke — you walked.');tick(2)}
- return true}
+function travel(to){if(to===G.p.loc)return false;
+ G.p.loc=to;fx('You are at '+LOCS[to].n,'warm');return true}
 function eat(){if(!canTime(1))return no(LATE);if(!spend(1500,'Food (jollof & chicken)','food'))return false;G.p.hunger=clamp(G.p.hunger-45);G.p.happiness=clamp(G.p.happiness+5);tick(1);return true}
 function snack(){if(!canTime(1))return no(LATE);if(!spend(600,'Food (suya snack)','food'))return false;G.p.hunger=clamp(G.p.hunger-18);G.p.happiness=clamp(G.p.happiness+2);tick(1);return true}
 function cook(){if(!canTime(1))return no(LATE);if(!spend(500,'Food (cooked at home)','food'))return false;G.p.hunger=clamp(G.p.hunger-30);tick(1);return true}
@@ -813,34 +811,87 @@ function nearbyPeople(){
 }
 function bizByOwner(uid){return G.bizs.find(b=>b.owner===uid&&!b.closed)}
 function visitBiz(bid){
+  // legacy alias → request a visit
+  return requestBizVisit(bid);
+}
+function requestBizVisit(bid){
   const b=bizById(bid); if(!b||b.closed) return fx('Business not found.','warn');
   if(b.owner==='player') return fx('This is your own shop.','warm');
-  // travel soft if different area
-  if(G.p.home&&G.p.home.area&&b.area!==G.p.home.area&&G.p.loc!=='market'){
-    if(G.p.cash<200){fx('Need ₦200 for keke to another area.','warn');return}
-    ledger(-200,'Keke to '+b.area,'travel'); tick(1);
-  }
-  const v={id:'v_'+Date.now().toString(36),biz:bid,by:'player',day:G.day,hour:G.hour,bought:false,ack:false};
+  if((G.visits||[]).some(v=>v.biz===bid&&v.by==='player'&&v.st==='pending'))return fx('Visit request already waiting.','warm');
+  if((G.visits||[]).some(v=>v.biz===bid&&v.by==='player'&&v.st==='approved'&&v.day===G.day))return fx('Already visited today.','warm');
+  const v={id:'v_'+Date.now().toString(36),biz:bid,by:'player',day:G.day,hour:G.hour,st:'pending',bought:false,ack:false};
+  if(!G.visits)G.visits=[];
   G.visits.push(v);
-  b.visits=(b.visits||0)+1;
-  if(b.owner!=='player'){const n=npc(b.owner); if(n){n.rel=clamp(n.rel+2,0,100); if(!n.met){n.met=true;n.lastSeen=G.day}}}
-  note('You visited '+b.name+' in '+b.area+'.');
+  if(b.owner!=='player'){
+    const n=npc(b.owner); if(n&&!n.met){n.met=true;n.lastSeen=G.day}
+    // NPC owners: simulate review (demo almost always accepts)
+    const accept=G.demo||Math.random()<0.75;
+    if(accept) approveBizVisit(v.id,true);
+    else {v.st='declined';note(b.name+' could not host a visit today.','ajo');fx('Visit declined','cold')}
+  } else {
+    note('Visit request sent to '+b.name+'.','ajo');fx('On the way… waiting for approval','warm');
+  }
   return v;
 }
-function buyAtBiz(bid,pid){
-  const b=bizById(bid); if(!b) return;
-  const pr=(b.products||[]).find(p=>p.id===pid)||(b.products||[])[0];
-  if(!pr) return fx('Nothing listed.','warn');
-  if(G.p.cash<pr.price) return fx('Need '+fmt(pr.price)+'.','warn');
-  ledger(-pr.price,'Bought at '+b.name+': '+pr.n,'shop');
-  b.trust=clamp((b.trust||40)+3,0,100);
-  const n=npc(b.owner); if(n){n.rel=clamp(n.rel+4,0,100); n.hist.push({day:G.day,why:'Bought from their shop',d:4}); if(n.hist.length>12)n.hist.shift()}
-  G.p.trust=clamp(G.p.trust+0.3,0,100);
-  const last=G.visits.filter(v=>v.biz===bid&&v.by==='player').slice(-1)[0];
-  if(last) last.bought=true;
-  note('Paid '+fmt(pr.price)+' at '+b.name+'. Trust edges up.');
-  fx('Purchase noted.','good');
+function pendingVisitsForOwner(){
+  return (G.visits||[]).filter(v=>{
+    const b=bizById(v.biz);return b&&b.owner==='player'&&v.st==='pending';
+  });
 }
+function approveBizVisit(vid,yes){
+  const v=(G.visits||[]).find(x=>x.id===vid);if(!v)return no('Visit not found.');
+  const b=bizById(v.biz);if(!b)return no('Shop missing.');
+  if(!yes){v.st='declined';note('Visit to '+b.name+' declined.','ajo');fx('Declined','cold');return true}
+  v.st='approved';v.ack=true;v.hour=G.hour;
+  b.visits=(b.visits||0)+1;
+  b.trust=clamp((b.trust||40)+4,0,100);
+  // Trust for both sides
+  if(v.by==='player'){
+    G.p.trust=clamp(G.p.trust+1.2,0,100);
+    G.p.rep=clamp(G.p.rep+0.4,0,100);
+    if(b.owner!=='player'){const n=npc(b.owner);if(n){n.rel=clamp(n.rel+5,0,100);n.hist.push({day:G.day,why:'Approved your shop visit',d:5});if(n.hist.length>12)n.hist.shift()}}
+  }
+  note('Visit approved at '+b.name+'. Trust grew — showing up in person matters.','good');
+  fx('Visit confirmed ✓','good');
+  return true;
+}
+function interestBiz(bid){
+  // No game-cash purchase — interest is a trust signal
+  const b=bizById(bid);if(!b)return;
+  if(b.owner==='player')return fx('Your own listing.','warm');
+  b.trust=clamp((b.trust||40)+1,0,100);
+  const n=npc(b.owner);if(n){n.rel=clamp(n.rel+2,0,100);if(!n.met){n.met=true;n.lastSeen=G.day}}
+  G.p.trust=clamp(G.p.trust+0.3,0,100);
+  note('You showed interest in '+b.name+'. Chat or request a visit to go further.','ajo');
+  fx('Interest noted','warm');
+  return true;
+}
+function buyAtBiz(bid,pid){
+  // Kept as alias for older UI — maps to interest, not fake transport/shopping cash
+  return interestBiz(bid);
+}
+function trustActivity(uid,kind){
+  const n=npc(uid);if(!n)return;
+  if(!n.met){n.met=true;n.lastSeen=G.day}
+  const acts={
+    wave:{me:'Waved and said sannu.',them:'Waved back.',rel:1,trust:0.2},
+    help:{me:'Offered a small favour in the neighbourhood.',them:'Appreciated the help.',rel:3,trust:0.5},
+    intro:{me:'Introduced myself properly.',them:'Glad to know you better.',rel:2,trust:0.3},
+    vouch:{me:'Spoke well of them to others.',them:'Heard you had their back.',rel:4,trust:0.4,rep:0.3}
+  };
+  const A=acts[kind]||acts.wave;
+  n.rel=clamp(n.rel+A.rel,0,100);
+  G.p.trust=clamp(G.p.trust+(A.trust||0),0,100);
+  if(A.rep)G.p.rep=clamp(G.p.rep+A.rep,0,100);
+  n.hist.push({day:G.day,why:A.me,d:A.rel});
+  if(n.hist.length>12)n.hist.shift();
+  const th=chatThread(uid);
+  th.push({by:'player',t:A.me,day:G.day,hour:G.hour});
+  th.push({by:uid,t:A.them,day:G.day,hour:G.hour});
+  note(A.me+' Trust +'+(A.trust||0)+'.','ajo');
+  fx('Closer to '+n.n,'warm');
+}
+
 function chatThread(uid){
   const k=uid<'player'?uid+'_player':'player_'+uid;
   if(!G.chats[k]) G.chats[k]=[];
