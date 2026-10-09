@@ -71,7 +71,7 @@ const SEED=()=>[
  {id:'a1',name:'Kasuwa Kings',host:'musa',size:5,amt:5000,freq:7,members:['musa','aisha','yusuf','fatima']},
  {id:'a2',name:"Alhaja's Circle",host:'halima',size:4,amt:10000,freq:7,members:['halima','ibrahim','zainab']},
  {id:'a3',name:'Teachers & Traders',host:'maryam',size:4,amt:2000,freq:3,members:['maryam','hauwa','garba']}
-].map(a=>({...a,status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0}));
+].map(a=>({...a,status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[]}));
 
 let G=null; const FX=[];
 const fx=(t,k='say')=>FX.push({t,k});
@@ -167,12 +167,105 @@ function keepPromise(pid){const pr=G.promises.find(x=>x.id===pid);if(!pr)return 
 /* ---- AJO ---- */
 const dueDay=a=>a.startDay+a.cycle*a.freq;
 const cyc=(a,m,c)=>a.contribs.find(x=>x.cycle===(c===undefined?a.cycle:c)&&x.m===m);
-function joinCheck(a){if(a.members.includes('player'))return 'You are already in this Ajo.';if(a.status!=='open')return 'This Ajo is closed.';if(blocked())return 'Blocked for '+(G.p.blockedUntil-G.day)+' more day(s) after your missed payment.';if(G.p.trust<40)return 'Members worry about your reliability (Trust is below 40).';const h=npc(a.host);if(!a.invited&&h.rel<40)return h.n+' does not know you well enough yet (needs 40 relationship).';if(myAjos().length>=2)return 'You can only be in 2 Ajo groups at once.';return null}
+function joinCheck(a){if(a.members.includes('player'))return 'You are already in this Ajo.';if(a.status!=='open')return 'This Ajo is closed.';if(blocked())return 'Blocked for '+(G.p.blockedUntil-G.day)+' more day(s) after your missed payment.';if(G.p.trust<40)return 'Members worry about your reliability (Trust is below 40).';if(myAjos().length>=2)return 'You can only be in 2 Ajo groups at once.';
+ if(a.vis==='public'||a.invited)return null;
+ const h=npc(a.host);if(h&&h.rel<40)return h.n+' does not know you well enough yet (needs 40 relationship or a public circle).';return null}
 function atAjo(){if(G.demo)return true;return G.p.loc==='ajo'?true:no('Go to the Ajo Center for this (or enable Demo path).')}
 function joinAjo(id,viaInvite){const a=ajoOf(id);if(!viaInvite&&!atAjo())return false;const why=joinCheck(a);if(why)return no(why);a.members.push('player');miles('ajo','Joined your first Ajo: '+a.name);note('You joined '+a.name+'.','ajo');fx('You joined '+a.name+'!','warm');if(a.members.length>=a.size)toStones(a);return true}
+
+function publicAjos(){
+  return G.ajos.filter(a=>a.status==='open'&&a.vis==='public'&&!a.members.includes('player')&&a.members.length<a.size);
+}
+function ajoAct(a,kind,txt){
+  if(!a.activity)a.activity=[];
+  a.activity.unshift({id:G.nid++,day:G.day,hour:G.hour,kind,txt});
+  if(a.activity.length>40)a.activity.length=40;
+}
+function requestJoinAjo(id){
+  const a=ajoOf(id);if(!a)return false;
+  if(!atAjo()&&!G.demo)return false;
+  const why=joinCheck(a);if(why)return no(why);
+  if(a.vis!=='public'&&!a.invited)return no('This circle is private. Ask the organizer for an invite.');
+  if((a.joinReqs||[]).some(r=>r.from==='player'&&r.st==='pending'))return no('Request already sent.');
+  if(!a.joinReqs)a.joinReqs=[];
+  a.joinReqs.push({id:'jr'+G.nid++,from:'player',day:G.day,st:'pending'});
+  ajoAct(a,'join','Someone requested to join.');
+  note('Join request sent to '+a.name+'.','ajo');fx('Request sent','warm');
+  // NPC hosts auto-decide
+  if(a.host!=='player'){
+    const h=npc(a.host);const ok=G.demo||Math.random()<clamp(.35+(G.p.trust-40)/80+(h?h.rel/200:0),.2,.95);
+    const req=a.joinReqs[a.joinReqs.length-1];
+    if(ok){req.st='accepted';if(!a.members.includes('player')){a.members.push('player');ajoAct(a,'join',G.p.name+' joined the circle.');note(a.name+' accepted you.','ajo');fx('You are in!','good');if(a.members.length>=a.size)toStones(a)}
+    }else{req.st='declined';note(a.name+' declined your request.','ajo');fx('Not this time','cold')}
+  }
+  return true;
+}
+function answerJoinReq(aid,rid,yes){
+  const a=ajoOf(aid);if(!a||a.host!=='player')return no('Only the organizer can decide.');
+  const r=(a.joinReqs||[]).find(x=>x.id===rid);if(!r||r.st!=='pending')return no('No pending request.');
+  if(!yes){r.st='declined';ajoAct(a,'join','A join request was declined.');fx('Declined','cold');return true}
+  if(a.members.length>=a.size)return no('Circle is full.');
+  r.st='accepted';
+  // offline: requester is always player when pending to host
+  if(r.from==='player'&&!a.members.includes('player')){
+    a.members.push('player');
+    ajoAct(a,'join',G.p.name+' was accepted into the circle.');
+    note('You accepted a member into '+a.name+'.','ajo');
+  } else if(r.from!=='player'&&!a.members.includes(r.from)){
+    a.members.push(r.from);
+    ajoAct(a,'join',nm(r.from)+' was accepted.');
+  }
+  if(a.members.length>=a.size)toStones(a);
+  fx('Member added','good');
+  return true;
+}
+function ajoChatSend(id,text){
+  const a=ajoOf(id);if(!a)return false;
+  if(!a.members.includes('player'))return no('Join the circle to chat.');
+  text=(text||'').trim().slice(0,240);if(!text)return;
+  if(!a.chat)a.chat=[];
+  a.chat.push({by:'player',t:text,day:G.day,hour:G.hour});
+  ajoAct(a,'chat',G.p.name+': '+text.slice(0,40));
+  // NPC members reply occasionally
+  const others=a.members.filter(m=>m!=='player');
+  if(others.length&&Math.random()<(G.demo?0.85:0.55)){
+    const m=pick(others);const n=npc(m);
+    const replies=['Noted, God willing.','We are watching the due date.','Who is paying this week?','Alhamdulillah.','I am around if anyone needs to talk.','Let us keep trust high.'];
+    a.chat.push({by:m,t:pick(replies),day:G.day,hour:G.hour});
+  }
+  if(a.chat.length>80)a.chat=a.chat.slice(-80);
+  G.p.trust=clamp(G.p.trust+0.1,0,100);
+  fx('Sent','warm');
+  return true;
+}
+function ajoQuickAct(id,kind){
+  const a=ajoOf(id);if(!a||!a.members.includes('player'))return no('Members only.');
+  const lines={
+    remind:{t:'Reminder: contributions are due soon. Please pay on time so everyone stays covered.',rel:1},
+    cheers:{t:'Proud of this circle — we keep our word.',rel:1},
+    meetup:{t:'Anyone free to meet at a public place this week to check in?',rel:2},
+    rules:{t:'Rules: organizer takes round 1 (with platform fee). Stones order the rest. Pay on time.',rel:0}
+  };
+  const L=lines[kind]||lines.cheers;
+  if(!a.chat)a.chat=[];
+  a.chat.push({by:'player',t:L.t,day:G.day,hour:G.hour});
+  ajoAct(a,'act',L.t.slice(0,48));
+  if(L.rel){a.members.filter(m=>m!=='player').forEach(m=>{const n=npc(m);if(n)n.rel=clamp(n.rel+L.rel*0.5,0,100)})}
+  G.p.rep=clamp(G.p.rep+0.15,0,100);
+  fx('Posted in circle','warm');
+  return true;
+}
+function setAjoVis(id,vis){
+  const a=ajoOf(id);if(!a||a.host!=='player')return no('Only organizer can change this.');
+  a.vis=vis==='private'?'private':'public';
+  ajoAct(a,'system','Circle is now '+a.vis+'.');
+  note(a.name+' is '+a.vis+'.','ajo');
+  return true;
+}
+
 function createAjo(name,size,amt,freq){if(!atAjo())return false;if(blocked())return no('You are blocked from forming a new Ajo for '+(G.p.blockedUntil-G.day)+' day(s).');if(G.p.trust<30)return no('People will not join an Ajo run by someone with Trust below 30.');if(myAjos().length>=2)return no('You can only be in 2 Ajo groups at once.');
- const a={id:'p'+G.nid++,name:name||'Kano Hustlers',host:'player',size,amt,freq,members:['player'],status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0};
- G.ajos.unshift(a);miles('ajohost','Started your own Ajo');note('Ajo created. Invite your people. Round 1 goes to you (organizer). Ajoloop takes '+Math.round(AJO_FEE_PCT*100)+'% of that first pot only.','ajo');return a.id}
+ const a={id:'p'+G.nid++,name:name||'Kano Hustlers',host:'player',size,amt,freq,members:['player'],status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[]};
+ G.ajos.unshift(a);miles('ajohost','Started your own Ajo');ajoAct(a,'system','Circle created. Public discovery is on — people can request to join.');note('Ajo created. Invite your people or wait for public requests. Round 1 goes to you. Fee '+Math.round(AJO_FEE_PCT*100)+'% on first pot only.','ajo');return a.id}
 function invite(aid,nid){const a=ajoOf(aid),n=npc(nid);if(a.status!=='open'||a.host!=='player')return false;if(!n.met)return no('Meet '+n.n+' first.');if(a.inv[nid]===G.day)return no(n.n+' already answered today.');a.inv[nid]=G.day;
  const p=G.demo?0.92:clamp(.1+n.rel/100*.8+(G.p.trust-50)/200,.05,.95);if(Math.random()<p){a.members.push(nid);fx(n.n+': "I am in!"','warm');note(n.n+' joined '+a.name+'.','ajo');if(a.members.length>=a.size)toStones(a)}else fx(n.n+': "Let me think about it... not now."','cold');return true}
 function toStones(a){
@@ -184,7 +277,7 @@ function toStones(a){
   if(!free.length)return;
   const s=pick(free);a.stones[m]=s.id;taken.add(s.id);
  });
- note(a.name+' is full. Everyone picks a stone. Round 1 always goes to the organizer ('+nm(a.host)+'). Later pots follow the stone roll.','ajo');
+ ajoAct(a,'system','Circle is full — time to pick stones.');note(a.name+' is full. Everyone picks a stone. Round 1 always goes to the organizer ('+nm(a.host)+'). Later pots follow the stone roll.','ajo');
  fx('Pick your stone','warm');
 }
 function toVoting(a){toStones(a)}
@@ -869,7 +962,7 @@ function demoAdvanceToPayout(id){
   return true;
 }
 
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0});if(G.demo==null)G.demo=false}
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false}
 
 /* ---- persistence ---- */
 const Store={async load(){try{if(window.storage){const r=await window.storage.get(KEY,false);if(r&&r.value)return JSON.parse(r.value)}}catch(e){}try{const v=localStorage.getItem(KEY);if(v)return JSON.parse(v)}catch(e){}return Store.mem?JSON.parse(Store.mem):null},
