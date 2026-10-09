@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''},regStep:1,authMode:null,ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members',maxMembers:30},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''},regStep:1,authMode:null,ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members',maxMembers:30},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[],treatForm:{biz:null,product:null,friend:null,note:'',mode:'request'}};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -794,6 +794,7 @@ function bizDetailSheet(b){
       ${b.owner!=='player'?(
         pending?`<div class="pill wait">Visit requested — waiting for approval</div>`:
         `<button class="btn" data-a="visitBiz" data-id="${b.id}">📍 Request visit</button>
+         <button class="btn ghost" data-a="treatOpenBiz" data-id="${b.id}">🙏 Ask friend to pay</button>
          <button class="btn ghost" data-a="interestBiz" data-id="${b.id}">👍 Show interest</button>
          <button class="btn ghost" data-a="chatOpen" data-id="${b.owner}">💬 Chat with owner</button>`
       ):`<div class="muted sm">Your listing. When others request visits, approve them to build trust.</div>
@@ -945,7 +946,7 @@ function peopleView(){
  const met=G.npcs.filter(n=>n.met).sort((a,b)=>b.rel-a.rel);
  const close=met.filter(n=>isFriend(n.id)||n.rel>=60);
  const un=G.npcs.filter(n=>!n.met);
- const pendingIn=pendingFriendReqs();
+ const pendingIn=pendingFriendReqs();const pendingTreats=typeof pendingTreatsIn==='function'?pendingTreatsIn():[];
  const pendingOut=outgoingFriendReqs();
  // Suggested: unmet who share a location with people you know, or high-trust tags nearby spots
  const suggest=un.slice().sort((a,b)=>{
@@ -955,6 +956,13 @@ function peopleView(){
  const list=filter==='close'?close:filter==='all'?met:met;
  const seg=[['all','All '+met.length],['close','Friends '+close.length],['discover','Discover']];
  let body='';
+ body+=`<div class="px" style="margin:0 0 10px;display:flex;gap:8px;flex-wrap:wrap">
+  <button class="btn sm" data-a="treatOpen">🙏 Ask friend to pay</button>
+  <button class="btn sm ghost" data-a="treatsOpen">Treats${pendingTreats.length?` (${pendingTreats.length})`:''}</button>
+ </div>`;
+ if(pendingTreats.length){
+  body+=`<div class="warnbox" style="margin:0 12px 10px">${pendingTreats.length} treat request${pendingTreats.length>1?'s':''} for you — <button class="btn sm" data-a="treatsOpen">Review</button></div>`;
+ }
  if(pendingIn.length||pendingOut.length){
   body+=`<div class="section-label">Friend requests</div>`;
   pendingIn.forEach(r=>{
@@ -1046,7 +1054,7 @@ function sheetHtml(){let h='';
  if(G.ev)return wrap(eventSheet(),true);
  const m=UI.modal;if(!m)return '';
  if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='avatar')h=avatarSheet(!!m.create);if(m.t==='storeAvatar')h=storeAvatarSheet(!!m.create);if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
- if(m.t==='home')h=homeSheet();if(m.t==='work')h=workSheet();if(m.t==='bizManage')h=bizManageSheet();if(m.t==='biz')h=bizDetailSheet(bizById(m.id));if(m.t==='chat')h=chatSheet(m.id);
+ if(m.t==='home')h=homeSheet();if(m.t==='work')h=workSheet();if(m.t==='bizManage')h=bizManageSheet();if(m.t==='biz')h=bizDetailSheet(bizById(m.id));if(m.t==='chat')h=chatSheet(m.id);if(m.t==='treat')h=treatRequestSheet();if(m.t==='treats')h=treatsInboxSheet();
  if(m.t==='spotAdd')h=spotAddSheet();if(m.t==='spot')h=spotDetailSheet(m.id);
  return wrap(h)}
 function wrap(h,lock){return `<div class="back" ${lock?'':'data-a="closeBack"'}><div class="sheet" id="sheet">${lock?'':'<button class="x" data-a="close" aria-label="Close">✕</button>'}${h}</div></div>`}
@@ -1077,6 +1085,7 @@ function npcSheet(n){const here_=npcLoc(n)===G.p.loc,p=G.p;const know=n.rel>=50;
  })()}
  ${here_?`<button class="btn ${friendStatus(n.id)==='friends'?'ghost':''}" data-a="talk" data-id="${n.id}">💬 Talk in person · 1 hour</button>
  ${p.loc==='restaurant'?`<button class="btn ghost" data-a="eatw" data-id="${n.id}">🍛 Eat together · ₦3,000 (you pay)</button>`:''}
+ ${isFriend(n.id)?`<button class="btn ghost" data-a="treatOpenFriend" data-id="${n.id}">🙏 Ask them to cover a local treat</button>`:''}
  <div class="row" style="gap:8px"><button class="btn ghost sm" style="flex:1" data-a="helpn" data-id="${n.id}" data-n="2000" ${p.cash<2000?'disabled':''}>Help ₦2,000</button><button class="btn ghost sm" style="flex:1" data-a="helpn" data-id="${n.id}" data-n="5000" ${p.cash<5000?'disabled':''}>Help ₦5,000</button></div>`
  :`<div class="card" style="background:var(--card);margin:0">Right now at <b>${where.ic} ${where.n}</b>.
  <button class="btn ghost" style="margin-top:10px" data-a="goto" data-to="${npcLoc(n)}">Go there · travel costs apply</button></div>`}
@@ -1441,7 +1450,71 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
  h+=`<button class="btn" style="margin-top:12px" data-a="ajoChatOpen" data-id="${a.id}">💬 Open circle chat</button>`;
  return h}
 
-function notesSheet(){return `<h2>Notifications</h2><div style="margin-top:12px">${G.notes.length?G.notes.slice(0,30).map(n=>`<div class="note ${n.kind}" style="margin:0 0 8px"><div class="tiny muted">Day ${n.day}</div>${esc(n.txt)}</div>`).join(''):'<div class="muted">Nothing yet.</div>'}</div>`}
+
+function treatRequestSheet(){
+  const f=UI.treatForm||{biz:null,product:null,friend:null,note:'',mode:'request'};
+  const area=(G.p.home&&G.p.home.done&&G.p.home.area)||G.p.area||'your area';
+  const bizs=businessesInUserArea('player');
+  const friends=friendsList();
+  const b=f.biz?bizById(f.biz):null;
+  const products=b?bizProducts(b):[];
+  const prod=products.find(p=>p.id===f.product)||products[0];
+  return `<div class="sec" style="margin-top:0">${f.mode==='suggest'?'Suggest a treat':'Ask a friend to pay'}<small>From businesses in ${esc(area)}</small></div>
+    <div class="muted sm" style="margin-bottom:10px">Friends can cover a meal, ride, or service for you at a local shop — builds trust when they come through.</div>
+    <label class="l">Type</label>
+    <div class="opts">
+      <button data-a="treatMode" data-v="request" class="${f.mode!=='suggest'?'on':''}">🙏 Request (ask them to pay)</button>
+      <button data-a="treatMode" data-v="suggest" class="${f.mode==='suggest'?'on':''}">💡 Suggest (put the idea to them)</button>
+    </div>
+    <label class="l">Business in your area</label>
+    ${bizs.length?`<div class="opts" style="flex-direction:column;align-items:stretch">${bizs.map(x=>`<button data-a="treatBiz" data-v="${x.id}" class="${f.biz===x.id?'on':''}" style="text-align:left">${x.ic||'🏪'} ${esc(x.name)} · ${esc(x.cat)} · ${esc(x.area)}</button>`).join('')}</div>`
+      :'<div class="card empty">No businesses in your area yet. Set home area or wait for nearby shops.</div>'}
+    ${b?`<label class="l">Activity / item</label>
+      <div class="opts" style="flex-direction:column;align-items:stretch">${products.map(p=>`<button data-a="treatProd" data-v="${p.id}" class="${(f.product||(prod&&prod.id))===p.id?'on':''}" style="text-align:left">${esc(p.n)} · <b>${fmt(p.price)}</b></button>`).join('')}</div>`:''}
+    <label class="l">Friend</label>
+    ${friends.length?`<div class="opts" style="flex-direction:column;align-items:stretch">${friends.map(n=>`<button data-a="treatFriend" data-v="${n.id}" class="${f.friend===n.id?'on':''}" style="text-align:left">${n.em} ${esc(n.n)} · ${relLabel(n)}</button>`).join('')}</div>`
+      :'<div class="card empty">No friends yet. Meet people and accept friend requests first.</div>'}
+    <label class="l">Note (optional)</label>
+    <div class="field"><input type="text" id="treat-note" maxlength="120" placeholder="e.g. Lunch after market" value="${esc(f.note||'')}"></div>
+    ${b&&prod&&f.friend?`<div class="card" style="margin-top:12px"><div class="row sp"><span class="muted">They would cover</span><b>${fmt(prod.price)}</b></div>
+      <div class="muted tiny">${esc(prod.n)} at ${esc(b.name)}</div></div>`:''}
+    <button class="btn" style="margin-top:14px" data-a="treatSend">${f.mode==='suggest'?'Send suggestion':'Send request'}</button>`;
+}
+function treatsInboxSheet(){
+  const incoming=pendingTreatsIn();
+  const outgoing=pendingTreatsOut();
+  const done=(G.treatReqs||[]).filter(t=>t.status!=='pending').slice(-8).reverse();
+  let h=`<div class="sec" style="margin-top:0">Treats<small>Friends paying for local activities</small></div>`;
+  h+=`<div class="section-label">Requests for you</div>`;
+  if(!incoming.length) h+=`<div class="card empty">No one is asking you to cover a treat right now.</div>`;
+  else incoming.forEach(t=>{
+    const from=npc(t.from); const b=bizById(t.biz);
+    h+=`<div class="inv-card"><b>${from?from.em+' '+esc(from.n):'Friend'}</b>
+      <div class="muted sm">${t.mode==='suggest'?'Suggested':'Asked you to pay for'} <b>${esc(t.productName)}</b> at ${b?esc(b.name):'a shop'} · ${fmt(t.price)}</div>
+      ${t.note?`<div class="tiny muted" style="margin-top:4px">“${esc(t.note)}”</div>`:''}
+      <div class="row" style="gap:8px;margin-top:10px">
+        <button class="btn green sm" style="flex:1" data-a="treatAccept" data-id="${t.id}">Pay ${fmt(t.price)}</button>
+        <button class="btn ghost sm" style="flex:1" data-a="treatReject" data-id="${t.id}">Decline</button>
+      </div></div>`;
+  });
+  h+=`<div class="section-label">Your open requests</div>`;
+  if(!outgoing.length) h+=`<div class="muted sm px">None pending.</div>`;
+  else outgoing.forEach(t=>{
+    const to=npc(t.to); const b=bizById(t.biz);
+    h+=`<div class="card"><b>${esc(t.productName)}</b> · ${fmt(t.price)}
+      <div class="muted sm">Waiting on ${to?esc(to.n):'friend'} · ${b?esc(b.name):''}</div></div>`;
+  });
+  if(done.length){
+    h+=`<div class="section-label">Recent</div>`;
+    done.forEach(t=>{
+      h+=`<div class="muted sm px" style="margin-bottom:6px">${t.status==='accepted'?'✓':'✗'} ${esc(t.productName)} · ${fmt(t.price)} · Day ${t.resolved||t.day}</div>`;
+    });
+  }
+  h+=`<button class="btn" style="margin-top:12px" data-a="treatOpen">＋ New request</button>`;
+  return h;
+}
+
+function notesSheet(){const tr=typeof pendingTreatsIn==='function'?pendingTreatsIn():[];return `<h2>Notifications</h2>${tr.length?`<div class="warnbox" style="margin:10px 0">${tr.length} treat request${tr.length>1?'s':''} waiting — <button class="btn sm" data-a="treatsOpen">Review</button></div>`:''}<div style="margin-top:12px">${G.notes.length?G.notes.slice(0,30).map(n=>`<div class="note ${n.kind}" style="margin:0 0 8px"><div class="tiny muted">Day ${n.day}</div>${esc(n.txt)}</div>`).join(''):'<div class="muted">Nothing yet.</div>'}</div>`}
 function jobsSheet(){return `<h2>Today's openings</h2><div class="muted sm" style="margin:4px 0 12px">Pick one. You can quit any time.</div>${JOBS.map(j=>{const o=G.openJobs.includes(j.id);return `<button class="act" data-a="hire" data-id="${j.id}" ${o?'':'disabled'}><div class="ic">${j.ic}</div><div><b>${j.n}</b><small>${fmt(j.pay)}/day · −${j.en} energy · ${o?j.d:'Not hiring today'}</small></div></button>`}).join('')}`}
 
 /* ============ GROUPS UI ============
@@ -1912,6 +1985,26 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     break}
   case 'bizOpen':UI.modal={t:'biz',id:d.id};render();break;
   case 'visitBiz':run(requestBizVisit,d.id);break;
+
+  case 'treatOpen':UI.treatForm={biz:null,product:null,friend:null,note:'',mode:'request'};UI.modal={t:'treat'};render();break;
+  case 'treatOpenFriend':UI.treatForm={biz:null,product:null,friend:d.id,note:'',mode:'request'};UI.modal={t:'treat'};render();break;
+  case 'treatOpenBiz':UI.treatForm={biz:d.id,product:null,friend:null,note:'',mode:'request'};UI.modal={t:'treat'};render();break;
+  case 'treatsOpen':UI.modal={t:'treats'};render();break;
+  case 'treatMode':UI.treatForm.mode=d.v;render();break;
+  case 'treatBiz':UI.treatForm.biz=d.v;UI.treatForm.product=null;render();break;
+  case 'treatProd':UI.treatForm.product=d.v;render();break;
+  case 'treatFriend':UI.treatForm.friend=d.v;render();break;
+  case 'treatSend':{
+    const f=UI.treatForm||{};
+    const note=(document.getElementById('treat-note')||{}).value||f.note;
+    const b=f.biz?bizById(f.biz):null;
+    const prods=b?bizProducts(b):[];
+    const pid=f.product||(prods[0]&&prods[0].id);
+    if(requestTreat({to:f.friend,bizId:f.biz,productId:pid,note,mode:f.mode})){UI.modal={t:'treats'};commit()} else render();
+  }break;
+  case 'treatAccept':run(acceptTreat,d.id);break;
+  case 'treatReject':run(rejectTreat,d.id);break;
+
   case 'interestBiz':run(interestBiz,d.id);break;
   case 'approveVisit':run(approveBizVisit,d.vid,d.y==='1');break;
   case 'trustAct':run(trustActivity,d.id,d.g);break;
