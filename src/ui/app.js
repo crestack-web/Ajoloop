@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',gi:{},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},chatWith:null,chatText:'',gi:{},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -180,6 +180,95 @@ function actButton(a){
  return `<button class="${cls}" data-a="${a.a}"${extra}${dis}><div class="ic">${a.ic}</div><div><b>${a.l}</b><small>${sub}</small>${cost}</div><span class="go">›</span></button>`;
 }
 
+
+function homeBanner(){
+  const h=G.p.home;
+  if(h&&h.done) return `<div class="home-banner"><div class="row sp"><div><b>🏠 Home · ${esc(h.area)}</b><div class="muted sm">${esc(h.label||HOME_STYLES.find(s=>s.id===h.style)?.n||'Home')}</div></div>
+    <button class="btn sm ghost" data-a="homeEdit">Edit</button></div>
+    <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+      <button class="btn sm ${G.p.nearbyOptIn?'green':'ghost'}" data-a="nearbyToggle">${G.p.nearbyOptIn?'Nearby on':'Enable nearby'}</button>
+      <button class="btn sm ghost" data-a="tab" data-v="town">City map</button>
+    </div></div>`;
+  return `<div class="home-banner"><b>Set your home area</b><div class="muted sm" style="margin:6px 0 10px">Approximate only — LGA / neighbourhood, not your street number. This is how people find your circle.</div>
+    <button class="btn" data-a="homeEdit">Choose home in Kano</button></div>`;
+}
+function kanoMapBlock(){
+  const pins=mapPins();
+  const sel=UI.mapPin?pins.find(p=>p.id===UI.mapPin):null;
+  return `<div class="kano-map">${pins.map(p=>`<button class="pin ${p.kind} ${UI.mapPin===p.id?'selected':''}" style="left:${p.x}%;top:${p.y}%" data-a="mapPin" data-id="${p.id}" aria-label="${esc(p.n)}"><span class="bubble">${p.ic}</span><span class="pin-label">${esc(p.n)}</span></button>`).join('')}</div>
+  <div class="map-legend-row"><span>🏠 Home</span><span>🏪 Business</span><span>📍 Area</span><span>🛒 Public</span></div>
+  ${sel?`<section class="card"><div class="row"><div style="font-size:32px">${sel.ic}</div><div style="flex:1;min-width:0"><h2 style="font-size:18px">${esc(sel.n)}</h2><div class="muted sm">${esc(sel.sub||'')}</div></div></div>
+    ${sel.kind==='biz'?`<div class="row" style="margin-top:12px;gap:8px"><button class="btn sm" data-a="bizOpen" data-id="${sel.id}">Open shop</button><button class="btn sm ghost" data-a="visitBiz" data-id="${sel.id}">Visit</button></div>`:''}
+    ${sel.kind==='home'?`<div class="muted sm" style="margin-top:8px">Only you see this exact pin. Others see your area when you enable nearby.</div>`:''}
+    ${sel.kind==='area'?`<div class="muted sm" style="margin-top:8px">${(KANO_MAP.areas[sel.n]||{}).blurb||''}</div><div class="section-label">Businesses here</div>${bizesInArea(sel.n).length?bizesInArea(sel.n).map(b=>`<button class="g-card" data-a="bizOpen" data-id="${b.id}" style="margin:0 0 8px;width:100%"><div class="g-av">${b.ic}</div><div class="meta"><b>${esc(b.name)}</b><div class="l">${esc(b.cat)} · trust ${Math.round(b.trust||0)}</div></div></button>`).join(''):'<div class="empty">No listed businesses in this area yet.</div>'}`:''}
+    ${sel.kind==='public'?`<div class="muted sm" style="margin-top:8px">Public place · good spot to suggest a meetup.</div>`:''}
+  </section>`:'<div class="muted tiny px">Tap a pin to inspect a place, shop, or area.</div>'}
+  ${nearbyBlock()}`;
+}
+function nearbyBlock(){
+  if(!G.p.nearbyOptIn) return `<div class="card" style="margin:12px"><b>People near you</b><div class="muted sm" style="margin:6px 0">Opt in to see neighbours in your home area. Approximate only — no live GPS.</div>
+    <button class="btn sm" data-a="nearbyToggle">Enable nearby</button></div>`;
+  const list=nearbyPeople();
+  return `<div class="section-label">Nearby · ${esc(G.p.home&&G.p.home.area||'')}</div>
+    ${list.length?list.map(n=>`<div class="suggest-card"><div class="av">${n.em}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ} · ${relLabel(n)}</div></div>
+      <button class="btn sm ghost" data-a="chatOpen" data-id="${n.id}">Chat</button>
+      <button class="btn sm" data-a="npc" data-id="${n.id}">Profile</button></div>`).join('')
+    :'<div class="card empty"><div class="big">📍</div>No met neighbours in your area yet. Meet people in Town, then they can show as nearby.</div>'}`;
+}
+function homeSheet(){
+  const f=UI.homeForm, styles=HOME_STYLES;
+  return `<div class="sec" style="margin-top:0">Your home<small>Area is public-facing. Street label stays private on this device for now.</small></div>
+    <label class="l">Area (Kano)</label><div class="opts">${allAreas().map(a=>`<button data-a="homeArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
+    <label class="l">Private label (optional)</label><input id="hf-label" maxlength="40" placeholder="e.g. Near mosque" value="${esc(f.label)}">
+    <label class="l">Home type</label><div class="opts">${styles.map(s=>`<button data-a="homeStyle" data-v="${s.id}" class="${f.style===s.id?'on':''}">${s.ic} ${s.n}</button>`).join('')}</div>
+    <button class="btn" style="margin-top:12px" data-a="homeSave">Save home</button>
+    <div class="tiny muted" style="margin-top:10px">We never show a precise street pin to strangers. Online version will keep the same rule.</div>`;
+}
+function bizManageSheet(){
+  const existing=playerBiz(), f=UI.bizForm;
+  if(existing) return `<div class="sec" style="margin-top:0">${esc(existing.name)}<small>${esc(existing.area)} · ${esc(existing.cat)}</small></div>
+    <div class="muted sm">${esc(existing.bio||'')}</div>
+    <div class="row sp" style="margin-top:12px"><span class="muted sm">Trust</span><b>${Math.round(existing.trust||0)}</b></div>
+    <div class="row sp"><span class="muted sm">Visits</span><b>${existing.visits||0}</b></div>
+    <div class="section-label">Products</div>
+    ${(existing.products||[]).map(p=>`<div class="biz-product"><span>${esc(p.n)}</span><b>${fmt(p.price)}</b></div>`).join('')}
+    <div class="tiny muted" style="margin-top:12px">Buying here is game cash for now. Real orders come with the backend.</div>`;
+  return `<div class="sec" style="margin-top:0">List a business<small>Ordinary players can list a shop. Not an Ajo.</small></div>
+    <label class="l">Business name</label><input id="bf-name" maxlength="28" placeholder="e.g. Abubakar Provisions" value="${esc(f.name)}">
+    <label class="l">Category</label><div class="opts">${BIZ_CATS.map(c=>`<button data-a="bizCat" data-v="${c}" class="${f.cat===c?'on':''}">${c}</button>`).join('')}</div>
+    <label class="l">Area</label><div class="opts">${allAreas().map(a=>`<button data-a="bizArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
+    <label class="l">Landmark (optional)</label><input id="bf-label" maxlength="40" placeholder="Near motor park" value="${esc(f.label)}">
+    <label class="l">About</label><input id="bf-bio" maxlength="120" placeholder="What you sell" value="${esc(f.bio)}">
+    <button class="btn" style="margin-top:12px" data-a="bizCreate">Publish on the map</button>`;
+}
+function bizDetailSheet(b){
+  if(!b) return '<div class="muted">Not found</div>';
+  const owner=b.owner==='player'?G.p:npc(b.owner);
+  const ownerName=b.owner==='player'?G.p.name:(owner?owner.n:'Someone');
+  return `<div class="row"><div class="av" style="font-size:36px">${b.ic||'🏪'}</div><div><h2>${esc(b.name)}</h2><div class="muted sm">${esc(b.cat)} · ${esc(b.area)}</div></div></div>
+    <div class="muted sm" style="margin:10px 0">${esc(b.bio||'')}</div>
+    <div class="row sp"><span class="muted sm">Owner</span><b>${esc(ownerName)}${b.owner!=='player'?' <span class="npc-badge">NPC</span>':''}</b></div>
+    <div class="row sp"><span class="muted sm">Shop trust</span><b>${Math.round(b.trust||0)}</b></div>
+    <div class="row sp"><span class="muted sm">Visits</span><b>${b.visits||0}</b></div>
+    ${b.label?`<div class="tiny muted">Landmark: ${esc(b.label)}</div>`:''}
+    <div class="section-label">Menu / goods</div>
+    ${(b.products||[]).map(p=>`<div class="biz-product"><div><b>${esc(p.n)}</b></div><div class="row" style="gap:8px"><b>${fmt(p.price)}</b>${b.owner!=='player'?`<button class="btn sm" data-a="buyBiz" data-id="${b.id}" data-p="${p.id}">Buy</button>`:''}</div></div>`).join('')||'<div class="muted sm">No items listed.</div>'}
+    <div class="profile-actions" style="margin-top:14px">
+      ${b.owner!=='player'?`<button class="btn" data-a="visitBiz" data-id="${b.id}">📍 Check in visit</button>
+      <button class="btn ghost" data-a="chatOpen" data-id="${b.owner}">💬 Chat with owner</button>`:'<div class="muted sm">This is your listing.</div>'}
+    </div>
+    <div class="tiny muted" style="margin-top:10px">Visits and purchases raise relationship and shop trust in the simulation. Real payments need the online backend.</div>`;
+}
+function chatSheet(uid){
+  const n=npc(uid); if(!n) return '<div class="muted">Unknown</div>';
+  const th=chatThread(uid);
+  return `<div class="row"><div class="av">${n.em}</div><div><h2>${n.n}</h2><div class="muted sm">${n.occ} · ${relLabel(n)}</div></div></div>
+    <div class="chat-log" id="chat-log">${th.length?th.map(m=>`<div class="chat-bubble ${m.by==='player'?'me':'them'}">${esc(m.t)}<div class="tiny" style="opacity:.7;margin-top:4px">Day ${m.day}</div></div>`).join(''):'<div class="empty">Say hello. Chat builds familiarity before you meet.</div>'}</div>
+    <div class="row" style="gap:8px;margin-top:8px"><input id="chat-in" maxlength="200" placeholder="Message…" value="${esc(UI.chatText||'')}" style="flex:1">
+    <button class="btn sm" data-a="chatSend" data-id="${uid}">Send</button></div>
+    <div class="tiny muted" style="margin-top:8px">Offline demo replies are simulated. Real player chat ships with the backend.</div>`;
+}
+
 function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(),hn=here();
  const order=['home','market','restaurant','park','_c','work','bank','social','ajo'];
  const mode=UI.townMode||'map';
@@ -200,15 +289,25 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
   return `<div class="act-group"><div class="ag-label">${label}</div>${list.map(actButton).join('')}</div>`;
  }).join('');
  const openJobs=G.openJobs?G.openJobs.length:0;
- return `<div class="sec">Town<small>Eight places. Travel costs game cash and time.</small></div>
- <div class="town-tabs"><button data-a="townMode" data-v="map" class="${mode==='map'?'on':''}">Map</button><button data-a="townMode" data-v="list" class="${mode==='list'?'on':''}">All places</button></div>
- ${mode==='map'?`<div class="map-wrap"><div class="map">${order.map(tile).join('')}</div><div class="map-legend"><span>Tap a tile to travel</span><span>Keke ₦200 · from Park ₦100</span></div></div>`
- :`<div class="dir-list">${['home','market','restaurant','park','work','bank','social','ajo'].map(dirItem).join('')}</div>`}
+ return `<div class="sec">Town<small>Daily places · city map · businesses</small></div>
+ ${homeBanner()}
+ <div class="town-tabs">
+  <button data-a="townMode" data-v="city" class="${mode==='city'?'on':''}">City map</button>
+  <button data-a="townMode" data-v="map" class="${mode==='map'?'on':''}">Daily places</button>
+  <button data-a="townMode" data-v="list" class="${mode==='list'?'on':''}">List</button>
+  <button data-a="townMode" data-v="biz" class="${mode==='biz'?'on':''}">Businesses</button>
+ </div>
+ ${mode==='city'?kanoMapBlock():''}
+ ${mode==='map'?`<div class="map-wrap"><div class="map">${order.map(tile).join('')}</div><div class="map-legend"><span>Tap a tile to travel</span><span>Keke ₦200 · from Park ₦100</span></div></div>
  <section class="card"><div class="place-hero"><div class="ph-ic">${L.ic}</div><div style="min-width:0;flex:1"><h2>${L.n}</h2><div class="muted sm">${L.d}</div><div class="place-meta">${meta.tags.map(t=>`<span class="place-tag hot">${t}</span>`).join('')}${hn.length?`<span class="place-tag people">${hn.length} here now</span>`:'<span class="place-tag">Quiet now</span>'}${G.p.loc==='work'&&openJobs?`<span class="place-tag hot">${openJobs} jobs open</span>`:''}</div>
  <div class="travel-hint">You are here · ${String(G.hour).padStart(2,'0')}:00 · Day ${G.day}. ${meta.blurb}</div></div></div></section>
  ${acts.length?grouped:'<div class="card empty"><div class="big">🗺️</div>Nothing to do here right now.</div>'}
- <div class="sec">People here<small>${hn.length?'Tap someone to talk, share a meal, or help.':'Nobody on this block right now. Neighbours move during the day.'}</small></div>
- ${hn.length?hn.map(personRow).join(''):'<div class="card empty"><div class="big">🚶</div>Empty for the moment.<div class="muted sm" style="margin-top:6px">Try the Market mid-morning or Suya Spot in the evening.</div></div>'}`}
+ <div class="sec">People here<small>${hn.length?'Tap someone to talk, share a meal, or help.':'Nobody on this block right now.'}</small></div>
+ ${hn.length?hn.map(personRow).join(''):'<div class="card empty"><div class="big">🚶</div>Empty for the moment.</div>'}`:''}
+ ${mode==='list'?`<div class="dir-list">${['home','market','restaurant','park','work','bank','social','ajo'].map(dirItem).join('')}</div>`:''}
+ ${mode==='biz'?`<div class="px row" style="gap:8px;margin:8px 0"><button class="btn" data-a="bizManage">${playerBiz()?'My business':'＋ List my business'}</button></div>
+   <div class="section-label">On the map</div>
+   ${G.bizs.filter(b=>!b.closed).map(b=>`<button class="g-card" data-a="bizOpen" data-id="${b.id}" style="width:calc(100% - 24px)"><div class="g-av">${b.ic||'🏪'}</div><div class="meta"><b>${esc(b.name)}</b><div class="l">${esc(b.cat)} · ${esc(b.area)} · trust ${Math.round(b.trust||0)}</div></div></button>`).join('')||'<div class="card empty">No businesses listed.</div>'}`:''}`}
 
 function relPill(n){
  if(n.rel>=80) return '<span class="rel-pill close">Trusted</span>';
@@ -289,6 +388,7 @@ function sheetHtml(){let h='';
  if(G.ev)return wrap(eventSheet(),true);
  const m=UI.modal;if(!m)return '';
  if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
+ if(m.t==='home')h=homeSheet();if(m.t==='bizManage')h=bizManageSheet();if(m.t==='biz')h=bizDetailSheet(bizById(m.id));if(m.t==='chat')h=chatSheet(m.id);
  return wrap(h)}
 function wrap(h,lock){return `<div class="back" ${lock?'':'data-a="closeBack"'}><div class="sheet" id="sheet">${lock?'':'<button class="x" data-a="close" aria-label="Close">✕</button>'}${h}</div></div>`}
 
@@ -574,6 +674,34 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'begin':{const n=(UI.form.name||'').trim();if(!n){fx('Enter a name first.','warn');flush();return}const age=Math.max(18,Math.min(60,parseInt(UI.form.age)||24));newGame(n,age,UI.form.gender);UI.tab='life';commit();break}
   case 'tab':UI.tab=d.v;UI.modal=null;render();break;
   case 'townMode':UI.townMode=d.v;render();break;
+  case 'mapPin':UI.mapPin=d.id;render();break;
+  case 'homeEdit':UI.homeForm={area:(G.p.home&&G.p.home.area)||'Fagge',label:(G.p.home&&G.p.home.label)||'',style:(G.p.home&&G.p.home.style)||'compound'};UI.modal={t:'home'};render();break;
+  case 'homeArea':UI.homeForm.area=d.v;render();break;
+  case 'homeStyle':UI.homeForm.style=d.v;render();break;
+  case 'homeSave':{
+    const label=(document.getElementById('hf-label')||{}).value||UI.homeForm.label;
+    if(setHome(UI.homeForm.area,label,UI.homeForm.style)){UI.modal=null;commit()} else render();
+    break}
+  case 'nearbyToggle':G.p.nearbyOptIn=!G.p.nearbyOptIn;if(G.p.nearbyOptIn&&!(G.p.home&&G.p.home.done)){fx('Set your home area first.','warm');G.p.nearbyOptIn=false;UI.modal={t:'home'};render();break}note(G.p.nearbyOptIn?'Nearby enabled for your area.':'Nearby disabled.');commit();break;
+  case 'bizManage':UI.bizForm={name:'',cat:'Provisions',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',bio:''};UI.modal={t:'bizManage'};render();break;
+  case 'bizCat':UI.bizForm.cat=d.v;render();break;
+  case 'bizArea':UI.bizForm.area=d.v;render();break;
+  case 'bizCreate':{
+    const name=(document.getElementById('bf-name')||{}).value||UI.bizForm.name;
+    const label=(document.getElementById('bf-label')||{}).value||UI.bizForm.label;
+    const bio=(document.getElementById('bf-bio')||{}).value||UI.bizForm.bio;
+    const b=createPlayerBiz({name,cat:UI.bizForm.cat,area:UI.bizForm.area,label,bio,ic:'🏪'});
+    if(b){UI.modal={t:'biz',id:b.id};commit()} else render();
+    break}
+  case 'bizOpen':UI.modal={t:'biz',id:d.id};render();break;
+  case 'visitBiz':run(visitBiz,d.id);break;
+  case 'buyBiz':run(buyAtBiz,d.id,d.p);break;
+  case 'chatOpen':UI.chatWith=d.id;UI.chatText='';UI.modal={t:'chat',id:d.id};render();break;
+  case 'chatSend':{
+    const t=(document.getElementById('chat-in')||{}).value||UI.chatText;
+    chatSend(d.id,t);UI.chatText='';commit();
+    break}
+
   case 'peopleFilter':UI.peopleFilter=d.v;render();break;
   case 'tabAjo':UI.tab='ajo';render();break;
   case 'more':UI.more=d.v;render();break;

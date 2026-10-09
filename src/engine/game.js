@@ -100,7 +100,7 @@ function newGame(name,age,gender){
  p:{name,age,gender,job:null,cash:20000,savings:0,energy:100,hunger:20,happiness:60,rep:50,trust:50,biz:10,social:10,reliab:50,loc:'home',blockedUntil:0,shiftDay:0,missed:0,boastDay:0,oppDay:0,oppN:0,bizRepDay:0},
  npcs:NP0.map(n=>({...n,met:false,lastSeen:0,hist:[],tk:{d:0,c:0},said:''})),
  tx:[],btx:[],biz:null,ajos:SEED(),debts:[],promises:[],sched:[],notes:[],th:[],rh:[],mile:{},ev:null,lastEv:'',openJobs:['shop','rider','sales'],snap:[]};
- initGroups();snap();note('Welcome to Kano City. You have ₦20,000. Find work, meet people — and protect your name.','info');return G}
+ initGroups();initPlaces();snap();note('Welcome to Kano City. You have ₦20,000. Find work, meet people — and protect your name.','info');return G}
 function snap(){G.snap.push({day:G.day,cash:G.p.cash,nw:netWorth(),trust:Math.round(G.p.trust),rep:Math.round(G.p.rep)});if(G.snap.length>120)G.snap.shift()}
 
 /* ---- movement & survival ---- */
@@ -279,7 +279,7 @@ function endDay(auto){const P=G.p;
    Everyone except 'player' is an NPC (simulated). There is no server yet, so "other users" do not exist. */
 const G_CATS=['Friends & Family','Business','Creators','Sports','Neighbourhood','Learning','Food & Music','Gaming'];
 const G_AVS=['🏘️','⚽','🎨','💼','🍲','🎶','📚','🛺','🤝','🌆'];
-const G_AREAS=['Fagge','Nasarawa','Dala','Gwale','Tarauni','Kano Municipal'];
+const G_AREAS=['Fagge','Nasarawa','Dala','Gwale','Tarauni','Kano Municipal','Kumbotso','Ungogo'];
 const G_LOCS=['restaurant','social','market','park'];
 const G_MAX=60,OWNER_IDLE=30;
 const ROLE_RANK={member:1,mod:2,admin:3,owner:4};
@@ -568,7 +568,157 @@ function seedGroups(){let k=0;const mk=(o,owner,mem,posts,evs)=>{const g=mkGroup
    [['musa','Meeting about stall fees next week. Members only.','announce']])]}
 function initGroups(){G.groups=seedGroups();G.gev=[];G.blk=[];G.susp=[];G.rl={};G.cf={};G.p.ints=G.p.ints||[];G.p.shareArea=false;G.p.area=null}
 /* older saves have no groups yet: add them without touching anything else */
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[]}
+
+/* ========== PLACES LAYER: Home + Business + Kano map (offline-ready) ==========
+ * Approximate areas only — no exact GPS. Businesses are community nodes.
+ * Multiplayer: same schema maps to Supabase tables later.
+ */
+const KANO_MAP={
+  // grid positions for stylised city map (0–100)
+  areas:{
+    'Fagge':{x:62,y:48,blurb:'Old trading heart near the city centre.'},
+    'Nasarawa':{x:55,y:62,blurb:'Busy residential and market stretch.'},
+    'Dala':{x:40,y:40,blurb:'Hills, history, tight neighbourhoods.'},
+    'Gwale':{x:48,y:55,blurb:'Dense compounds and street trade.'},
+    'Tarauni':{x:70,y:58,blurb:'Growing residential and small shops.'},
+    'Kano Municipal':{x:58,y:42,blurb:'Core municipal life and offices.'},
+    'Kumbotso':{x:75,y:72,blurb:'Outer growth, workshops, new estates.'},
+    'Ungogo':{x:45,y:28,blurb:'Northern edge of the urban sprawl.'}
+  },
+  publicNodes:[
+    {id:'kn_kasuwa',n:'Kasuwa Market',ic:'🛒',area:'Fagge',x:64,y:46,kind:'market'},
+    {id:'kn_mama',n:'Mama Put Row',ic:'🍲',area:'Gwale',x:50,y:56,kind:'food'},
+    {id:'kn_suya',n:'Suya Junction',ic:'🔥',area:'Nasarawa',x:56,y:64,kind:'social'},
+    {id:'kn_park',n:'Keke Park',ic:'🛺',area:'Kano Municipal',x:60,y:44,kind:'transport'},
+    {id:'kn_bank',n:'Arewa Bank Strip',ic:'🏦',area:'Kano Municipal',x:57,y:40,kind:'bank'}
+  ]
+};
+const BIZ_CATS=['Provisions','Food & Kitchen','Fashion','Phones & Tech','Services','Transport','Beauty','Other'];
+const HOME_STYLES=[{id:'compound',n:'Family compound',ic:'🏠'},{id:'flat',n:'Self-contain / flat',ic:'🏢'},{id:'room',n:'Single room',ic:'🛏️'},{id:'estate',n:'Estate house',ic:'🏡'}];
+
+function initPlaces(){
+  if(!G.p.home) G.p.home={area:G.p.area||'',label:'',style:'compound',done:false};
+  if(G.p.area&&!G.p.home.area) G.p.home.area=G.p.area;
+  if(!G.bizs) G.bizs=[];
+  if(!G.visits) G.visits=[];
+  if(!G.chats) G.chats={};
+  if(!G.p.nearbyOptIn) G.p.nearbyOptIn=false;
+  // Seed a few NPC businesses once
+  if(!G.bizs.length){
+    const seeds=[
+      {id:'bz_musa',owner:'musa',name:'Musa Provisions',cat:'Provisions',area:'Fagge',label:'Near Kasuwa gate',ic:'🏪',bio:'Rice, oil, soap — fair measure.',open:true},
+      {id:'bz_aisha',owner:'aisha',name:"Aisha's Stitches",cat:'Fashion',area:'Gwale',label:'By the primary school',ic:'🧵',bio:'Ankara, alterations, school uniforms.',open:true},
+      {id:'bz_sani',owner:'sani',name:'Sani Phones',cat:'Phones & Tech',area:'Tarauni',label:'Along the main road',ic:'📱',bio:'Screens, chargers, airtime.',open:true}
+    ];
+    seeds.forEach(b=>{
+      if(!npc(b.owner)) return;
+      G.bizs.push({...b,trust:40,visits:0,created:G.day,products:[
+        {id:'p1',n:b.cat==='Fashion'?'Alteration / piece':(b.cat==='Food & Kitchen'?'Plate of the day':'Everyday goods'),price:b.cat==='Fashion'?2500:2000}
+      ]});
+    });
+  }
+  // Assign neighbourhoods so "nearby" works offline
+  const areaCycle=allAreas();
+  G.npcs.forEach((n,i)=>{ if(!n.homeArea) n.homeArea=areaCycle[i%areaCycle.length]; });
+}
+function setHome(area,label,style){
+  if(!GANO_AREAS_HAS(area)) return fx('Pick a real Kano area.','warn');
+  G.p.home={area,label:(label||'').slice(0,40),style:style||'compound',done:true};
+  G.p.area=area; G.p.shareArea=true;
+  note('Home set in '+area+(label?(' · '+label):'')+'. Neighbours in this area can discover you when you opt in.');
+  return true;
+}
+function GANO_AREAS_HAS(a){return !!(KANO_MAP.areas[a]||G_AREAS.includes(a))}
+function allAreas(){return Object.keys(KANO_MAP.areas)}
+function createPlayerBiz({name,cat,area,label,ic,bio}){
+  name=(name||'').trim().slice(0,28); if(name.length<2) return fx('Name your business.','warn');
+  if(!BIZ_CATS.includes(cat)) cat='Other';
+  if(!GANO_AREAS_HAS(area)) return fx('Choose an area for the shop.','warn');
+  if(G.bizs.some(b=>b.owner==='player'&&!b.closed)) return fx('You already run a listed business. Edit it instead.','warn');
+  const id='bz_p_'+Date.now().toString(36);
+  const b={id,owner:'player',name,cat,area,label:(label||'').slice(0,40),ic:ic||'🏪',bio:(bio||'').slice(0,120),open:true,trust:45,visits:0,created:G.day,
+    products:[{id:'p1',n:'Popular item',price:2000}]};
+  G.bizs.push(b);
+  note('Business listed: '+name+' in '+area+'. People can visit and buy — trust grows when they leave happy.');
+  return b;
+}
+function playerBiz(){return G.bizs.find(b=>b.owner==='player'&&!b.closed)||null}
+function bizById(id){return G.bizs.find(b=>b.id===id)}
+function bizesInArea(area){return G.bizs.filter(b=>!b.closed&&b.area===area)}
+function nearbyPeople(){
+  if(!G.p.home||!G.p.home.area||!G.p.nearbyOptIn) return [];
+  const a=G.p.home.area;
+  return G.npcs.filter(n=>n.met&&!G.blk.includes(n.id)&&(n.area===a||(n.spots&&n.homeArea===a)||(bizByOwner(n.id)&&bizByOwner(n.id).area===a)));
+}
+function bizByOwner(uid){return G.bizs.find(b=>b.owner===uid&&!b.closed)}
+function visitBiz(bid){
+  const b=bizById(bid); if(!b||b.closed) return fx('Business not found.','warn');
+  if(b.owner==='player') return fx('This is your own shop.','warm');
+  // travel soft if different area
+  if(G.p.home&&G.p.home.area&&b.area!==G.p.home.area&&G.p.loc!=='market'){
+    if(G.p.cash<200){fx('Need ₦200 for keke to another area.','warn');return}
+    ledger(-200,'Keke to '+b.area,'travel'); tick(1);
+  }
+  const v={id:'v_'+Date.now().toString(36),biz:bid,by:'player',day:G.day,hour:G.hour,bought:false,ack:false};
+  G.visits.push(v);
+  b.visits=(b.visits||0)+1;
+  if(b.owner!=='player'){const n=npc(b.owner); if(n){n.rel=clamp(n.rel+2,0,100); if(!n.met){n.met=true;n.lastSeen=G.day}}}
+  note('You visited '+b.name+' in '+b.area+'.');
+  return v;
+}
+function buyAtBiz(bid,pid){
+  const b=bizById(bid); if(!b) return;
+  const pr=(b.products||[]).find(p=>p.id===pid)||(b.products||[])[0];
+  if(!pr) return fx('Nothing listed.','warn');
+  if(G.p.cash<pr.price) return fx('Need '+fmt(pr.price)+'.','warn');
+  ledger(-pr.price,'Bought at '+b.name+': '+pr.n,'shop');
+  b.trust=clamp((b.trust||40)+3,0,100);
+  const n=npc(b.owner); if(n){n.rel=clamp(n.rel+4,0,100); n.hist.push({day:G.day,why:'Bought from their shop',d:4}); if(n.hist.length>12)n.hist.shift()}
+  G.p.trust=clamp(G.p.trust+0.3,0,100);
+  const last=G.visits.filter(v=>v.biz===bid&&v.by==='player').slice(-1)[0];
+  if(last) last.bought=true;
+  note('Paid '+fmt(pr.price)+' at '+b.name+'. Trust edges up.');
+  fx('Purchase noted.','good');
+}
+function chatThread(uid){
+  const k=uid<'player'?uid+'_player':'player_'+uid;
+  if(!G.chats[k]) G.chats[k]=[];
+  return G.chats[k];
+}
+function chatSend(uid,text){
+  text=(text||'').trim().slice(0,200); if(!text) return;
+  if(G.blk.includes(uid)) return fx('You blocked this person.','warn');
+  const n=npc(uid); if(!n) return;
+  if(!n.met){n.met=true;n.lastSeen=G.day}
+  const th=chatThread(uid);
+  th.push({by:'player',t:text,day:G.day,hour:G.hour});
+  n.rel=clamp(n.rel+1.5,0,100);
+  // simple NPC reply
+  const replies=['God bless. How is work?','I am around '+((bizByOwner(uid)||{}).area||'town')+'.','We should meet at the market one day.','Noted — I will check.',"Insha'Allah. Stay well."];
+  th.push({by:uid,t:pick(replies),day:G.day,hour:G.hour});
+  if(th.length>40) G.chats[Object.keys(G.chats).find(k=>G.chats[k]===th)]=th.slice(-40);
+  note('Message sent to '+n.n+'.');
+}
+function mapPins(){
+  const pins=[];
+  Object.entries(KANO_MAP.areas).forEach(([name,a])=>{
+    pins.push({id:'area_'+name,kind:'area',n:name,x:a.x,y:a.y,ic:'📍',sub:a.blurb});
+  });
+  KANO_MAP.publicNodes.forEach(p=>pins.push({...p,kind:'public',sub:p.area}));
+  (G.bizs||[]).filter(b=>!b.closed).forEach(b=>{
+    const base=KANO_MAP.areas[b.area]||{x:50,y:50};
+    const jitter=(b.id.charCodeAt(b.id.length-1)%7)-3;
+    pins.push({id:b.id,kind:'biz',n:b.name,x:clamp(base.x+jitter,5,95),y:clamp(base.y+jitter,5,95),ic:b.ic||'🏪',sub:b.area+' · '+b.cat,biz:b});
+  });
+  if(G.p.home&&G.p.home.area&&KANO_MAP.areas[G.p.home.area]){
+    const h=KANO_MAP.areas[G.p.home.area];
+    pins.push({id:'home',kind:'home',n:'Your home',x:h.x-3,y:h.y+3,ic:'🏠',sub:G.p.home.area+(G.p.home.label?' · '+G.p.home.label:'')});
+  }
+  return pins;
+}
+
+
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area}
 
 /* ---- persistence ---- */
 const Store={async load(){try{if(window.storage){const r=await window.storage.get(KEY,false);if(r&&r.value)return JSON.parse(r.value)}}catch(e){}try{const v=localStorage.getItem(KEY);if(v)return JSON.parse(v)}catch(e){}return Store.mem?JSON.parse(Store.mem):null},

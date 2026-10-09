@@ -226,3 +226,25 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
 .g-card .l{font-size:12.5px;color:var(--mut)}
 .inv-card{background:linear-gradient(135deg,var(--card2),var(--card3));border:1px solid rgba(255,201,40,.2);border-radius:18px;padding:14px;margin:0 12px 10px;box-shadow:var(--shadow-sm)}
 .note-sep{margin:12px;padding:10px 12px;border-radius:14px;background:rgba(179,136,255,.1);border-left:4px solid #b388ff;font-size:13px;font-weight:600;color:var(--mut);line-height:1.4}
+
+/* —— Kano map / places —— */
+.kano-map{position:relative;height:280px;margin:12px;border-radius:24px;background:
+  radial-gradient(ellipse at 60% 45%,rgba(255,201,40,.12),transparent 50%),
+  linear-gradient(160deg,#1a1448 0%,#25213f 40%,#1f1856 100%);
+  box-shadow:var(--shadow),inset 0 0 0 3px #3a3560;overflow:hidden}
+.kano-map .pin{position:absolute;transform:translate(-50%,-100%);background:none;padding:0;border:0;cursor:pointer;z-index:2}
+.kano-map .pin .bubble{font-size:22px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.4));transition:transform .15s}
+.kano-map .pin:active .bubble{transform:scale(1.15)}
+.kano-map .pin.home .bubble{font-size:26px}
+.kano-map .pin.biz .bubble{font-size:20px}
+.kano-map .pin.selected .bubble{transform:scale(1.2)}
+.kano-map .pin-label{position:absolute;left:50%;top:100%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-weight:800;color:var(--mut);margin-top:2px;max-width:72px;overflow:hidden;text-overflow:ellipsis}
+.kano-map .pin.home .pin-label{color:var(--danfo)}
+.map-legend-row{display:flex;flex-wrap:wrap;gap:8px;margin:0 12px 8px;font-size:11px;font-weight:700;color:var(--mut)}
+.map-legend-row span{display:inline-flex;align-items:center;gap:4px}
+.home-banner{margin:12px;padding:14px;border-radius:18px;background:linear-gradient(135deg,var(--card2),var(--card3));border:1px solid rgba(255,201,40,.25)}
+.biz-product{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.chat-bubble{max-width:85%;padding:10px 12px;border-radius:16px;margin:6px 0;font-size:14px;font-weight:600;line-height:1.35}
+.chat-bubble.me{background:var(--danfo);color:#241a00;margin-left:auto;border-bottom-right-radius:4px}
+.chat-bubble.them{background:var(--card2);color:var(--txt);border-bottom-left-radius:4px}
+.chat-log{display:flex;flex-direction:column;padding:8px 4px;max-height:240px;overflow:auto}
