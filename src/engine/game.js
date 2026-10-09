@@ -808,25 +808,40 @@ function initGroups(){G.groups=seedGroups();G.gev=[];G.blk=[];G.susp=[];G.rl={};
  * Multiplayer: same schema maps to Supabase tables later.
  */
 const KANO_MAP={
-  // grid positions for stylised city map (0–100)
+  // grid positions for stylised city map (0–100) + real lat/lng for live map
+  center:{lat:12.0022,lng:8.5919,zoom:13},
   areas:{
-    'Fagge':{x:62,y:48,blurb:'Old trading heart near the city centre.'},
-    'Nasarawa':{x:55,y:62,blurb:'Busy residential and market stretch.'},
-    'Dala':{x:40,y:40,blurb:'Hills, history, tight neighbourhoods.'},
-    'Gwale':{x:48,y:55,blurb:'Dense compounds and street trade.'},
-    'Tarauni':{x:70,y:58,blurb:'Growing residential and small shops.'},
-    'Kano Municipal':{x:58,y:42,blurb:'Core municipal life and offices.'},
-    'Kumbotso':{x:75,y:72,blurb:'Outer growth, workshops, new estates.'},
-    'Ungogo':{x:45,y:28,blurb:'Northern edge of the urban sprawl.'}
+    'Fagge':{x:62,y:48,lat:12.0020,lng:8.5355,blurb:'Old trading heart near the city centre.'},
+    'Nasarawa':{x:55,y:62,lat:11.9780,lng:8.5520,blurb:'Busy residential and market stretch.'},
+    'Dala':{x:40,y:40,lat:12.0180,lng:8.5080,blurb:'Hills, history, tight neighbourhoods.'},
+    'Gwale':{x:48,y:55,lat:11.9900,lng:8.5200,blurb:'Dense compounds and street trade.'},
+    'Tarauni':{x:70,y:58,lat:11.9720,lng:8.5800,blurb:'Growing residential and small shops.'},
+    'Kano Municipal':{x:58,y:42,lat:12.0000,lng:8.5320,blurb:'Core municipal life and offices.'},
+    'Kumbotso':{x:75,y:72,lat:11.9400,lng:8.5500,blurb:'Outer growth, workshops, new estates.'},
+    'Ungogo':{x:45,y:28,lat:12.0500,lng:8.5000,blurb:'Northern edge of the urban sprawl.'}
   },
   publicNodes:[
-    {id:'kn_kasuwa',n:'Kasuwa Market',ic:'🛒',area:'Fagge',x:64,y:46,kind:'market'},
-    {id:'kn_mama',n:'Mama Put Row',ic:'🍲',area:'Gwale',x:50,y:56,kind:'food'},
-    {id:'kn_suya',n:'Suya Junction',ic:'🔥',area:'Nasarawa',x:56,y:64,kind:'social'},
-    {id:'kn_park',n:'Keke Park',ic:'🛺',area:'Kano Municipal',x:60,y:44,kind:'transport'},
-    {id:'kn_bank',n:'Arewa Bank Strip',ic:'🏦',area:'Kano Municipal',x:57,y:40,kind:'bank'}
+    {id:'kn_kasuwa',n:'Kasuwa Market',ic:'🛒',area:'Fagge',x:64,y:46,lat:12.0005,lng:8.5310,kind:'market'},
+    {id:'kn_mama',n:'Mama Put Row',ic:'🍲',area:'Gwale',x:50,y:56,lat:11.9915,lng:8.5215,kind:'food'},
+    {id:'kn_suya',n:'Suya Junction',ic:'🔥',area:'Nasarawa',x:56,y:64,lat:11.9795,lng:8.5540,kind:'social'},
+    {id:'kn_park',n:'Keke Park',ic:'🛺',area:'Kano Municipal',x:60,y:44,lat:12.0015,lng:8.5345,kind:'transport'},
+    {id:'kn_bank',n:'Arewa Bank Strip',ic:'🏦',area:'Kano Municipal',x:57,y:40,lat:12.0030,lng:8.5290,kind:'bank'}
   ]
 };
+function areaCoords(area){
+  const a=KANO_MAP.areas[area];
+  if(a&&a.lat!=null) return {lat:a.lat,lng:a.lng};
+  return {lat:KANO_MAP.center.lat,lng:KANO_MAP.center.lng};
+}
+function nearestArea(lat,lng){
+  let best=null,bd=1e9;
+  Object.entries(KANO_MAP.areas).forEach(([name,a])=>{
+    if(a.lat==null) return;
+    const d=(a.lat-lat)*(a.lat-lat)+(a.lng-lng)*(a.lng-lng);
+    if(d<bd){bd=d;best=name}
+  });
+  return best||'Fagge';
+}
 const BIZ_CATS=['Provisions','Food & Kitchen','Fashion','Phones & Tech','Services','Transport','Beauty','Other'];
 const WORK_CATS=['Trader','Food & Kitchen','Fashion','Phones & Tech','Services','Transport','Beauty','Farmer','Teacher','Student','Civil service','Driver','Artisan','Other'];
 
@@ -873,13 +888,13 @@ function initPlaces(){
   // Seed a few community spots in Kano if empty (demo neighbours' hangouts)
   if(!(G.spots||[]).some(s=>s.by!=='player'&&!s.removed)){
     const seedSpots=[
-      {id:'sp_seed_1',name:'Kurmi Market shade',area:'Fagge',label:'Under the old trees',ic:'🌳',note:'Traders rest here between sales.',by:'community',loc:'market',public:true,created:1,
+      {id:'sp_seed_1',name:'Kurmi Market shade',area:'Fagge',label:'Under the old trees',ic:'🌳',note:'Traders rest here between sales.',by:'community',loc:'market',public:true,created:1,lat:12.0008,lng:8.5305,
         img:'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=600&q=80'},
-      {id:'sp_seed_2',name:'Gwale evening suya bench',area:'Nasarawa',label:'Suya Junction corner',ic:'🔥',note:'Friends meet after work.',by:'community',loc:'social',public:true,created:1,
+      {id:'sp_seed_2',name:'Gwale evening suya bench',area:'Nasarawa',label:'Suya Junction corner',ic:'🔥',note:'Friends meet after work.',by:'community',loc:'social',public:true,created:1,lat:11.9798,lng:8.5542,
         img:'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=600&q=80'},
-      {id:'sp_seed_3',name:'Municipal motor-park stall',area:'Kano Municipal',label:'Keke Park',ic:'🚏',note:'Drivers and passengers share news.',by:'community',loc:'park',public:true,created:1,
+      {id:'sp_seed_3',name:'Municipal motor-park stall',area:'Kano Municipal',label:'Keke Park',ic:'🚏',note:'Drivers and passengers share news.',by:'community',loc:'park',public:true,created:1,lat:12.0018,lng:8.5348,
         img:'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600&q=80'},
-      {id:'sp_seed_4',name:'Mosque yard circle',area:'Fagge',label:'After jumuah',ic:'🕌',note:'Quiet place for Ajo talk.',by:'community',loc:'ajo',public:true,created:1,
+      {id:'sp_seed_4',name:'Mosque yard circle',area:'Fagge',label:'After jumuah',ic:'🕌',note:'Quiet place for Ajo talk.',by:'community',loc:'ajo',public:true,created:1,lat:12.0035,lng:8.5280,
         img:'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=600&q=80'}
     ];
     seedSpots.forEach(s=>G.spots.push(s));
@@ -938,18 +953,43 @@ function nearbyPeople(){
 
 /* ---- Custom spots (community hangouts) ---- */
 const SPOT_ICS=['📍','🕌','🏟️','🌳','☕','🛒','🏫','🏥','🚏','🎵'];
-function addSpot({name,area,label,ic,note,loc,img}){
+function addSpot({name,area,label,ic,note,loc,img,lat,lng,address}){
   name=(name||'').trim().slice(0,32);
   if(name.length<2) return fx('Name your spot.','warn');
-  if(!GANO_AREAS_HAS(area)) return fx('Pick a Kano area for this spot.','warn');
+  let latN=lat!=null?Number(lat):null, lngN=lng!=null?Number(lng):null;
+  if(latN!=null&&lngN!=null&&!isNaN(latN)&&!isNaN(lngN)){
+    // Keep pins around Kano metro (rough bounds)
+    if(latN<11.7||latN>12.3||lngN<8.2||lngN>8.9) return fx('Pin a location in the Kano area.','warn');
+    if(!area||!GANO_AREAS_HAS(area)) area=nearestArea(latN,lngN);
+  } else {
+    latN=null;lngN=null;
+    if(!GANO_AREAS_HAS(area)) return fx('Pick a Kano area or drop a pin on the map.','warn');
+  }
   if((G.spots||[]).filter(s=>s.by==='player'&&!s.removed).length>=12) return fx('You already listed 12 spots.','warn');
   const id='sp_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   const locKey=loc&&LOCS[loc]?loc:null;
-  const s={id,name,area,label:(label||'').trim().slice(0,48),ic:ic||'📍',note:(note||'').trim().slice(0,120),by:'player',created:G.day,public:true,loc:locKey,img:(img||'').trim().slice(0,300)||null};
+  if(latN==null){
+    const c=areaCoords(area);
+    latN=c.lat+(Math.random()-.5)*0.008;
+    lngN=c.lng+(Math.random()-.5)*0.008;
+  }
+  const s={id,name,area,label:(label||'').trim().slice(0,48),ic:ic||'📍',note:(note||'').trim().slice(0,120),by:'player',created:G.day,public:true,loc:locKey,img:(img||'').trim().slice(0,300)||null,lat:latN,lng:lngN,address:(address||'').trim().slice(0,80)||null};
   G.spots.push(s);
-  note('Spot added: '+s.name+' in '+s.area+'. People in your community can see it and meet friends there.','ajo');
-  fx('Spot listed','good');
+  note('Spot added: '+s.name+' in '+s.area+(s.address?(' · '+s.address):'')+'. Friends can find it on the live map.','ajo');
+  fx('Spot listed on the map','good');
   return s;
+}
+function visitSpot(id){
+  const s=(G.spots||[]).find(x=>x.id===id&&!x.removed);
+  if(!s) return fx('Spot not found.','warn');
+  // Travel to linked daily place if any, else stay and open map focus
+  if(s.loc&&LOCS[s.loc]&&G.p.loc!==s.loc){
+    travel(s.loc);
+  }
+  G.p.lastSpot=s.id;
+  note('You checked in near '+s.name+(s.area?(' · '+s.area):'')+'.','ajo');
+  fx('At '+s.name,'good');
+  return true;
 }
 function removeSpot(id){
   const s=(G.spots||[]).find(x=>x.id===id&&x.by==='player');
@@ -1219,22 +1259,26 @@ function groupVoice(gid){return gpost(gid,'player','',{kind:'voice',sec:2+Math.f
 function mapPins(){
   const pins=[];
   Object.entries(KANO_MAP.areas).forEach(([name,a])=>{
-    pins.push({id:'area_'+name,kind:'area',n:name,x:a.x,y:a.y,ic:'📍',sub:a.blurb});
+    pins.push({id:'area_'+name,kind:'area',n:name,x:a.x,y:a.y,lat:a.lat,lng:a.lng,ic:'📍',sub:a.blurb});
   });
   KANO_MAP.publicNodes.forEach(p=>pins.push({...p,kind:'public',sub:p.area}));
   (G.bizs||[]).filter(b=>!b.closed).forEach(b=>{
-    const base=KANO_MAP.areas[b.area]||{x:50,y:50};
+    const base=KANO_MAP.areas[b.area]||{x:50,y:50,lat:KANO_MAP.center.lat,lng:KANO_MAP.center.lng};
     const jitter=(b.id.charCodeAt(b.id.length-1)%7)-3;
-    pins.push({id:b.id,kind:'biz',n:b.name,x:clamp(base.x+jitter,5,95),y:clamp(base.y+jitter,5,95),ic:b.ic||'🏪',sub:b.area+' · '+b.cat,biz:b});
+    const jlat=((b.id.charCodeAt(0)%5)-2)*0.002;
+    const jlng=((b.id.charCodeAt(1)%5)-2)*0.002;
+    pins.push({id:b.id,kind:'biz',n:b.name,x:clamp(base.x+jitter,5,95),y:clamp(base.y+jitter,5,95),lat:(base.lat||KANO_MAP.center.lat)+jlat,lng:(base.lng||KANO_MAP.center.lng)+jlng,ic:b.ic||'🏪',sub:b.area+' · '+b.cat,biz:b});
   });
   if(G.p.home&&G.p.home.area&&KANO_MAP.areas[G.p.home.area]){
     const h=KANO_MAP.areas[G.p.home.area];
-    pins.push({id:'home',kind:'home',n:'Your home',x:h.x-3,y:h.y+3,ic:'🏠',sub:G.p.home.area+(G.p.home.label?' · '+G.p.home.label:'')});
+    pins.push({id:'home',kind:'home',n:'Your home',x:h.x-3,y:h.y+3,lat:h.lat,lng:h.lng,ic:'🏠',sub:G.p.home.area+(G.p.home.label?' · '+G.p.home.label:'')});
   }
   communitySpots().forEach(s=>{
     const base=KANO_MAP.areas[s.area]||{x:50,y:50};
     const jitter=(s.id.charCodeAt(s.id.length-1)%9)-4;
-    pins.push({id:s.id,kind:'spot',n:s.name,x:clamp(base.x+jitter,6,94),y:clamp(base.y+jitter+2,6,94),ic:s.ic||'📍',sub:s.area+(s.label?' · '+s.label:''),spot:s});
+    const lat=s.lat!=null?s.lat:(base.lat||KANO_MAP.center.lat);
+    const lng=s.lng!=null?s.lng:(base.lng||KANO_MAP.center.lng);
+    pins.push({id:s.id,kind:'spot',n:s.name,x:clamp(base.x+jitter,6,94),y:clamp(base.y+jitter+2,6,94),lat,lng,ic:s.ic||'📍',sub:s.area+(s.label?' · '+s.label:''),spot:s});
   });
   return pins;
 }
