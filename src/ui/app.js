@@ -119,6 +119,70 @@ function avatar(g){
   return g==='Female'?'👩🏾':g==='Male'?'👨🏾':'🧑🏾';
 }
 function playerAvatar(sz){return renderAvatar((G&&G.p&&G.p.avatar)||defaultAvatar(G&&G.p&&G.p.gender),sz||48)}
+
+const STORE_WALLS={cream:'#e8dcc8',sand:'#c4a574',red:'#c45c48',blue:'#4a6fa5',green:'#3d8b6e',yellow:'#d4a017',white:'#f0ebe3'};
+const STORE_ROOF={tin:'#8a9ba8',flat:'#5c5346',awning:'#c45c48'};
+function renderStoreBuilding(a,size){
+  a=a||defaultStoreAvatar('Other');
+  if(!a||a.kind!=='building') a=defaultStoreAvatar('Other');
+  const sz=size||48;
+  const wall=STORE_WALLS[a.wall]||STORE_WALLS.cream;
+  const roof=STORE_ROOF[a.roof]||STORE_ROOF.tin;
+  const style=a.style||'shop';
+  const sign=a.sign||'board';
+  const door=a.door||'open';
+  const win=a.window!==false;
+  let body='';
+  if(style==='stall'){
+    body=`<rect x="12" y="48" width="76" height="50" rx="3" fill="${wall}"/>
+      <path d="M8 48 L50 28 L92 48" fill="${roof}"/>
+      <rect x="8" y="48" width="84" height="6" fill="${roof}"/>`;
+  } else if(style==='kiosk'){
+    body=`<rect x="22" y="40" width="56" height="58" rx="4" fill="${wall}"/>
+      <rect x="18" y="36" width="64" height="10" rx="2" fill="${roof}"/>
+      <rect x="20" y="32" width="60" height="6" fill="${roof}" opacity=".85"/>`;
+  } else if(style==='container'){
+    body=`<rect x="10" y="42" width="80" height="56" rx="2" fill="${wall}"/>
+      <rect x="10" y="42" width="80" height="8" fill="${roof}"/>
+      <line x1="50" y1="50" x2="50" y2="98" stroke="#000" stroke-opacity=".15" stroke-width="2"/>`;
+  } else if(style==='boutique'){
+    body=`<rect x="14" y="38" width="72" height="60" rx="2" fill="${wall}"/>
+      <rect x="10" y="34" width="80" height="8" fill="${roof}"/>
+      <rect x="18" y="28" width="64" height="8" fill="${roof}" opacity=".9"/>`;
+  } else {
+    body=`<rect x="12" y="40" width="76" height="58" rx="2" fill="${wall}"/>
+      <path d="M8 40 L50 18 L92 40" fill="${roof}"/>
+      <rect x="8" y="40" width="84" height="5" fill="${roof}"/>`;
+  }
+  let doorSvg='';
+  if(door==='open')
+    doorSvg=`<rect x="40" y="62" width="20" height="36" fill="#2a1f14"/><rect x="42" y="64" width="8" height="32" fill="#1a120c" opacity=".5"/>`;
+  else if(door==='curtain')
+    doorSvg=`<rect x="40" y="62" width="20" height="36" fill="#6b3a5c"/><path d="M40 62 Q45 80 40 98 M50 62 Q55 80 50 98 M60 62 Q55 80 60 98" stroke="#4a2840" stroke-width="2" fill="none"/>`;
+  else
+    doorSvg=`<rect x="40" y="62" width="20" height="36" rx="1" fill="#5c4030"/><circle cx="56" cy="80" r="1.5" fill="#c9a227"/>`;
+  let winSvg='';
+  if(win){
+    winSvg=`<rect x="18" y="58" width="16" height="14" rx="1" fill="#87ceeb" stroke="#333" stroke-width="1.2" opacity=".9"/>
+      <rect x="66" y="58" width="16" height="14" rx="1" fill="#87ceeb" stroke="#333" stroke-width="1.2" opacity=".9"/>
+      <line x1="26" y1="58" x2="26" y2="72" stroke="#333" stroke-width="1"/><line x1="18" y1="65" x2="34" y2="65" stroke="#333" stroke-width="1"/>
+      <line x1="74" y1="58" x2="74" y2="72" stroke="#333" stroke-width="1"/><line x1="66" y1="65" x2="82" y2="65" stroke="#333" stroke-width="1"/>`;
+  }
+  let signSvg='';
+  if(sign==='board')
+    signSvg=`<rect x="28" y="44" width="44" height="12" rx="2" fill="#2a2272" stroke="#c9a227" stroke-width="1.5"/>
+      <rect x="30" y="46" width="40" height="8" rx="1" fill="#17123f"/>`;
+  else if(sign==='painted')
+    signSvg=`<rect x="24" y="46" width="52" height="10" rx="1" fill="#c9a227" opacity=".9"/>`;
+  const ground=`<rect x="4" y="98" width="92" height="6" rx="1" fill="#3d3558" opacity=".5"/>`;
+  return `<svg class="av-svg store-bld" width="${sz}" height="${sz}" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${body}${winSvg}${doorSvg}${signSvg}${ground}</svg>`;
+}
+function renderBizFace(b,size){
+  if(!b) return '🏪';
+  const a=(b.avatar&&b.avatar.kind==='building')?b.avatar:(typeof storeAvatarFromBiz==='function'?storeAvatarFromBiz(b):defaultStoreAvatar(b.cat||'Other'));
+  return renderStoreBuilding(a,size||48);
+}
+
 function gFace(g,sz){
   if(g&&g.photo) return `<img class="g-photo" src="${g.photo}" alt="" width="${sz||40}" height="${sz||40}">`;
   return `<span>${(g&&g.av)||'🏘️'}</span>`;
@@ -275,8 +339,8 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
   <div class="row sp" style="margin-top:14px"><b>💼 What I do</b><button class="btn sm ghost" data-a="workEdit">${p.work&&p.work.set?'Edit':'Set'}</button></div>
   <div class="muted sm" style="margin-top:6px">${p.work&&p.work.set?esc(p.work.title||p.work.cat):'Trade, job, or student — so the circle knows you.'}</div>
   <div class="row sp" style="margin-top:14px"><b>🏪 Business</b><button class="btn sm ghost" data-a="bizManage">${biz?'Manage':'List one'}</button></div>
-  ${biz?`<div class="row" style="margin-top:8px;gap:10px;align-items:center">${biz.avatar?renderAvatar(biz.avatar,48):''}<div class="muted sm">${esc(biz.name)} · ${esc(biz.area)} · trust ${Math.round(biz.trust||0)}</div></div>`
-  :`<div class="muted sm" style="margin-top:6px">Optional public shop with address and store character.</div>`}
+  ${biz?`<div class="row" style="margin-top:8px;gap:10px;align-items:center">${biz?renderBizFace(biz,48):''}<div class="muted sm">${esc(biz.name)} · ${esc(biz.area)} · trust ${Math.round(biz.trust||0)}</div></div>`
+  :`<div class="muted sm" style="margin-top:6px">Optional public shop with address and storefront.</div>`}
  </section>
 
  <div class="section-label">Near you ${p.nearbyOptIn?'':'· off'}</div>
@@ -589,20 +653,20 @@ function homeSheet(){
 function bizManageSheet(){
   const existing=playerBiz(), f=UI.bizForm;
   if(existing){
-    if(!existing.avatar)existing.avatar=defaultStoreAvatar(G.p.gender);
+    if(!existing.avatar)existing.avatar=defaultStoreAvatar((playerBiz()&&playerBiz().cat)||(UI.bizForm&&UI.bizForm.cat)||'Other');
     return `<div class="sec" style="margin-top:0">${esc(existing.name)}<small>${esc(existing.area)} · ${esc(existing.cat)}</small></div>
-    <div class="av-preview">${renderAvatar(existing.avatar,96)}</div>
-    <button class="btn sm ghost" style="display:block;margin:8px auto" data-a="storeAvOpen">Customize store character</button>
+    <div class="av-preview">${renderBizFace(existing,96)}</div>
+    <button class="btn sm ghost" style="display:block;margin:8px auto" data-a="storeAvOpen">Customize storefront</button>
     <div class="muted sm" style="margin-top:8px">${esc(existing.bio||'')}</div>
     <div class="row sp" style="margin-top:12px"><span class="muted sm">Shop trust</span><b>${Math.round(existing.trust||0)}</b></div>
     <div class="row sp"><span class="muted sm">Visits</span><b>${existing.visits||0}</b></div>
     <div class="row sp"><span class="muted sm">Address</span><b>${esc(existing.area)}${existing.label?' · '+esc(existing.label):''}</b></div>
-    <div class="tiny muted" style="margin-top:12px">Your store character is what neighbours see when they visit.</div>`;
+    <div class="tiny muted" style="margin-top:12px">Your storefront is what neighbours see on the map and when they visit.</div>`;
   }
-  const prev=UI.storeAvForm||defaultStoreAvatar(G.p.gender);
+  const prev=UI.storeAvForm||defaultStoreAvatar((playerBiz()&&playerBiz().cat)||(UI.bizForm&&UI.bizForm.cat)||'Other');
   return `<div class="sec" style="margin-top:0">List your business<small>Optional — for traders and shop owners. Builds trust when people visit.</small></div>
-    <div class="av-preview">${renderAvatar(prev,88)}</div>
-    <button class="btn sm ghost" style="display:block;margin:8px auto" data-a="storeAvOpenCreate">Customize store character</button>
+    <div class="av-preview">${renderStoreBuilding(prev.kind==='building'?prev:defaultStoreAvatar(f.cat||'Other'),88)}</div>
+    <button class="btn sm ghost" style="display:block;margin:8px auto" data-a="storeAvOpenCreate">Customize storefront</button>
     <label class="l">Business name</label><input id="bf-name" maxlength="28" placeholder="e.g. Amina Provisions" value="${esc(f.name)}">
     <label class="l">Category</label><div class="opts">${BIZ_CATS.map(c=>`<button data-a="bizCat" data-v="${c}" class="${f.cat===c?'on':''}">${c}</button>`).join('')}</div>
     <label class="l">Area / address</label><div class="opts">${allAreas().map(a=>`<button data-a="bizArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
@@ -618,7 +682,7 @@ function workSheet(){
     <label class="l">Title (optional)</label><input id="wf-title" maxlength="40" placeholder="e.g. Provisions seller, tailor…" value="${esc(f.title)}">
     <button class="btn" style="margin-top:12px" data-a="workSave">Save</button>
     <div class="section-label">Also list a shop?</div>
-    <div class="muted sm" style="margin-bottom:8px">Optional. Add a public business with area and a store character people can visit.</div>
+    <div class="muted sm" style="margin-bottom:8px">Optional. Add a public shop with a building look people can find and visit.</div>
     <button class="btn ghost" data-a="bizManage">＋ Add my business</button>`;
 }
 
@@ -628,7 +692,7 @@ function bizDetailSheet(b){
   const ownerName=b.owner==='player'?G.p.name:(owner?owner.n:'Someone');
   const pending=(G.visits||[]).find(v=>v.biz===b.id&&v.by==='player'&&v.st==='pending');
   const approved=(G.visits||[]).filter(v=>v.biz===b.id&&v.st==='approved').length;
-  const face=b.avatar?renderAvatar(b.avatar,56):(b.ic||'🏪');
+  const face=renderBizFace(b,56);
   return `<div class="row"><div class="av av-biz">${typeof face==='string'&&face.includes('<svg')?face:`<span style="font-size:36px">${face}</span>`}</div><div><h2>${esc(b.name)}</h2><div class="muted sm">${esc(b.cat)} · ${esc(b.area)}${b.label?' · '+esc(b.label):''}</div></div></div>
     <div class="muted sm" style="margin:10px 0">${esc(b.bio||'')}</div>
     <div class="row sp"><span class="muted sm">Owner</span><b>${esc(ownerName)}${b.owner!=='player'?' <span class="npc-badge">NPC</span>':''}</b></div>
@@ -955,26 +1019,30 @@ function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${v
 
 
 function storeAvatarSheet(createMode){
-  if(!UI.storeAvForm)UI.storeAvForm=Object.assign({},defaultStoreAvatar((G&&G.p&&G.p.gender)||'Female'));
-  const a=UI.storeAvForm; a.store=true; a.gender=a.gender||(G&&G.p&&G.p.gender)||'Female';
-  const cat=UI.avCat||'skin'; const fem=a.gender==='Female';
-  const cats=[['skin','Skin'],['hair','Hair'],['hairColor','Color'],['face','Face'],['eyes','Eyes'],['brows','Brows'],['nose','Nose'],['mouth','Mouth']].concat(fem?[]:[['facial','Beard']]).concat([['accessory','Style'],['top','Clothes']]);
-  const opts=AV[cat]||[];
-  return `<div class="av-builder">
-  <h2>Store character</h2>
-  <div class="muted sm">How your shop appears to visitors — same style as your personal look, for the business.</div>
-  <div class="av-preview lg">${renderAvatar(a,120)}</div>
-  <div class="people-seg av-cats">${cats.map(([k,l])=>`<button data-a="avCat" data-v="${k}" class="${cat===k?'on':''}">${l}</button>`).join('')}</div>
-  <div class="av-opts">${opts.map(o=>{
-    const on=a[cat]===o.id?'on':'';
-    const swatch=o.c?`<i class="swatch" style="background:${o.c}"></i>`:'';
-    return `<button class="av-opt ${on}" data-a="storeAvSet" data-k="${cat}" data-v="${o.id}">${swatch}<span>${esc(o.n)}</span></button>`;
-  }).join('')}</div>
-  <div class="row" style="gap:8px;margin-top:14px">
-    <button class="btn ghost" data-a="storeAvRandom">Shuffle</button>
-    <button class="btn" data-a="storeAvSave" style="flex:1">Save store look</button>
-  </div>
-</div>`;
+  if(!UI.storeAvForm||UI.storeAvForm.kind!=='building')
+    UI.storeAvForm=Object.assign({},defaultStoreAvatar((playerBiz()&&playerBiz().cat)||(UI.bizForm&&UI.bizForm.cat)||'Other'));
+  const a=UI.storeAvForm;
+  const styles=[{id:'shop',n:'Shop'},{id:'kiosk',n:'Kiosk'},{id:'stall',n:'Food stall'},{id:'boutique',n:'Boutique'},{id:'container',n:'Container'}];
+  const walls=[{id:'cream',n:'Cream'},{id:'sand',n:'Sand'},{id:'red',n:'Red'},{id:'blue',n:'Blue'},{id:'green',n:'Green'},{id:'yellow',n:'Yellow'},{id:'white',n:'White'}];
+  const roofs=[{id:'tin',n:'Tin'},{id:'flat',n:'Flat'},{id:'awning',n:'Awning'}];
+  const signs=[{id:'board',n:'Sign board'},{id:'painted',n:'Painted'},{id:'none',n:'None'}];
+  const doors=[{id:'open',n:'Open'},{id:'closed',n:'Closed'},{id:'curtain',n:'Curtain'}];
+  const opt=(list,key)=>list.map(o=>`<button class="av-opt ${a[key]===o.id?'on':''}" data-a="storeAvSet" data-k="${key}" data-v="${o.id}"><span>${esc(o.n)}</span></button>`).join('');
+  return `<div class="sec" style="margin-top:0">Storefront<small>Building look for your shop — not a person</small></div>
+    <div class="av-preview">${renderStoreBuilding(a,110)}</div>
+    <label class="l">Building style</label><div class="opts">${opt(styles,'style')}</div>
+    <label class="l">Wall colour</label><div class="opts">${opt(walls,'wall')}</div>
+    <label class="l">Roof</label><div class="opts">${opt(roofs,'roof')}</div>
+    <label class="l">Sign</label><div class="opts">${opt(signs,'sign')}</div>
+    <label class="l">Door</label><div class="opts">${opt(doors,'door')}</div>
+    <label class="l">Windows</label><div class="opts">
+      <button class="av-opt ${a.window!==false?'on':''}" data-a="storeAvSet" data-k="window" data-v="1">Yes</button>
+      <button class="av-opt ${a.window===false?'on':''}" data-a="storeAvSet" data-k="window" data-v="0">No</button>
+    </div>
+    <div class="row" style="gap:8px;margin-top:14px">
+      <button class="btn ghost" data-a="storeAvRandom">Shuffle</button>
+      <button class="btn" data-a="storeAvSave" style="flex:1">Save storefront</button>
+    </div>`;
 }
 
 function avatarSheet(createMode){
@@ -1647,13 +1715,16 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const cat=(UI.workForm&&UI.workForm.cat)||'Other';
     if(setWorkProfile(cat,title)){UI.modal=null;if(setupSteps().every(s=>s.ok))markOnboarded();commit()} else render();
     break}
-  case 'storeAvOpen':UI.storeAvForm=Object.assign({},(playerBiz()&&playerBiz().avatar)||defaultStoreAvatar(G.p.gender));UI.avCat='skin';UI.modal={t:'storeAvatar'};render();break;
-  case 'storeAvOpenCreate':UI.storeAvForm=Object.assign({},UI.storeAvForm||defaultStoreAvatar(G.p.gender));UI.avCat='skin';UI.modal={t:'storeAvatar',create:true};render();break;
-  case 'storeAvSet':if(!UI.storeAvForm)UI.storeAvForm=defaultStoreAvatar(G.p.gender);UI.storeAvForm[d.k]=d.v;render();break;
+  case 'storeAvOpen':UI.storeAvForm=Object.assign({},storeAvatarFromBiz(playerBiz()||{cat:'Other'}));UI.modal={t:'storeAvatar'};render();break;
+  case 'storeAvOpenCreate':UI.storeAvForm=Object.assign({},(UI.storeAvForm&&UI.storeAvForm.kind==='building')?UI.storeAvForm:defaultStoreAvatar((UI.bizForm&&UI.bizForm.cat)||'Other'));UI.modal={t:'storeAvatar',create:true};render();break;
+  case 'storeAvSet':if(!UI.storeAvForm||UI.storeAvForm.kind!=='building')UI.storeAvForm=defaultStoreAvatar('Other');UI.storeAvForm[d.k]=(d.k==='window'?(d.v==='1'||d.v===1||d.v===true):d.v);UI.storeAvForm.kind='building';UI.storeAvForm.store=true;render();break;
   case 'storeAvRandom':{
-    const rnd=arr=>arr[Math.floor(Math.random()*arr.length)].id;
-    UI.storeAvForm={gender:G.p.gender,skin:rnd(AV.skin),face:rnd(AV.face),hair:rnd(AV.hair),hairColor:rnd(AV.hairColor),eyes:rnd(AV.eyes),brows:rnd(AV.brows),nose:rnd(AV.nose),mouth:rnd(AV.mouth),facial:'none',accessory:rnd(AV.accessory),top:rnd(AV.top),store:true};
-    render();break}
+    const styles=['shop','kiosk','stall','boutique','container'], walls=['cream','sand','red','blue','green','yellow','white'], roofs=['tin','flat','awning'], signs=['board','painted','none'], doors=['open','closed','curtain'];
+    const pick=a=>a[Math.floor(Math.random()*a.length)];
+    UI.storeAvForm={store:true,kind:'building',style:pick(styles),wall:pick(walls),roof:pick(roofs),sign:pick(signs),door:pick(doors),window:Math.random()>.3,ic:'🏪'};
+    render();break;
+  }
+  
   case 'storeAvSave':{
     if(UI.modal&&UI.modal.create){/* keep on form */}
     else if(playerBiz())setStoreAvatar(UI.storeAvForm);
@@ -1666,7 +1737,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const name=(document.getElementById('bf-name')||{}).value||UI.bizForm.name;
     const label=(document.getElementById('bf-label')||{}).value||UI.bizForm.label;
     const bio=(document.getElementById('bf-bio')||{}).value||UI.bizForm.bio;
-    const b=createPlayerBiz({name,cat:UI.bizForm.cat,area:UI.bizForm.area,label,bio,ic:'🏪',avatar:UI.storeAvForm||defaultStoreAvatar(G.p.gender)});
+    const b=createPlayerBiz({name,cat:UI.bizForm.cat,area:UI.bizForm.area,label,bio,ic:'🏪',avatar:(UI.storeAvForm&&UI.storeAvForm.kind==='building')?UI.storeAvForm:defaultStoreAvatar(UI.bizForm.cat||'Other')});
     if(b){UI.storeAvForm=null;UI.modal={t:'biz',id:b.id};commit()} else render();
     break}
   case 'bizOpen':UI.modal={t:'biz',id:d.id};render();break;
