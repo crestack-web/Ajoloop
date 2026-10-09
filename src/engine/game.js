@@ -540,36 +540,47 @@ function gPush(g,u,txt,kind,parent){const p={id:'p'+G.nid++,by:u,day:G.day,hr:G.
  if(g.mem[u])g.mem[u].last=G.day;g.last=G.day;if(!g.fi){g.fi=true;gtrack('first_interaction',g,{by:u})}
  if(kind==='announce'&&u!=='player'&&g.mem.player)gnote(g.name+': new announcement from '+nm(u)+'.');return p}
 function gpost(gid,u,txt,o={}){
- const kind=o.kind==='announce'?'announce':(o.kind==='poll'?'poll':'msg');
+ const kind=o.kind==='announce'?'announce':(o.kind==='poll'?'poll':(o.kind==='voice'?'voice':'msg'));
  const need=kind==='announce'?'announce':'post';
  const g=gguard(gid,u,need,kind==='announce'?'Only admins can post announcements.':null);if(!g)return false;
- txt=String(txt||'').trim();if(!txt)return no(kind==='poll'?'Write a poll question.':'Write something first.');
+ txt=String(txt||'').trim();
+ if(kind==='voice'){
+  txt=txt||('🎤 Voice note · '+(o.sec||3)+'s');
+ } else if(!txt){
+  return no(kind==='poll'?'Write a poll question.':'Write something first.');
+ }
  if(txt.length>280)return no('Keep it under 280 characters.');
- if(kind!=='poll'&&(txt.match(/https?:\/\//gi)||[]).length>1)return no('Too many links. That looks like spam.');
- if(kind!=='poll'&&g.posts.filter(p=>p.by===u).slice(-5).some(p=>p.txt.toLowerCase()===txt.toLowerCase()))return no('You already posted that.');
+ if(kind!=='poll'&&kind!=='voice'&&(txt.match(/https?:\/\//gi)||[]).length>1)return no('Too many links. That looks like spam.');
+ if(kind==='msg'&&g.posts.filter(p=>p.by===u&&p.kind==='msg').slice(-5).some(p=>p.txt.toLowerCase()===txt.toLowerCase()))return no('You already posted that.');
  if(o.parent&&!g.posts.some(p=>p.id===o.parent&&!p.parent))return no('That post is gone.');
- if(!grate(u,'post:'+g.id,kind==='announce'?3:(kind==='poll'?4:8),'You have posted a lot today. Give others a turn.'))return false;
+ const limit=kind==='announce'?3:(kind==='poll'?6:8);
+ if(!grate(u,'post:'+g.id,limit,'You have posted a lot today. Give others a turn.'))return false;
  const p={id:'p'+G.nid++,by:u,day:G.day,hr:G.hour,kind,txt,parent:o.parent||null,hid:false};
  if(kind==='poll'){
   let opts=(o.options||[]).map(t=>String(t||'').trim()).filter(Boolean).slice(0,6);
   if(opts.length<2)return no('Add at least two choices for the poll.');
-  if(opts.length>6)opts=opts.slice(0,6);
-  p.options=opts.map((t,i)=>({id:'o'+i,t:t.slice(0,60),votes:[]}));
+  p.options=opts.map((t,idx)=>({id:'o'+idx,t:t.slice(0,60),votes:[]}));
+ }
+ if(kind==='voice'){
+  p.sec=Math.max(1,Math.min(60,parseInt(o.sec)||3));
+  p.txt='🎤 Voice note · '+p.sec+'s';
  }
  g.posts.push(p);if(g.mem[u])g.mem[u].last=G.day;g.last=G.day;if(!g.fi){g.fi=true;gtrack('first_interaction',g,{by:u})}
- // NPC members sometimes engage
  if(kind==='msg'&&Math.random()<0.45){
   const others=Object.keys(g.mem).filter(m=>m!=='player'&&m!==u);
   if(others.length){const m=pick(others);const replies=['Noted.','I agree.','Who is joining?','Count me in.','God willing.','Let us keep it respectful.'];
    g.posts.push({id:'p'+G.nid++,by:m,day:G.day,hr:G.hour,kind:'msg',txt:pick(replies),parent:null,hid:false})}
  }
  if(kind==='poll'){
-  // NPCs may cast early votes
   Object.keys(g.mem).filter(m=>m!=='player').forEach(m=>{
-   if(Math.random()<0.55){const o=pick(p.options);if(!o.votes.includes(m))o.votes.push(m)}
+   if(Math.random()<0.55){const o2=pick(p.options);if(o2&&!(o2.votes||[]).includes(m)){o2.votes=o2.votes||[];o2.votes.push(m)}}
   });
  }
- gtrack(kind==='poll'?'poll_created':'post_created',g,{by:u,kind});
+ if(kind==='voice'&&Math.random()<0.35){
+  const others=Object.keys(g.mem).filter(m=>m!=='player');
+  if(others.length)g.posts.push({id:'p'+G.nid++,by:pick(others),day:G.day,hr:G.hour,kind:'voice',txt:'🎤 Voice note · 2s',sec:2,parent:null,hid:false});
+ }
+ gtrack(kind==='poll'?'poll_created':(kind==='voice'?'voice_sent':'post_created'),g,{by:u,kind});
  return p.id;
 }
 function votePoll(gid,pid,oid,u='player'){
@@ -974,20 +985,33 @@ function chatGame(uid,kind){
   fx('Connection +'+L.rel,'warm');
 }
 
-function chatSend(uid,text){
-  text=(text||'').trim().slice(0,200); if(!text) return;
+function chatSend(uid,text,o={}){
+  const kind=o.kind==='voice'?'voice':'msg';
+  text=(text||'').trim().slice(0,200);
+  if(kind==='voice') text=text||('🎤 Voice note · '+(o.sec||3)+'s');
+  if(!text) return;
   if(G.blk.includes(uid)) return fx('You blocked this person.','warn');
   const n=npc(uid); if(!n) return;
   if(!n.met){n.met=true;n.lastSeen=G.day}
   const th=chatThread(uid);
-  th.push({by:'player',t:text,day:G.day,hour:G.hour});
-  n.rel=clamp(n.rel+1.5,0,100);
-  // simple NPC reply
-  const replies=['God bless. How is work?','I am around '+((bizByOwner(uid)||{}).area||'town')+'.','We should meet at the market one day.','Noted — I will check.',"Insha'Allah. Stay well."];
-  th.push({by:uid,t:pick(replies),day:G.day,hour:G.hour});
-  if(th.length>40) G.chats[Object.keys(G.chats).find(k=>G.chats[k]===th)]=th.slice(-40);
-  note('Message sent to '+n.n+'.');
+  const msg={by:'player',t:text,day:G.day,hour:G.hour,kind};
+  if(kind==='voice') msg.sec=Math.max(1,Math.min(60,parseInt(o.sec)||3));
+  th.push(msg);
+  n.rel=clamp(n.rel+(kind==='voice'?2:1.5),0,100);
+  const replies=['God bless. How is work?','I am around '+((bizByOwner(uid)||{}).area||'town')+'.','We should meet at the market one day.','Thanks for checking in.','Alhamdulillah.','I heard you — talk soon.'];
+  if(Math.random()<0.75){
+    if(kind==='voice'&&Math.random()<0.4)
+      th.push({by:uid,t:'🎤 Voice note · 2s',day:G.day,hour:G.hour,kind:'voice',sec:2});
+    else
+      th.push({by:uid,t:pick(replies),day:G.day,hour:G.hour,kind:'msg'});
+  }
+  G.p.trust=clamp(G.p.trust+0.1,0,100);
+  fx(kind==='voice'?'Voice note sent':'Sent','warm');
+  return true;
 }
+function chatVoice(uid){return chatSend(uid,'',{kind:'voice',sec:2+Math.floor(Math.random()*4)})}
+function groupVoice(gid){return gpost(gid,'player','',{kind:'voice',sec:2+Math.floor(Math.random()*4)})}
+
 function mapPins(){
   const pins=[];
   Object.entries(KANO_MAP.areas).forEach(([name,a])=>{

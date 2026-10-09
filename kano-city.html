@@ -404,6 +404,27 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
 .wa-poll-form input{width:100%;margin-top:8px;border-radius:12px;border:0;padding:10px 12px;background:#2a2272;color:#fff;font-weight:600}
 .msg.poll{background:rgba(42,34,114,.6)}
 
+.wa-mic{
+  width:44px;height:44px;border-radius:50%;border:0;flex-shrink:0;
+  background:#2a2272;color:#fff;font-size:18px;
+}
+.wa-voice{
+  display:flex;align-items:center;gap:8px;width:100%;
+  background:transparent;border:0;color:inherit;padding:4px 0;font-weight:800;
+}
+.wa-bubble.voice{min-width:160px}
+.wa-voice .wb{
+  flex:1;height:4px;border-radius:4px;background:rgba(0,0,0,.15);
+  position:relative;overflow:hidden;
+}
+.wa-voice .wb::after{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:30%;
+  background:currentColor;opacity:.35;border-radius:4px;
+}
+.wa-voice.playing .wb::after{animation:waWave 1s linear infinite;width:100%;opacity:.5}
+@keyframes waWave{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.wa-voice .ws{font-size:12px;opacity:.8}
+
 </style>
 </head>
 <body>
@@ -952,36 +973,47 @@ function gPush(g,u,txt,kind,parent){const p={id:'p'+G.nid++,by:u,day:G.day,hr:G.
  if(g.mem[u])g.mem[u].last=G.day;g.last=G.day;if(!g.fi){g.fi=true;gtrack('first_interaction',g,{by:u})}
  if(kind==='announce'&&u!=='player'&&g.mem.player)gnote(g.name+': new announcement from '+nm(u)+'.');return p}
 function gpost(gid,u,txt,o={}){
- const kind=o.kind==='announce'?'announce':(o.kind==='poll'?'poll':'msg');
+ const kind=o.kind==='announce'?'announce':(o.kind==='poll'?'poll':(o.kind==='voice'?'voice':'msg'));
  const need=kind==='announce'?'announce':'post';
  const g=gguard(gid,u,need,kind==='announce'?'Only admins can post announcements.':null);if(!g)return false;
- txt=String(txt||'').trim();if(!txt)return no(kind==='poll'?'Write a poll question.':'Write something first.');
+ txt=String(txt||'').trim();
+ if(kind==='voice'){
+  txt=txt||('🎤 Voice note · '+(o.sec||3)+'s');
+ } else if(!txt){
+  return no(kind==='poll'?'Write a poll question.':'Write something first.');
+ }
  if(txt.length>280)return no('Keep it under 280 characters.');
- if(kind!=='poll'&&(txt.match(/https?:\/\//gi)||[]).length>1)return no('Too many links. That looks like spam.');
- if(kind!=='poll'&&g.posts.filter(p=>p.by===u).slice(-5).some(p=>p.txt.toLowerCase()===txt.toLowerCase()))return no('You already posted that.');
+ if(kind!=='poll'&&kind!=='voice'&&(txt.match(/https?:\/\//gi)||[]).length>1)return no('Too many links. That looks like spam.');
+ if(kind==='msg'&&g.posts.filter(p=>p.by===u&&p.kind==='msg').slice(-5).some(p=>p.txt.toLowerCase()===txt.toLowerCase()))return no('You already posted that.');
  if(o.parent&&!g.posts.some(p=>p.id===o.parent&&!p.parent))return no('That post is gone.');
- if(!grate(u,'post:'+g.id,kind==='announce'?3:(kind==='poll'?4:8),'You have posted a lot today. Give others a turn.'))return false;
+ const limit=kind==='announce'?3:(kind==='poll'?6:8);
+ if(!grate(u,'post:'+g.id,limit,'You have posted a lot today. Give others a turn.'))return false;
  const p={id:'p'+G.nid++,by:u,day:G.day,hr:G.hour,kind,txt,parent:o.parent||null,hid:false};
  if(kind==='poll'){
   let opts=(o.options||[]).map(t=>String(t||'').trim()).filter(Boolean).slice(0,6);
   if(opts.length<2)return no('Add at least two choices for the poll.');
-  if(opts.length>6)opts=opts.slice(0,6);
-  p.options=opts.map((t,i)=>({id:'o'+i,t:t.slice(0,60),votes:[]}));
+  p.options=opts.map((t,idx)=>({id:'o'+idx,t:t.slice(0,60),votes:[]}));
+ }
+ if(kind==='voice'){
+  p.sec=Math.max(1,Math.min(60,parseInt(o.sec)||3));
+  p.txt='🎤 Voice note · '+p.sec+'s';
  }
  g.posts.push(p);if(g.mem[u])g.mem[u].last=G.day;g.last=G.day;if(!g.fi){g.fi=true;gtrack('first_interaction',g,{by:u})}
- // NPC members sometimes engage
  if(kind==='msg'&&Math.random()<0.45){
   const others=Object.keys(g.mem).filter(m=>m!=='player'&&m!==u);
   if(others.length){const m=pick(others);const replies=['Noted.','I agree.','Who is joining?','Count me in.','God willing.','Let us keep it respectful.'];
    g.posts.push({id:'p'+G.nid++,by:m,day:G.day,hr:G.hour,kind:'msg',txt:pick(replies),parent:null,hid:false})}
  }
  if(kind==='poll'){
-  // NPCs may cast early votes
   Object.keys(g.mem).filter(m=>m!=='player').forEach(m=>{
-   if(Math.random()<0.55){const o=pick(p.options);if(!o.votes.includes(m))o.votes.push(m)}
+   if(Math.random()<0.55){const o2=pick(p.options);if(o2&&!(o2.votes||[]).includes(m)){o2.votes=o2.votes||[];o2.votes.push(m)}}
   });
  }
- gtrack(kind==='poll'?'poll_created':'post_created',g,{by:u,kind});
+ if(kind==='voice'&&Math.random()<0.35){
+  const others=Object.keys(g.mem).filter(m=>m!=='player');
+  if(others.length)g.posts.push({id:'p'+G.nid++,by:pick(others),day:G.day,hr:G.hour,kind:'voice',txt:'🎤 Voice note · 2s',sec:2,parent:null,hid:false});
+ }
+ gtrack(kind==='poll'?'poll_created':(kind==='voice'?'voice_sent':'post_created'),g,{by:u,kind});
  return p.id;
 }
 function votePoll(gid,pid,oid,u='player'){
@@ -1386,20 +1418,33 @@ function chatGame(uid,kind){
   fx('Connection +'+L.rel,'warm');
 }
 
-function chatSend(uid,text){
-  text=(text||'').trim().slice(0,200); if(!text) return;
+function chatSend(uid,text,o={}){
+  const kind=o.kind==='voice'?'voice':'msg';
+  text=(text||'').trim().slice(0,200);
+  if(kind==='voice') text=text||('🎤 Voice note · '+(o.sec||3)+'s');
+  if(!text) return;
   if(G.blk.includes(uid)) return fx('You blocked this person.','warn');
   const n=npc(uid); if(!n) return;
   if(!n.met){n.met=true;n.lastSeen=G.day}
   const th=chatThread(uid);
-  th.push({by:'player',t:text,day:G.day,hour:G.hour});
-  n.rel=clamp(n.rel+1.5,0,100);
-  // simple NPC reply
-  const replies=['God bless. How is work?','I am around '+((bizByOwner(uid)||{}).area||'town')+'.','We should meet at the market one day.','Noted — I will check.',"Insha'Allah. Stay well."];
-  th.push({by:uid,t:pick(replies),day:G.day,hour:G.hour});
-  if(th.length>40) G.chats[Object.keys(G.chats).find(k=>G.chats[k]===th)]=th.slice(-40);
-  note('Message sent to '+n.n+'.');
+  const msg={by:'player',t:text,day:G.day,hour:G.hour,kind};
+  if(kind==='voice') msg.sec=Math.max(1,Math.min(60,parseInt(o.sec)||3));
+  th.push(msg);
+  n.rel=clamp(n.rel+(kind==='voice'?2:1.5),0,100);
+  const replies=['God bless. How is work?','I am around '+((bizByOwner(uid)||{}).area||'town')+'.','We should meet at the market one day.','Thanks for checking in.','Alhamdulillah.','I heard you — talk soon.'];
+  if(Math.random()<0.75){
+    if(kind==='voice'&&Math.random()<0.4)
+      th.push({by:uid,t:'🎤 Voice note · 2s',day:G.day,hour:G.hour,kind:'voice',sec:2});
+    else
+      th.push({by:uid,t:pick(replies),day:G.day,hour:G.hour,kind:'msg'});
+  }
+  G.p.trust=clamp(G.p.trust+0.1,0,100);
+  fx(kind==='voice'?'Voice note sent':'Sent','warm');
+  return true;
 }
+function chatVoice(uid){return chatSend(uid,'',{kind:'voice',sec:2+Math.floor(Math.random()*4)})}
+function groupVoice(gid){return gpost(gid,'player','',{kind:'voice',sec:2+Math.floor(Math.random()*4)})}
+
 function mapPins(){
   const pins=[];
   Object.entries(KANO_MAP.areas).forEach(([name,a])=>{
@@ -1510,7 +1555,7 @@ const Store={async load(){try{if(window.storage){const r=await window.storage.ge
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},chatWith:null,chatText:'',gi:{},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -2084,7 +2129,7 @@ function peopleView(){
   body=`<div class="section-label">${filter==='close'?'Close friends':'Your network'}</div>
    ${list.length?list.map(personRow).join(''):'<div class="card empty"><div class="big">🤝</div>No close friends yet.<div class="muted sm" style="margin-top:6px">Talk, share meals, and keep promises to raise relationship.</div></div>'}`;
  }
- return `<div class="sec">People<small>${met.length} of ${G.npcs.length} known · chat is how trust starts</small></div>
+ return `<div class="sec">Friends & people<small>${met.length} of ${G.npcs.length} known · full chat with voice notes</small></div>
  <div class="people-seg">${seg.map(([k,l])=>`<button data-a="peopleFilter" data-v="${k}" class="${filter===k?'on':''}">${l}</button>`).join('')}</div>
  ${body}`}
 
@@ -2270,6 +2315,12 @@ function groupChatPage(gid){
       return;
     }
     const me=p.by==='player';
+    if(p.kind==='voice'){
+      msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'} voice"><div class="wa-name">${me?'You':esc(nm(p.by))}</div>
+        <button class="wa-voice" data-a="playVoice" data-sec="${p.sec||3}" type="button"><span class="wv">▶</span> <span class="wb"></span><span class="ws">${p.sec||3}s</span></button>
+        <div class="wa-time">Day ${p.day}</div></div></div>`;
+      return;
+    }
     msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'}"><div class="wa-name">${me?'You':esc(nm(p.by))}</div><div class="wa-text">${esc(p.txt)}</div><div class="wa-time">Day ${p.day}</div></div></div>`;
   });
   if(!ps.length)msgs=`<div class="wa-sys">Only members see this chat.</div><div class="empty" style="margin-top:24px">Say hello to the group.</div>`;
@@ -2303,7 +2354,8 @@ function groupChatPage(gid){
   </div>
   <footer class="wa-compose">
     <button class="wa-plus" type="button" data-a="g_pollOpen" data-id="${gid}" aria-label="Poll">📊</button>
-    <input id="grp-chat-in" maxlength="280" placeholder="Message" autocomplete="off" value="${esc(UI.gi.msg||'')}">
+    <button class="wa-mic" type="button" data-a="g_voice" data-id="${gid}" aria-label="Voice note">🎤</button>
+    <input id="grp-chat-in" maxlength="280" placeholder="Message" autocomplete="off" value="${esc((UI.gi&&UI.gi.msg)||'')}">
     <button class="wa-send" data-a="g_chatSend" data-id="${gid}" aria-label="Send">➤</button>
   </footer>
 </div>`;
@@ -2371,6 +2423,12 @@ function dmChatPage(uid){
   th.forEach(m=>{
     if(m.day!==lastDay){msgs+=`<div class="wa-day">Day ${m.day}</div>`;lastDay=m.day}
     const me=m.by==='player';
+    if(m.kind==='voice'){
+      msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'} voice">
+        <button class="wa-voice" data-a="playVoice" data-sec="${m.sec||3}" type="button"><span class="wv">▶</span> <span class="wb"></span><span class="ws">${m.sec||3}s</span></button>
+        <div class="wa-time">Day ${m.day}</div></div></div>`;
+      return;
+    }
     msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'}"><div class="wa-text">${esc(m.t)}</div><div class="wa-time">Day ${m.day}</div></div></div>`;
   });
   if(!th.length)msgs=`<div class="empty" style="margin-top:40px">Start the conversation. Trust grows from talking.</div>`;
@@ -2390,7 +2448,8 @@ function dmChatPage(uid){
   </div>
   <footer class="wa-compose">
     <button class="wa-plus" type="button" data-a="trustAct" data-id="${uid}" data-g="intro" aria-label="Quick">＋</button>
-    <input id="chat-in" maxlength="200" placeholder="Message" autocomplete="off" value="${esc(UI.chatText||'')}">
+    <button class="wa-mic" type="button" data-a="chatVoice" data-id="${uid}" aria-label="Voice note">🎤</button>
+    <input id="chat-in" maxlength="200" placeholder="Message a friend" autocomplete="off" value="${esc(UI.chatText||'')}">
     <button class="wa-send" data-a="chatSend" data-id="${uid}" aria-label="Send">➤</button>
   </footer>
 </div>`;
@@ -2683,18 +2742,32 @@ function gClick(a,d){const M=UI.modal||{};
   case 'grpChatOpen':UI.gi.pollOpen=false;UI.modal={t:'grpChat',id:d.id};render();break;
   case 'grpChatBack':UI.modal={t:'grp',id:d.id};UI.gt='home';render();break;
   case 'g_chatSend':{
-    const t=(document.getElementById('grp-chat-in')||{}).value||UI.gi.msg||'';
-    if(gpost(d.id,'player',t)){UI.gi.msg='';}
+    if(!UI.gi)UI.gi={};
+    const gid=d.id||(UI.modal&&UI.modal.id);
+    const t=((document.getElementById('grp-chat-in')||{}).value||UI.gi.msg||'').trim();
+    if(!gid){fx('Open a group chat first.','warn');flush();break}
+    if(!t){fx('Write a message.','warn');flush();break}
+    if(gpost(gid,'player',t)){UI.gi.msg='';const inp=document.getElementById('grp-chat-in');if(inp)inp.value=''}
     commit();break}
-  case 'g_quick':if(gpost(d.id,'player',d.t))commit();break;
-  case 'g_pollOpen':UI.gi.pollOpen=true;UI.gi.pollQ='';UI.gi.pollOpts=['','',''];render();break;
-  case 'g_pollCancel':UI.gi.pollOpen=false;render();break;
+  case 'g_voice':{
+    const gid=d.id||(UI.modal&&UI.modal.id);
+    if(!gid){fx('Open a group chat first.','warn');flush();break}
+    groupVoice(gid);commit();break}
+  case 'g_quick':{const gid=d.id||(UI.modal&&UI.modal.id);if(gid&&gpost(gid,'player',d.t))commit();break}
+  case 'g_pollOpen':if(!UI.gi)UI.gi={};UI.gi.pollOpen=true;UI.gi.pollQ='';UI.gi.pollOpts=['','',''];render();break;
+  case 'g_pollCancel':if(UI.gi)UI.gi.pollOpen=false;render();break;
   case 'g_pollSend':{
-    const q=(document.getElementById('poll-q')||{}).value||'';
-    const opts=[1,2,3].map(i=>(document.getElementById('poll-o'+i)||{}).value||'').filter(Boolean);
-    if(createGroupPoll(d.id,q,opts)){UI.gi.pollOpen=false;UI.gi.pollQ='';UI.gi.pollOpts=[];}
+    if(!UI.gi)UI.gi={};
+    const gid=d.id||(UI.modal&&UI.modal.id);
+    const q=((document.getElementById('poll-q')||{}).value||UI.gi.pollQ||'').trim();
+    const opts=[1,2,3].map(i=>((document.getElementById('poll-o'+i)||{}).value||'')).map(s=>s.trim()).filter(Boolean);
+    if(!gid){fx('Open a group chat first.','warn');flush();break}
+    if(!q){fx('Write a poll question.','warn');flush();break}
+    if(opts.length<2){fx('Add at least two options.','warn');flush();break}
+    const id=createGroupPoll(gid,q,opts);
+    if(id){UI.gi.pollOpen=false;UI.gi.pollQ='';UI.gi.pollOpts=['','',''];fx('Poll posted','good')}
     commit();break}
-  case 'g_vote':run(votePoll,d.id,d.p,d.o);break;
+  case 'g_vote':run(votePoll,d.id||(UI.modal&&UI.modal.id),d.p,d.o);break;
   case 'g_send':{if(gpost(M.id,'player',UI.gi.msg,{parent:UI.gi.replyTo||null})){UI.gi.msg='';UI.gi.replyTo=null}commit();break}
   case 'g_reply':UI.gi.replyTo=d.p;render();break;
   case 'g_cancelreply':UI.gi.replyTo=null;render();break;
@@ -2814,6 +2887,14 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const t=(document.getElementById('chat-in')||{}).value||UI.chatText;
     chatSend(d.id,t);UI.chatText='';commit();
     break}
+  case 'chatVoice':run(chatVoice,d.id);break;
+  case 'playVoice':{
+    const sec=Math.max(1,parseInt(d.sec)||3);
+    fx('Playing voice note · '+sec+'s','warm');
+    const btn=document.querySelector('.wa-voice.playing')||null;
+    document.querySelectorAll('.wa-voice').forEach(b=>b.classList.remove('playing'));
+    if(el&&el.classList){el.classList.add('playing');setTimeout(()=>el.classList.remove('playing'),sec*1000)}
+    flush();break}
 
   case 'peopleFilter':UI.peopleFilter=d.v;render();break;
   case 'tabAjo':UI.tab='ajo';render();break;

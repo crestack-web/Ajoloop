@@ -393,3 +393,24 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
 .wa-poll-form{padding:12px;background:#1a1448;border-top:1px solid rgba(255,201,40,.2)}
 .wa-poll-form input{width:100%;margin-top:8px;border-radius:12px;border:0;padding:10px 12px;background:#2a2272;color:#fff;font-weight:600}
 .msg.poll{background:rgba(42,34,114,.6)}
+
+.wa-mic{
+  width:44px;height:44px;border-radius:50%;border:0;flex-shrink:0;
+  background:#2a2272;color:#fff;font-size:18px;
+}
+.wa-voice{
+  display:flex;align-items:center;gap:8px;width:100%;
+  background:transparent;border:0;color:inherit;padding:4px 0;font-weight:800;
+}
+.wa-bubble.voice{min-width:160px}
+.wa-voice .wb{
+  flex:1;height:4px;border-radius:4px;background:rgba(0,0,0,.15);
+  position:relative;overflow:hidden;
+}
+.wa-voice .wb::after{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:30%;
+  background:currentColor;opacity:.35;border-radius:4px;
+}
+.wa-voice.playing .wb::after{animation:waWave 1s linear infinite;width:100%;opacity:.5}
+@keyframes waWave{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.wa-voice .ws{font-size:12px;opacity:.8}

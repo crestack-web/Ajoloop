@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},chatWith:null,chatText:'',gi:{},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -584,7 +584,7 @@ function peopleView(){
   body=`<div class="section-label">${filter==='close'?'Close friends':'Your network'}</div>
    ${list.length?list.map(personRow).join(''):'<div class="card empty"><div class="big">🤝</div>No close friends yet.<div class="muted sm" style="margin-top:6px">Talk, share meals, and keep promises to raise relationship.</div></div>'}`;
  }
- return `<div class="sec">People<small>${met.length} of ${G.npcs.length} known · chat is how trust starts</small></div>
+ return `<div class="sec">Friends & people<small>${met.length} of ${G.npcs.length} known · full chat with voice notes</small></div>
  <div class="people-seg">${seg.map(([k,l])=>`<button data-a="peopleFilter" data-v="${k}" class="${filter===k?'on':''}">${l}</button>`).join('')}</div>
  ${body}`}
 
@@ -770,6 +770,12 @@ function groupChatPage(gid){
       return;
     }
     const me=p.by==='player';
+    if(p.kind==='voice'){
+      msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'} voice"><div class="wa-name">${me?'You':esc(nm(p.by))}</div>
+        <button class="wa-voice" data-a="playVoice" data-sec="${p.sec||3}" type="button"><span class="wv">▶</span> <span class="wb"></span><span class="ws">${p.sec||3}s</span></button>
+        <div class="wa-time">Day ${p.day}</div></div></div>`;
+      return;
+    }
     msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'}"><div class="wa-name">${me?'You':esc(nm(p.by))}</div><div class="wa-text">${esc(p.txt)}</div><div class="wa-time">Day ${p.day}</div></div></div>`;
   });
   if(!ps.length)msgs=`<div class="wa-sys">Only members see this chat.</div><div class="empty" style="margin-top:24px">Say hello to the group.</div>`;
@@ -803,7 +809,8 @@ function groupChatPage(gid){
   </div>
   <footer class="wa-compose">
     <button class="wa-plus" type="button" data-a="g_pollOpen" data-id="${gid}" aria-label="Poll">📊</button>
-    <input id="grp-chat-in" maxlength="280" placeholder="Message" autocomplete="off" value="${esc(UI.gi.msg||'')}">
+    <button class="wa-mic" type="button" data-a="g_voice" data-id="${gid}" aria-label="Voice note">🎤</button>
+    <input id="grp-chat-in" maxlength="280" placeholder="Message" autocomplete="off" value="${esc((UI.gi&&UI.gi.msg)||'')}">
     <button class="wa-send" data-a="g_chatSend" data-id="${gid}" aria-label="Send">➤</button>
   </footer>
 </div>`;
@@ -871,6 +878,12 @@ function dmChatPage(uid){
   th.forEach(m=>{
     if(m.day!==lastDay){msgs+=`<div class="wa-day">Day ${m.day}</div>`;lastDay=m.day}
     const me=m.by==='player';
+    if(m.kind==='voice'){
+      msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'} voice">
+        <button class="wa-voice" data-a="playVoice" data-sec="${m.sec||3}" type="button"><span class="wv">▶</span> <span class="wb"></span><span class="ws">${m.sec||3}s</span></button>
+        <div class="wa-time">Day ${m.day}</div></div></div>`;
+      return;
+    }
     msgs+=`<div class="wa-row ${me?'me':''}"><div class="wa-bubble ${me?'me':'them'}"><div class="wa-text">${esc(m.t)}</div><div class="wa-time">Day ${m.day}</div></div></div>`;
   });
   if(!th.length)msgs=`<div class="empty" style="margin-top:40px">Start the conversation. Trust grows from talking.</div>`;
@@ -890,7 +903,8 @@ function dmChatPage(uid){
   </div>
   <footer class="wa-compose">
     <button class="wa-plus" type="button" data-a="trustAct" data-id="${uid}" data-g="intro" aria-label="Quick">＋</button>
-    <input id="chat-in" maxlength="200" placeholder="Message" autocomplete="off" value="${esc(UI.chatText||'')}">
+    <button class="wa-mic" type="button" data-a="chatVoice" data-id="${uid}" aria-label="Voice note">🎤</button>
+    <input id="chat-in" maxlength="200" placeholder="Message a friend" autocomplete="off" value="${esc(UI.chatText||'')}">
     <button class="wa-send" data-a="chatSend" data-id="${uid}" aria-label="Send">➤</button>
   </footer>
 </div>`;
@@ -1183,18 +1197,32 @@ function gClick(a,d){const M=UI.modal||{};
   case 'grpChatOpen':UI.gi.pollOpen=false;UI.modal={t:'grpChat',id:d.id};render();break;
   case 'grpChatBack':UI.modal={t:'grp',id:d.id};UI.gt='home';render();break;
   case 'g_chatSend':{
-    const t=(document.getElementById('grp-chat-in')||{}).value||UI.gi.msg||'';
-    if(gpost(d.id,'player',t)){UI.gi.msg='';}
+    if(!UI.gi)UI.gi={};
+    const gid=d.id||(UI.modal&&UI.modal.id);
+    const t=((document.getElementById('grp-chat-in')||{}).value||UI.gi.msg||'').trim();
+    if(!gid){fx('Open a group chat first.','warn');flush();break}
+    if(!t){fx('Write a message.','warn');flush();break}
+    if(gpost(gid,'player',t)){UI.gi.msg='';const inp=document.getElementById('grp-chat-in');if(inp)inp.value=''}
     commit();break}
-  case 'g_quick':if(gpost(d.id,'player',d.t))commit();break;
-  case 'g_pollOpen':UI.gi.pollOpen=true;UI.gi.pollQ='';UI.gi.pollOpts=['','',''];render();break;
-  case 'g_pollCancel':UI.gi.pollOpen=false;render();break;
+  case 'g_voice':{
+    const gid=d.id||(UI.modal&&UI.modal.id);
+    if(!gid){fx('Open a group chat first.','warn');flush();break}
+    groupVoice(gid);commit();break}
+  case 'g_quick':{const gid=d.id||(UI.modal&&UI.modal.id);if(gid&&gpost(gid,'player',d.t))commit();break}
+  case 'g_pollOpen':if(!UI.gi)UI.gi={};UI.gi.pollOpen=true;UI.gi.pollQ='';UI.gi.pollOpts=['','',''];render();break;
+  case 'g_pollCancel':if(UI.gi)UI.gi.pollOpen=false;render();break;
   case 'g_pollSend':{
-    const q=(document.getElementById('poll-q')||{}).value||'';
-    const opts=[1,2,3].map(i=>(document.getElementById('poll-o'+i)||{}).value||'').filter(Boolean);
-    if(createGroupPoll(d.id,q,opts)){UI.gi.pollOpen=false;UI.gi.pollQ='';UI.gi.pollOpts=[];}
+    if(!UI.gi)UI.gi={};
+    const gid=d.id||(UI.modal&&UI.modal.id);
+    const q=((document.getElementById('poll-q')||{}).value||UI.gi.pollQ||'').trim();
+    const opts=[1,2,3].map(i=>((document.getElementById('poll-o'+i)||{}).value||'')).map(s=>s.trim()).filter(Boolean);
+    if(!gid){fx('Open a group chat first.','warn');flush();break}
+    if(!q){fx('Write a poll question.','warn');flush();break}
+    if(opts.length<2){fx('Add at least two options.','warn');flush();break}
+    const id=createGroupPoll(gid,q,opts);
+    if(id){UI.gi.pollOpen=false;UI.gi.pollQ='';UI.gi.pollOpts=['','',''];fx('Poll posted','good')}
     commit();break}
-  case 'g_vote':run(votePoll,d.id,d.p,d.o);break;
+  case 'g_vote':run(votePoll,d.id||(UI.modal&&UI.modal.id),d.p,d.o);break;
   case 'g_send':{if(gpost(M.id,'player',UI.gi.msg,{parent:UI.gi.replyTo||null})){UI.gi.msg='';UI.gi.replyTo=null}commit();break}
   case 'g_reply':UI.gi.replyTo=d.p;render();break;
   case 'g_cancelreply':UI.gi.replyTo=null;render();break;
@@ -1314,6 +1342,14 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const t=(document.getElementById('chat-in')||{}).value||UI.chatText;
     chatSend(d.id,t);UI.chatText='';commit();
     break}
+  case 'chatVoice':run(chatVoice,d.id);break;
+  case 'playVoice':{
+    const sec=Math.max(1,parseInt(d.sec)||3);
+    fx('Playing voice note · '+sec+'s','warm');
+    const btn=document.querySelector('.wa-voice.playing')||null;
+    document.querySelectorAll('.wa-voice').forEach(b=>b.classList.remove('playing'));
+    if(el&&el.classList){el.classList.add('playing');setTimeout(()=>el.classList.remove('playing'),sec*1000)}
+    flush();break}
 
   case 'peopleFilter':UI.peopleFilter=d.v;render();break;
   case 'tabAjo':UI.tab='ajo';render();break;
