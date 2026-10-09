@@ -879,7 +879,7 @@ function initPlaces(){
         img:'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=600&q=80'},
       {id:'sp_seed_3',name:'Municipal motor-park stall',area:'Kano Municipal',label:'Keke Park',ic:'🚏',note:'Drivers and passengers share news.',by:'community',loc:'park',public:true,created:1,
         img:'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600&q=80'},
-      {id:'sp_seed_4',name:'Mosque yard circle',area:'Fagge',label:'After jumu'ah',ic:'🕌',note:'Quiet place for Ajo talk.',by:'community',loc:'ajo',public:true,created:1,
+      {id:'sp_seed_4',name:'Mosque yard circle',area:'Fagge',label:'After jumuah',ic:'🕌',note:'Quiet place for Ajo talk.',by:'community',loc:'ajo',public:true,created:1,
         img:'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=600&q=80'}
     ];
     seedSpots.forEach(s=>G.spots.push(s));
