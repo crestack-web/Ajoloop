@@ -51,3 +51,31 @@ chats = { "userA_userB": [{ by, t, day, hour }] }
 | nearbyOptIn | profiles.nearby_opt_in |
 
 Never auto-join Ajo from visit, chat, or group membership.
+
+## Community spots (player-added)
+
+Players list places they usually go (area + landmark, not exact street).
+
+```
+spots[] = {
+  id, name, area, label, ic, note, by, created, public, removed?
+}
+```
+
+- **Add** from Town → My spots, or Nearby → Add your spot.
+- **Community visibility**: same home area when nearby is on; own spots always listed.
+- **Connect**: open a spot → see met neighbours in that area → Add friend → chat after accept.
+- Map pins use kind `spot`.
+
+## Friend requests
+
+```
+friendReqs[] = {
+  id, from, to, status: pending|accepted|rejected|cancelled, day, resolvedDay?
+}
+```
+
+- Meet someone in town first, then **Add friend** on profile / nearby / spot.
+- They **accept or reject** (NPCs auto-respond offline from relationship + reliability).
+- **Chat** (DM) unlocks only when status is friends (or legacy rel ≥ 60).
+- Incoming requests show on the People tab.
