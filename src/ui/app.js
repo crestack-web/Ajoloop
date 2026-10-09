@@ -10,7 +10,7 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members'},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
+const UI={tab:'life',modal:null,form:{name:'',age:24,gender:'Male'},ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members',maxMembers:30},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[]};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -1362,7 +1362,7 @@ const rolePill=r=>`<span class="pill ${r==='member'?'wait':'ok'}">${ROLEL[r]}</s
 const npcTag=id=>id==='player'?'':'<span class="pill wait" title="Simulated neighbour, not a real person">NPC</span>';
 const visPill=g=>g.vis==='public'?'<span class="pill ok">🌍 Public</span>':`<span class="pill wait">🔒 Private${g.disc?' · findable':''}</span>`;
 const GO=(o,k,vals,cur,lab)=>`<div class="opts">${vals.map(v=>`<button data-a="g_set" data-o="${o}" data-k="${k}" data-v="${v}" class="${String(cur)===String(v)?'on':''}">${lab?lab(v):esc(v)}</button>`).join('')}</div>`;
-const GT=(k,ph,max,def,enter)=>`<input type="text" data-f="${k}" maxlength="${max}" placeholder="${esc(ph)}" value="${esc(UI.gi[k]!==undefined?UI.gi[k]:(def||''))}" ${enter?`data-enter="${enter}"`:''} autocomplete="off">`;
+const GT=(k,ph,max,def,enter)=>`<div class="field"><input type="text" data-f="${k}" maxlength="${max}" placeholder="${esc(ph)}" value="${esc(UI.gi[k]!==undefined?UI.gi[k]:(def||''))}" ${enter?`data-enter="${enter}"`:''} autocomplete="off"></div>`;
 const dayRel=d=>d===G.day?'today':d===G.day+1?'tomorrow':'Day '+d;
 const JOINL={open:'Open: anyone can join',approval:'Ask an admin first',invite:'Invitation only'};
 const CHL={work:'work shifts',talk:'conversations',shop:'shop sessions'};
@@ -1478,7 +1478,11 @@ function gManage(g,v){const me=rk(g,'player'),adm=me>=3,own=me===4,reps=g.reps.f
  <button class="btn ghost" style="margin:0 0 12px" data-a="g_inv" data-id="${g.id}">Invitations: friends, links and codes</button>
  <section class="card"><b>📣 Announcement</b><div style="margin-top:8px">${GT('ann','Tell the group something important',280,'','g_ann')}</div><button class="btn sm" style="margin-top:8px" data-a="g_ann">Post announcement</button></section>`;
  const S={desc:g.desc,av:g.av,cat:g.cat,memInvite:g.memInvite,join:g.join,roster:g.roster,vis:g.vis,disc:g.disc,...(UI.gs||{})},pub=S.vis==='public';
- h+=`<section class="card"><b>⚙️ Settings</b><label class="l">Picture</label>${GO('gs','av',G_AVS,S.av,v=>v)}<label class="l">About</label>${GT('sdesc','Description',240,g.desc)}<label class="l">Rules</label>${[0,1,2].map(i=>GT('sr'+i,'Rule '+(i+1),100,g.rules[i]||'')).join('<div style="height:6px"></div>')}
+ h+=`<section class="card"><b>⚙️ Settings</b><label class="l">Picture</label>${GO('gs','av',G_AVS,S.av,v=>v)}
+ <label class="l">Member limit</label>
+ <div class="field-row"><input type="number" data-f="smax" min="3" max="60" step="1" value="${UI.gi.smax!==undefined?esc(String(UI.gi.smax)):(g.maxMembers||30)}"><span class="field-hint">${gcount(g)} / ${gCap(g)} now</span></div>
+ <div class="muted tiny">Cannot go below current members. Hard max is 60.</div>
+ <label class="l">About</label>${GT('sdesc','Description',240,g.desc)}<label class="l">Rules</label>${[0,1,2].map(i=>GT('sr'+i,'Rule '+(i+1),100,g.rules[i]||'')).join('<div style="height:6px"></div>')}
  <label class="l">Main interest</label>${GO('gs','cat',G_CATS,S.cat)}<label class="l">How people join</label>${GO('gs','join',pub?['open','approval']:['invite','approval'],pub?(S.join==='approval'?'approval':'open'):(S.join==='approval'?'approval':'invite'),v=>JOINL[v])}
  <label class="l">Who can invite</label>${GO('gs','memInvite',['members','admins'],S.memInvite,v=>v==='members'?'Any member':'Only admins')}<label class="l">Who sees the member list</label>${GO('gs','roster',['members','admins'],S.roster,v=>v==='members'?'All members':'Only admins')}
  ${own?`<label class="l">Visibility (owner only)</label>${GO('gs','vis',['public','private'],S.vis,v=>v==='public'?'🌍 Public':'🔒 Private')}<div class="muted tiny">${S.vis==='public'?'Announcements and the description become visible to everyone. Chat and members stay private.':'Hidden from search and from profiles.'}</div>${S.vis==='private'?`<label class="l">Findable in search?</label>${GO('gs','disc',[false,true],S.disc,v=>v?'Yes, invite-discoverable':'No, hidden')}`:''}`:''}
@@ -1490,7 +1494,11 @@ function gManage(g,v){const me=rk(g,'player'),adm=me>=3,own=me===4,reps=g.reps.f
 
 function gnewSheet(){const f=UI.gc,pub=f.vis==='public',jn=pub?(f.join==='approval'?'approval':'open'):(f.join==='approval'?'approval':'invite');
  return `<h2>Create a group</h2><div class="muted sm" style="margin-top:4px">Free, for friends and shared fun. It is not an Ajo.</div>
- <label class="l">Name</label>${GT('name','e.g. Kano Entrepreneurs',30)}<label class="l">Picture</label>${GO('gc','av',G_AVS,f.av,v=>v)}<label class="l">About</label>${GT('desc','What is this group for?',240)}
+ <label class="l">Name</label>${GT('name','e.g. Kano Entrepreneurs',30)}
+ <label class="l">Member limit</label>
+ <div class="field-row"><input type="number" data-f="gmax" min="3" max="60" step="1" value="${UI.gi.gmax!==undefined?esc(String(UI.gi.gmax)):(f.maxMembers||30)}" placeholder="30"><span class="field-hint">3–60 people</span></div>
+ <div class="muted tiny" style="margin-bottom:4px">You can change this later in group Settings.</div>
+ <label class="l">Picture</label>${GO('gc','av',G_AVS,f.av,v=>v)}<label class="l">About</label>${GT('desc','What is this group for?',240)}
  <label class="l">Main interest</label>${GO('gc','cat',G_CATS,f.cat)}<label class="l">More interests (up to 3)</label><div class="opts">${G_CATS.filter(c=>c!==f.cat).map(c=>`<button data-a="g_ctag" data-v="${c}" class="${(f.tags||[]).includes(c)?'on':''}">${c}</button>`).join('')}</div>
  <label class="l">Who can find it?</label>${GO('gc','vis',['public','private'],f.vis,v=>v==='public'?'🌍 Public':'🔒 Private')}<div class="muted tiny">${pub?'Anyone can find it and read the description and announcements. Chat and members stay for members only.':'Hidden from search. People need an invitation. Chat, members and activities are for members only.'}</div>
  ${pub?'':`<label class="l">Let people find it in search?</label>${GO('gc','disc',[false,true],f.disc,v=>v?'Yes, invite-discoverable':'No, hidden')}`}
@@ -1513,8 +1521,15 @@ function ginvSheet(id){const g=grp(id);if(!g||!gcan(g,'player','invite')||(rk(g,
 function gajoSheet(id){const g=grp(id);if(!g)return '<h2>Not available</h2>';const p=UI.gp;
  return `<button class="btn ghost sm" data-a="g_back">← Back to group</button><h2 style="margin-top:10px">Propose an Ajo</h2>
  <div class="warnbox" style="margin:10px 0">This is only a suggestion. Nobody joins, nobody pays, nothing is owed. If you go ahead, a separate Ajo circle is created with its own members, rules and payments, and each person decides for themselves whether to join.</div>
- <label class="l">Name</label>${GT('pname','Ajo name',24,g.name+' Ajo')}<label class="l">People</label>${GO('gp','size',[3,4,5,6],p.size)}<label class="l">Contribution</label>${GO('gp','amt',[2000,5000,10000],p.amt,fmt)}<label class="l">Every</label>${GO('gp','freq',[3,7,14],p.freq,v=>v+' days')}
- <div class="card" style="background:var(--card)"><div class="row sp"><span class="muted">Pot per round</span><b>${fmt(p.amt*p.size)}</b></div><div class="muted tiny">Needs Trust 40+. Setting it up later means a visit to the Ajo Center.</div></div><button class="btn" data-a="g_propose">Share this proposal</button>`}
+ <label class="l">Name</label>${GT('pname','Ajo name',24,g.name+' Ajo')}
+ <label class="l">People in the circle</label>
+ <div class="field-row"><input type="number" data-f="psize" min="3" max="12" step="1" value="${UI.gi.psize!==undefined?esc(String(UI.gi.psize)):p.size}"><span class="field-hint">3–12 members</span></div>
+ <div class="opts" style="margin-top:6px">${[3,4,5,6,8,10].map(n=>`<button data-a="g_set" data-o="gp" data-k="size" data-v="${n}" class="${+p.size===n?'on':''}">${n}</button>`).join('')}</div>
+ <label class="l">Contribution amount (₦)</label>
+ <div class="field-row"><input type="number" data-f="pamt" min="500" max="500000" step="500" value="${UI.gi.pamt!==undefined?esc(String(UI.gi.pamt)):p.amt}"><span class="field-hint">Type any amount</span></div>
+ <div class="opts" style="margin-top:6px">${[1000,2000,5000,10000,20000,50000].map(n=>`<button data-a="g_set" data-o="gp" data-k="amt" data-v="${n}" class="${+p.amt===n?'on':''}">${fmt(n)}</button>`).join('')}</div>
+ <label class="l">Every</label>${GO('gp','freq',[3,7,14],p.freq,v=>v+' days')}
+ <div class="card" style="background:var(--card)"><div class="row sp"><span class="muted">Pot per round</span><b>${fmt((UI.gi.pamt!==undefined?+UI.gi.pamt:p.amt)*(UI.gi.psize!==undefined?+UI.gi.psize:p.size))}</b></div><div class="muted tiny">Organizer sets size and contribution. Needs Trust 40+.</div></div><button class="btn" data-a="g_propose">Share this proposal</button>`}
 
 function gstatsV(){const m=groupMetrics(),pc=x=>x==null?'n/a':Math.round(x*100)+'%',row=(l,v)=>`<div class="tx"><span>${l}</span><b>${v}</b></div>`;
  return `<section class="card"><b>🏘️ Group health</b><div class="muted tiny" style="margin:4px 0 8px">Kept on this device only. Chat from simulated neighbours (NPC) is not counted. Participation matters more than invitations.</div>${row('Groups you are in',m.groups)}${row('Active in the last 7 days',m.activeThisWeek)}${row('Groups where you posted lately',m.conversational)}${row('Activities completed',m.activities)}${row('First interactions',m.firstInteractions)}${row('Came back after 7+ days away',m.returned7)}${row('Went quiet (14+ days)',m.inactive)}</section>
@@ -1531,7 +1546,7 @@ function gClick(a,d){const M=UI.modal||{};
   case 'g_photoClear':run(clearGroupPhoto,d.id);break;
   case 'g_tab':if(d.v==='chat'&&UI.modal&&UI.modal.id){UI.modal={t:'grpChat',id:UI.modal.id};render();break}UI.gt=d.v;UI.gconf=null;UI.gs=null;render();break;
   case 'g_back':UI.modal={t:'grp',id:M.id};render();break;
-  case 'g_set':{const o=UI[d.o]||(UI[d.o]={});o[d.k]=d.v==='true'?true:d.v==='false'?false:d.v;render();break}
+  case 'g_set':{const o=UI[d.o]||(UI[d.o]={});o[d.k]=d.v==='true'?true:d.v==='false'?false:d.v;if(d.o==='gp'&&d.k==='size')delete UI.gi.psize;if(d.o==='gp'&&d.k==='amt')delete UI.gi.pamt;render();break}
   case 'g_cat':UI.gcat=UI.gcat===d.v?'':d.v;render();break;
   case 'g_search':render();break;
   case 'g_clear':UI.gcat='';UI.gi.q='';render();break;
@@ -1539,7 +1554,7 @@ function gClick(a,d){const M=UI.modal||{};
   case 'g_area':G.p.area=d.v||null;G.p.shareArea=!!d.v;commit();break;
   case 'g_new':UI.modal={t:'gnew'};render();break;
   case 'g_ctag':{const t=UI.gc.tags=UI.gc.tags||[],i=t.indexOf(d.v);if(i>=0)t.splice(i,1);else if(t.length<3)t.push(d.v);render();break}
-  case 'g_make':{const f=UI.gc,i=UI.gi,id=createGroup({...f,name:i.name,desc:i.desc,rules:[i.rule1,i.rule2]});if(id){['name','desc','rule1','rule2'].forEach(k=>delete UI.gi[k]);UI.gc.tags=[];UI.modal={t:'grp',id};UI.gt='home';UI.tab='groups'}commit();break}
+  case 'g_make':{const f=UI.gc,i=UI.gi,id=createGroup({...f,name:i.name,desc:i.desc,rules:[i.rule1,i.rule2],maxMembers:parseInt(i.gmax)||f.maxMembers||30});if(id){['name','desc','rule1','rule2','gmax'].forEach(k=>delete UI.gi[k]);UI.gc.tags=[];UI.modal={t:'grp',id};UI.gt='home';UI.tab='groups'}commit();break}
   case 'g_code':UI.modal={t:'gcode'};render();break;
   case 'g_redeem':{const id=redeemCode(UI.gi.code);if(id){UI.gi.code='';UI.modal={t:'grp',id};UI.gt='home'}commit();break}
   case 'g_join':run(joinGroup,d.id);break;
@@ -1593,8 +1608,10 @@ function gClick(a,d){const M=UI.modal||{};
   case 'g_ann':{if(gpost(M.id,'player',UI.gi.ann,{kind:'announce'}))UI.gi.ann='';commit();break}
   case 'g_review':run(reviewReport,M.id,'player',d.r,d.x);break;
   case 'g_save':{const g=grp(M.id);if(!g)break;const S={...g,...(UI.gs||{})},gi=UI.gi,rules=[0,1,2].map(i=>gi['sr'+i]!==undefined?gi['sr'+i]:(g.rules[i]||''));
-   const patch={desc:gi.sdesc!==undefined?gi.sdesc:g.desc,rules,av:S.av,cat:S.cat,memInvite:S.memInvite,join:S.join,roster:S.roster};if(rk(g,'player')===4){patch.vis=S.vis;patch.disc=S.disc}
-   if(editGroup(M.id,'player',patch)){UI.gs=null;['sdesc','sr0','sr1','sr2'].forEach(k=>delete gi[k]);fx('Saved.','warm')}commit();break}
+   const patch={desc:gi.sdesc!==undefined?gi.sdesc:g.desc,rules,av:S.av,cat:S.cat,memInvite:S.memInvite,join:S.join,roster:S.roster};
+   if(gi.smax!==undefined)patch.maxMembers=parseInt(gi.smax);
+   if(rk(g,'player')===4){patch.vis=S.vis;patch.disc=S.disc}
+   if(editGroup(M.id,'player',patch)){UI.gs=null;['sdesc','sr0','sr1','sr2','smax'].forEach(k=>delete gi[k]);fx('Saved.','warm')}commit();break}
   case 'g_transfer':{if(transferOwnership(M.id,'player',UI.gs&&UI.gs.tx,UI.gi.tconf)){UI.gs=null;UI.gi.tconf=''}commit();break}
   case 'g_delete':{if(deleteGroup(M.id,'player',UI.gi.dconf)){UI.modal=null;UI.gi.dconf=''}commit();break}
   case 'g_inv':UI.modal={t:'ginv',id:d.id||M.id};UI.gsel=[];render();break;
@@ -1605,7 +1622,7 @@ function gClick(a,d){const M=UI.modal||{};
   case 'g_resend':run(resendInvite,M.id,'player',d.i);break;
   case 'g_share':gShare(d.c,M.id);break;
   case 'g_ajo':UI.modal={t:'gajo',id:M.id};render();break;
-  case 'g_propose':{if(proposeAjo(M.id,'player',{...UI.gp,name:UI.gi.pname})){UI.modal={t:'grp',id:M.id};UI.gt='home';delete UI.gi.pname}commit();break}
+  case 'g_propose':{const gi=UI.gi;const size=gi.psize!==undefined?+gi.psize:UI.gp.size;const amt=gi.pamt!==undefined?+gi.pamt:UI.gp.amt;if(proposeAjo(M.id,'player',{...UI.gp,name:gi.pname,size,amt})){UI.modal={t:'grp',id:M.id};UI.gt='home';['pname','psize','pamt'].forEach(k=>delete UI.gi[k])}commit();break}
   case 'g_int2':{const g=grp(M.id),p=g&&g.ajoP.find(x=>x.id===d.p);if(p)expressInterest(M.id,'player',d.p,!p.int.includes('player'));commit();break}
   case 'g_mkajo':{const r=ajoFromProposal(M.id,'player',d.p);if(r){UI.modal={t:'ajo',id:r};UI.tab='ajo'}commit();break}
   case 'g_closep':run(dismissProposal,M.id,'player',d.p);break;
