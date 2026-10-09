@@ -1,67 +1,43 @@
-# Ajoloop — Build your circle
+# Ajoloop
 
-Life simulation set in **Kano, Nigeria**: work, trade, join **Ajo** savings circles, and form **social groups** with neighbours.
+**Build your circle.** Trust, community, businesses nearby, and traditional Ajo — offline-first MVP ready to plug into a backend.
 
-This repo is structured as a **production-ready web app**: offline play works today; UI and backend can evolve independently.
+## Product focus
+
+- Character + home area + optional business  
+- People, chat, closeness activities  
+- Groups (social) separate from Ajo (money)  
+- Public Ajo discovery, join requests, circle chat  
+- Traditional Ajo: organizer round 1 + platform fee, stones for later rounds  
+- Business visits: request → approval → trust (no transport fees)
 
 ## Quick start
 
 ```bash
 npm install
-npm run dev
+npm run dev          # http://localhost:5173
+npm test             # groups engine (249 checks)
+npm run test:smoke   # full product smoke path
+npm run build        # production → dist/
+npm run export:legacy  # single-file kano-city.html
 ```
 
-Open the URL Vite prints (default http://localhost:5173).
+## Demo path (for stakeholders)
 
-```bash
-npm test          # headless groups engine suite
-npm run build     # production assets → dist/
-npm run preview   # serve dist/
-npm run export:legacy  # optional single-file kano-city.html
-```
+1. Create a character  
+2. Home → **Start demo path**  
+3. Follow the checklist (home → people → chat → business → group → Ajo → payout)  
+4. Ajo tab → public loops → Request → Chat  
+5. Create Ajo → Demo fill → Roll stones → Start → resolve round  
 
-## Play offline (no install)
+## Deploy (Vercel)
 
-Open `kano-city.html` in a browser (legacy single-file build). After pulling modular changes, regenerate it with `npm run export:legacy`.
+- Connected to this repo: build `npm run build`, output `dist`  
+- `vercel.json` included  
+- Env (later): `VITE_API_MODE=remote`, `VITE_SUPABASE_URL`, keys — see `.env.example`
 
-## Project layout
+## Architecture
 
-```
-src/
-  engine/game.js     # rules only (tested headlessly)
-  engine/index.js    # loads engine into global scope
-  ui/app.js          # screens & input
-  styles/main.css    # design system
-  data/client.js     # local now → remote later
-  main.js            # entry
-tests/groups.test.js
-docs/ARCHITECTURE.md
-docs/ROADMAP.md
-```
+See `docs/ARCHITECTURE.md`, `docs/AJO_TRADITIONAL.md`, `docs/PLACES.md`, `docs/LAUNCH.md`.
 
-See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for how to change UI safely and how backend plugs in.
-
-## What is in the game
-
-- **Life loop** — energy, hunger, happiness, cash, savings, reputation, trust
-- **Town** — Home, Kasuwa Market, Mama Put Kitchen, Keke Park, Workplace, Arewa Bank, Suya Spot, Ajo Center
-- **Jobs & hustles** — employment, keke errands, mini shop
-- **Ajo** — rotating savings with real contribution/payout rules
-- **Social groups** — public/private, roles, invites, chat, meetups (not Ajo money)
-- **NPCs** — simulated neighbours until multiplayer ships
-
-## Backend later
-
-Set nothing for offline mode. When you are ready:
-
-```env
-VITE_API_MODE=remote
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-```
-
-Implement the stubs in `src/data/client.js`. Engine state keys already mirror planned tables.
-
-## License
-
-All rights reserved unless otherwise noted.
+Engine state is localStorage offline. `src/data/client.js` is the seam for auth/sync later.

@@ -931,7 +931,15 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'ajoOpen':UI.ajoTab='home';UI.modal={t:'ajo',id:d.id};render();break;
   case 'ajoNew':UI.modal={t:'ajoNew'};render();break;
   case 'anset':UI.ajoNew[d.k]=+d.v;render();break;
-  case 'ajoMake':{const f=UI.ajoNew,id=createAjo((f.name||'Kano Hustlers').trim(),f.size,f.amt,f.freq);if(id)UI.modal={t:'ajo',id};commit();break}
+  case 'ajoCreate':case 'ajoMake':{const nameEl=document.getElementById('f-ajo');const f=UI.ajoNew;if(nameEl&&nameEl.value)f.name=nameEl.value;const id=createAjo((f.name||'Kano Hustlers').trim(),f.size,f.amt,f.freq);if(id){UI.ajoTab='home';UI.modal={t:'ajo',id}}commit();break}
+  case 'ajoRequest':run(requestJoinAjo,d.id);break;
+  case 'ajoAnsReq':run(answerJoinReq,d.id,d.r,d.y==='1');break;
+  case 'ajoChatSend':{const t=(document.getElementById('ajo-chat-in')||{}).value||'';run(ajoChatSend,d.id,t);break}
+  case 'ajoAct':run(ajoQuickAct,d.id,d.k);break;
+  case 'ajoVis':run(setAjoVis,d.id,d.v);break;
+  case 'ajoTab':UI.ajoTab=d.v;render();break;
+  case 'pickStone':run(pickStone,d.id,d.s);break;
+  case 'rollStones':run(rollStones,d.id);break;
   case 'join':run(joinAjo,d.id);break;
   case 'inv':run(invite,d.id,d.n);break;
   case 'req':run(reqPriority,d.id,d.r);break;
