@@ -317,6 +317,70 @@ export const api = {
     }
     return w;
   },
+
+  async submitKyc({ nin, fullName }) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/kyc/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ nin, fullName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'KYC failed' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
+
+  async saveBankAccount({ bankCode, bankName, accountNumber, accountName }) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/payments/bank', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ bankCode, bankName, accountNumber, accountName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'Could not save bank' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
+
+  async requestWithdraw(amount) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/payments/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'Withdrawal failed' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
+
+  async loadKycAndBank() {
+    if (!supabase || !_session?.user) return null;
+    const uid = _session.user.id;
+    const [{ data: kyc }, { data: banks }] = await Promise.all([
+      supabase.from('kyc_profiles').select('status,nin_last4,full_name,submitted_at,verified_at').eq('user_id', uid).maybeSingle(),
+      supabase.from('bank_accounts').select('id,bank_code,bank_name,account_number,account_name,is_default').eq('user_id', uid).order('created_at', { ascending: false }),
+    ]);
+    return { kyc, banks: banks || [] };
+  },
 };
 
 export default api;

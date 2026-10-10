@@ -216,6 +216,55 @@ function claimAjoPayout(id,useReason){
   return true;
 }
 
+
+/* ---- KYC, bank & withdraw (local mirror of cloud status) ---- */
+function ensureKyc(){
+  if(!G.p.kyc) G.p.kyc={status:'unverified',ninLast4:'',fullName:'',submittedAt:null};
+  if(!G.p.bank) G.p.bank=null;
+  return G.p.kyc;
+}
+function kycReady(){
+  ensureKyc();
+  return G.p.kyc.status==='verified'||G.p.kyc.status==='pending';
+}
+function bankReady(){return !!(G.p.bank&&G.p.bank.accountNumber)}
+function submitKycLocal(nin,fullName){
+  nin=String(nin||'').replace(/\D/g,'');
+  fullName=String(fullName||'').trim();
+  if(nin.length!==11) return no('NIN must be 11 digits.');
+  if(fullName.length<3) return no('Enter your full legal name as on NIN.');
+  ensureKyc();
+  G.p.kyc={status:'pending',ninLast4:nin.slice(-4),fullName,submittedAt:G.day};
+  note('NIN submitted for verification (••••'+nin.slice(-4)+').','ajo');
+  fx('Identity submitted','warm');
+  return true;
+}
+function saveBankLocal(bankCode,bankName,accountNumber,accountName){
+  accountNumber=String(accountNumber||'').replace(/\D/g,'');
+  accountName=String(accountName||'').trim();
+  bankName=String(bankName||'').trim();
+  bankCode=String(bankCode||'').trim();
+  if(!kycReady()) return no('Verify your NIN before adding a bank account.');
+  if(accountNumber.length!==10) return no('Account number must be 10 digits.');
+  if(accountName.length<3) return no('Enter the account name.');
+  if(!bankCode) return no('Select your bank.');
+  G.p.bank={bankCode,bankName,accountNumber,accountName,savedDay:G.day};
+  note('Bank account saved for payouts: '+bankName+' ••••'+accountNumber.slice(-4)+'.','good');
+  fx('Bank saved','good');
+  return true;
+}
+function withdrawLocal(amount){
+  amount=Math.floor(+amount||0);
+  if(amount<500) return no('Minimum withdrawal is ₦500.');
+  if(!kycReady()) return no('Complete NIN verification first.');
+  if(!bankReady()) return no('Add a bank account for payouts first.');
+  if(G.p.cash<amount) return no('Not enough balance — you have '+fmt(G.p.cash)+'.');
+  if(!spend(amount,'Withdrawal to '+G.p.bank.bankName+' ••••'+G.p.bank.accountNumber.slice(-4),'withdraw')) return false;
+  note('Withdrawal of '+fmt(amount)+' to your bank is processing.','good');
+  fx('Withdraw '+fmt(amount),'gain');
+  return true;
+}
+
 /* ---- mini shop ---- */
 function bizStart(){if(G.biz)return false;if(G.p.loc!=='market')return no('Open your shop at the Market.');if(!spend(SHOP_COST,'Mini Shop startup (stall, permit, first 10 drinks)','business'))return false;G.biz={name:'Mini Shop',stock:10,avg:UNIT_COST,sold:0,rev:0,profit:0,since:G.day};G.btx.unshift({day:G.day,txt:'Opened Mini Shop',amt:-SHOP_COST});miles('shop','Opened the Mini Shop');note('Mini Shop is open! Stock it, sell it, build your name.','good');return true}
 function bizBuy(n,cost=UNIT_COST){const b=G.biz;if(!b)return no('Start the Mini Shop first.');if(G.p.loc!=='market')return no('Buy stock at the Market.');if(!canTime(1))return no(LATE);if(!spend(n*cost,'Stock — '+n+' drinks','business'))return false;b.avg=(b.stock*b.avg+n*cost)/(b.stock+n);b.stock+=n;G.btx.unshift({day:G.day,txt:'Bought '+n+' drinks',amt:-n*cost});tick(1);return true}
@@ -1368,6 +1417,8 @@ function initPlaces(){
   if(!G.friendReqs) G.friendReqs=[];
   if(!G.treatReqs) G.treatReqs=[];
   if(!G.p.nearbyOptIn) G.p.nearbyOptIn=false;
+if(!G.p.kyc)G.p.kyc={status:'unverified',ninLast4:'',fullName:'',submittedAt:null};
+if(G.p.bank===undefined)G.p.bank=null;
 if(!G.visitReqs) G.visitReqs=[];
 if(G.p.dailyPlace==null) G.p.dailyPlace=null;
   // Seed a few NPC businesses once

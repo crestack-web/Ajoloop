@@ -1264,7 +1264,23 @@ function ajoCard(a){const st={open:'Gathering',stones:a.rolled?'Order set':'Pick
 
 function moreView(){const seg=[['ledger','Money'],['rep','Trust & Rep'],['journey','Journey'],['shop','Shop'],['gstats','Groups'],['settings','Settings']];
  return `<div class="seg">${seg.map(([k,l])=>`<button data-a="more" data-v="${k}" class="${UI.more===k?'on':''}">${l}</button>`).join('')}</div>`+({ledger:ledgerV,rep:repV,journey:journeyV,shop:shopV,gstats:gstatsV,settings:settingsV}[UI.more])()}
-function ledgerV(){return `<div class="px" style="margin:8px 0 12px"><button class="btn" data-a="topUpOpen">＋ Top up balance</button></div><section class="card">${G.tx.length?G.tx.slice(0,40).map(t=>`<div class="tx"><div><b>${esc(t.label)}</b><div class="tiny muted">Day ${t.day} · ${t.cat}</div></div><span class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${fmt(t.amount)}</span></div>`).join(''):'<div class="muted">No transactions yet.</div>'}</section>`}
+function ledgerV(){
+  ensureKyc();
+  const k=G.p.kyc||{};
+  const b=G.p.bank;
+  return `<div class="px" style="margin:8px 0 12px;display:flex;flex-wrap:wrap;gap:8px">
+  <button class="btn" data-a="topUpOpen">＋ Top up</button>
+  <button class="btn ghost" data-a="wdOpen">Withdraw</button>
+ </div>
+ <section class="card"><b>Identity & payouts</b>
+  <div class="row sp" style="margin-top:8px"><span class="muted sm">NIN verification</span><span class="pill ${k.status==='verified'?'ok':'wait'}">${k.status||'unverified'}</span></div>
+  <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+   <button class="btn sm" data-a="kycOpen">Verify NIN</button>
+   <button class="btn sm ghost" data-a="bankOpen">Bank account</button>
+  </div>
+  ${b?`<div class="tiny muted" style="margin-top:8px">${esc(b.bankName)} · ••••${esc(String(b.accountNumber).slice(-4))} · ${esc(b.accountName)}</div>`:'<div class="tiny muted" style="margin-top:8px">Add a bank account to withdraw pot money.</div>'}
+ </section>
+ <section class="card">${G.tx.length?G.tx.slice(0,40).map(t=>`<div class="tx"><div><b>${esc(t.label)}</b><div class="tiny muted">Day ${t.day} · ${t.cat}</div></div><span class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${fmt(t.amount)}</span></div>`).join(''):'<div class="muted">No transactions yet.</div>'}</section>`}
 function repV(){const mk=(arr,l)=>`<section class="card"><b>${l}</b>${arr.length?arr.slice(0,12).map(h=>`<div class="tx"><div>${esc(h.why)}<div class="tiny muted">Day ${h.day} → ${h.v}</div></div><span class="${h.d>0?'pos':'neg'}">${h.d>0?'+':''}${h.d}</span></div>`).join(''):'<div class="muted sm" style="margin-top:6px">Nothing yet.</div>'}</section>`;return mk(G.th,'🤝 Trust history')+mk(G.rh,'⭐ Reputation history')}
 function spark(arr,c,l){if(arr.length<2)return `<div class="muted sm">${l}: more days needed</div>`;const w=300,h=60,mx=Math.max(...arr,1),mn=Math.min(...arr,0),r=mx-mn||1;const pts=arr.map((v,i)=>`${(i/(arr.length-1)*w).toFixed(1)},${(h-4-(v-mn)/r*(h-8)).toFixed(1)}`).join(' ');return `<div style="margin:10px 0"><div class="row sp sm"><b>${l}</b><span class="muted">${arr[arr.length-1].toLocaleString('en-US')}</span></div><svg viewBox="0 0 ${w} ${h}" width="100%" height="60" preserveAspectRatio="none"><polyline fill="none" stroke="${c}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="${pts}"/></svg></div>`}
 function journeyV(){const s=G.snap.concat([{day:G.day,nw:netWorth(),trust:Math.round(G.p.trust),rep:Math.round(G.p.rep)}]);const ms=Object.values(G.mile).sort((a,b)=>b.day-a.day);
@@ -1388,6 +1404,53 @@ function dailyPlaceSheet(){
   <button class="btn" style="width:100%;margin-top:14px" data-a="dailyPlaceSave">Share with friends</button>
   ${dp?`<button class="btn ghost" style="width:100%;margin-top:8px" data-a="dailyPlaceClear">Stop sharing today</button>`:''}`;
 }
+
+const NG_BANKS_UI=[{c:'058',n:'GTBank'},{c:'033',n:'UBA'},{c:'011',n:'First Bank'},{c:'057',n:'Zenith'},{c:'232',n:'Sterling'},{c:'044',n:'Access'},{c:'221',n:'Stanbic IBTC'},{c:'070',n:'Fidelity'},{c:'214',n:'FCMB'},{c:'035',n:'Wema'},{c:'050',n:'Ecobank'},{c:'076',n:'Polaris'},{c:'101',n:'Providus'}];
+function kycSheet(){
+  ensureKyc();
+  const k=G.p.kyc;
+  const st=k.status||'unverified';
+  return `<h2>Verify identity (NIN)</h2>
+  <div class="muted sm" style="margin:4px 0 12px">Required before bank payouts and pot withdrawals. We store only a secure hash — never show your full NIN again.</div>
+  <div class="card" style="margin-bottom:12px"><div class="row sp"><b>Status</b><span class="pill ${st==='verified'?'ok':st==='pending'?'wait':'wait'}">${st}</span></div>
+  ${k.ninLast4?`<div class="tiny muted" style="margin-top:6px">NIN ••••${esc(k.ninLast4)}${k.fullName?(' · '+esc(k.fullName)):''}</div>`:''}</div>
+  ${st==='verified'?`<div class="pill ok">Verified — you can add a bank and withdraw.</div>`:`
+  <label class="l">Full legal name (as on NIN)</label>
+  <div class="field"><input type="text" data-f="kycName" maxlength="120" placeholder="As on your NIN slip" value="${esc(UI.gi.kycName||k.fullName||G.p.name||'')}"></div>
+  <label class="l">NIN (11 digits)</label>
+  <div class="field"><input type="text" data-f="kycNin" inputmode="numeric" maxlength="11" placeholder="12345678901" value="${esc(UI.gi.kycNin||'')}"></div>
+  <button class="btn" style="width:100%;margin-top:14px" data-a="kycSubmit">Submit for verification</button>
+  <div class="tiny muted" style="margin-top:8px">Review may take time. Pending status still lets you save a bank account.</div>`}`;
+}
+function bankSheet(){
+  const b=G.p.bank;
+  const code=(UI.gi.bankCode||(b&&b.bankCode)||'058');
+  return `<h2>Bank account for payouts</h2>
+  <div class="muted sm" style="margin:4px 0 12px">Pots and wallet withdrawals go to this account after approval.</div>
+  ${!kycReady()?`<div class="warnbox">Submit NIN verification first.</div>`:''}
+  ${b?`<div class="card" style="margin-bottom:12px"><b>${esc(b.bankName)}</b><div class="muted sm">${esc(b.accountName)} · ••••${esc(String(b.accountNumber).slice(-4))}</div></div>`:''}
+  <label class="l">Bank</label>
+  <div class="opts" style="flex-wrap:wrap;max-height:140px;overflow:auto">${NG_BANKS_UI.map(x=>`<button data-a="bankCode" data-v="${x.c}" data-n="${x.n}" class="${code===x.c?'on':''}">${esc(x.n)}</button>`).join('')}</div>
+  <label class="l">Account number (10 digits)</label>
+  <div class="field"><input type="text" data-f="bankAcct" inputmode="numeric" maxlength="10" placeholder="0123456789" value="${esc(UI.gi.bankAcct||(b&&b.accountNumber)||'')}"></div>
+  <label class="l">Account name</label>
+  <div class="field"><input type="text" data-f="bankName" maxlength="120" placeholder="Name on the account" value="${esc(UI.gi.bankName||(b&&b.accountName)||G.p.name||'')}"></div>
+  <button class="btn" style="width:100%;margin-top:14px" data-a="bankSave" ${kycReady()?'':'disabled'}>Save bank account</button>`;
+}
+function withdrawSheet(){
+  const bal=G.p.cash|0;
+  const amts=[1000,2000,5000,10000,20000,50000].filter(a=>a<=bal);
+  return `<h2>Withdraw to bank</h2>
+  <div class="muted sm" style="margin:4px 0 12px">Send wallet / pot balance to your saved bank account.</div>
+  <div class="card" style="text-align:center;margin-bottom:12px"><div class="tiny muted">Available</div><div class="cash" style="font-size:26px">${fmt(bal)}</div></div>
+  ${!kycReady()?`<div class="warnbox">Verify NIN first.</div>`:''}
+  ${!bankReady()?`<div class="warnbox">Add a bank account first.</div>`:''}
+  <label class="l">Amount</label>
+  <div class="opts">${amts.map(a=>`<button data-a="wdAmt" data-v="${a}" class="${+(UI.wdAmt||0)===a?'on':''}">${fmt(a)}</button>`).join('')||'<span class="muted sm">Top up or claim a pot first</span>'}</div>
+  <div class="field" style="margin-top:8px"><input type="number" id="f-wd" min="500" max="${bal}" step="100" value="${UI.wdAmt||''}" placeholder="Custom amount"></div>
+  <button class="btn" style="width:100%;margin-top:14px" data-a="wdGo" ${kycReady()&&bankReady()&&bal>=500?'':'disabled'}>Withdraw</button>`;
+}
+
 function topUpSheet(){
   const bal=G.p.cash|0;
   const amts=[1000,2000,5000,10000,20000,50000];
@@ -1416,7 +1479,7 @@ function sheetHtml(){let h='';
  if(m.t==='gifts')h=giftsHubSheet();
  if(m.t==='giftWheel')h=giftWheelSheet();
  if(m.t==='giftReady')h=giftReadySheet();
- if(m.t==='topup')h=topUpSheet();if(m.t==='dailyPlace')h=dailyPlaceSheet();
+ if(m.t==='topup')h=topUpSheet();if(m.t==='kyc')h=kycSheet();if(m.t==='bank')h=bankSheet();if(m.t==='withdraw')h=withdrawSheet();if(m.t==='dailyPlace')h=dailyPlaceSheet();
  return wrap(h)}
 function wrap(h,lock){return `<div class="back" ${lock?'':'data-a="closeBack"'}><div class="sheet" id="sheet">${lock?'':'<button class="x" data-a="close" aria-label="Close">✕</button>'}${h}</div></div>`}
 
@@ -2956,6 +3019,71 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'vote':run(voteNom,d.id,d.y==='1');break;
   case 'start':case 'ajoStart':run(startAjo,d.id);break;
   
+  
+  case 'kycOpen':UI.modal={t:'kyc'};render();break;
+  case 'bankOpen':UI.modal={t:'bank'};render();break;
+  case 'wdOpen':UI.wdAmt=Math.min(5000,G.p.cash|0);UI.modal={t:'withdraw'};render();break;
+  case 'wdAmt':UI.wdAmt=+d.v;render();break;
+  case 'bankCode':UI.gi.bankCode=d.v;UI.gi.bankLabel=d.n;render();break;
+  case 'kycSubmit':{
+    (async()=>{
+      const nin=UI.gi.kycNin||'';
+      const fullName=UI.gi.kycName||G.p.name||'';
+      if(typeof api!=='undefined'&&api.online&&api.userId){
+        fx('Submitting NIN…','warm');flush();
+        const res=await api.submitKyc({nin,fullName});
+        if(res.error){fx(res.error,'warn');flush();return}
+        submitKycLocal(nin,fullName);
+        if(res.status) G.p.kyc.status=res.status;
+        UI.modal=null;delete UI.gi.kycNin;commit();
+        fx(res.message||'Submitted','good');
+      } else {
+        if(submitKycLocal(nin,fullName)){UI.modal=null;delete UI.gi.kycNin;commit()}
+        else {flush();render()}
+      }
+    })();
+  }break;
+  case 'bankSave':{
+    (async()=>{
+      const bankCode=UI.gi.bankCode||(G.p.bank&&G.p.bank.bankCode)||'058';
+      const bankName=UI.gi.bankLabel||(G.p.bank&&G.p.bank.bankName)||'Bank';
+      const accountNumber=UI.gi.bankAcct||'';
+      const accountName=UI.gi.bankName||G.p.name||'';
+      if(typeof api!=='undefined'&&api.online&&api.userId){
+        fx('Saving bank…','warm');flush();
+        const res=await api.saveBankAccount({bankCode,bankName,accountNumber,accountName});
+        if(res.error){fx(res.error,'warn');flush();return}
+        saveBankLocal(bankCode,bankName,accountNumber,accountName);
+        UI.modal=null;commit();
+        fx('Bank saved','good');
+      } else {
+        if(saveBankLocal(bankCode,bankName,accountNumber,accountName)){UI.modal=null;commit()}
+        else {flush();render()}
+      }
+    })();
+  }break;
+  case 'wdGo':{
+    (async()=>{
+      const el=document.getElementById('f-wd');
+      const amt=el&&el.value!==''?+el.value:(UI.wdAmt||0);
+      if(typeof api!=='undefined'&&api.online&&api.userId){
+        fx('Requesting withdrawal…','warm');flush();
+        const res=await api.requestWithdraw(amt);
+        if(res.error){fx(res.error,'warn');flush();return}
+        // Mirror debit locally
+        if(typeof res.balance==='number') G.p.cash=Math.floor(res.balance);
+        else spend(amt,'Withdrawal to bank','withdraw');
+        UI.modal=null;commit();
+        try{await api.syncWalletToGame()}catch(e){}
+        commit();
+        fx(res.message||('Withdraw '+fmt(amt)),'good');
+      } else {
+        if(withdrawLocal(amt)){UI.modal=null;commit()}
+        else {flush();render()}
+      }
+    })();
+  }break;
+
   case 'topUpOpen':UI.topUpAmt=5000;UI.modal={t:'topup'};render();break;
   case 'topUpAmt':UI.topUpAmt=+d.v;render();break;
   case 'topUpGo':{

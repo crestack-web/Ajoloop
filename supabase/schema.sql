@@ -238,3 +238,94 @@ $$;
 
 revoke all on function public.credit_wallet from public;
 grant execute on function public.credit_wallet to service_role;
+
+-- KYC (NIN) & bank accounts for payouts / withdrawals
+create table if not exists public.kyc_profiles (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  nin_last4 text,
+  nin_hash text,
+  full_name text,
+  status text not null default 'unverified'
+    check (status in ('unverified','pending','verified','rejected')),
+  doc_path text,
+  reject_reason text,
+  submitted_at timestamptz,
+  verified_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.bank_accounts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  bank_code text not null,
+  bank_name text not null,
+  account_number text not null,
+  account_name text not null,
+  is_default boolean not null default true,
+  bachs_destination_id text,
+  created_at timestamptz not null default now(),
+  unique (user_id, account_number, bank_code)
+);
+
+create table if not exists public.withdrawals (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  amount numeric(14,2) not null check (amount > 0),
+  currency text not null default 'NGN',
+  status text not null default 'pending'
+    check (status in ('pending','processing','completed','failed')),
+  bank_account_id uuid references public.bank_accounts(id),
+  bachs_payout_id text,
+  reference text unique,
+  failure_reason text,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create index if not exists withdrawals_user_idx on public.withdrawals (user_id, created_at desc);
+
+alter table public.kyc_profiles enable row level security;
+alter table public.bank_accounts enable row level security;
+alter table public.withdrawals enable row level security;
+
+create policy "Own kyc select" on public.kyc_profiles for select to authenticated using (auth.uid() = user_id);
+create policy "Own kyc upsert" on public.kyc_profiles for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Own bank select" on public.bank_accounts for select to authenticated using (auth.uid() = user_id);
+create policy "Own bank write" on public.bank_accounts for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Own withdrawals select" on public.withdrawals for select to authenticated using (auth.uid() = user_id);
+
+-- Debit wallet for withdrawals (service role)
+create or replace function public.debit_wallet(
+  p_user_id uuid,
+  p_amount numeric,
+  p_kind text,
+  p_reference text default null,
+  p_meta jsonb default '{}'::jsonb
+) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare
+  new_bal numeric;
+  cur numeric;
+begin
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'amount must be positive';
+  end if;
+  select balance into cur from public.wallets where user_id = p_user_id for update;
+  if cur is null then
+    raise exception 'wallet not found';
+  end if;
+  if cur < p_amount then
+    raise exception 'insufficient balance';
+  end if;
+  update public.wallets
+    set balance = balance - p_amount, updated_at = now()
+    where user_id = p_user_id
+    returning balance into new_bal;
+  insert into public.wallet_ledger (user_id, amount, balance_after, kind, reference, meta)
+  values (p_user_id, -p_amount, new_bal, p_kind, p_reference, p_meta);
+  return new_bal;
+end;
+$$;
+
+revoke all on function public.debit_wallet from public;
+grant execute on function public.debit_wallet to service_role;
