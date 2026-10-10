@@ -396,6 +396,7 @@ ${`<button type="button" class="intro-mute" data-a="introMute" aria-label="${UI.
 ${`<button type="button" class="intro-mute" data-a="introMute" aria-label="${UI.introMuted?'Unmute intro':'Mute intro'}">${UI.introMuted?'🔇 Intro muted':'🔊 Intro playing'}</button>`}
 
 <img class="logo-hero" src="/logo.png" alt="AjoLoop" width="200" height="auto">
+<div style="text-align:center;margin:4px 0 8px"><a href="/welcome.html" class="muted tiny" style="color:var(--gold)">Our story · how Ajo works</a></div>
 <div class="reg-dots">${dots}</div>
 <div class="card flat auth-card">${body}</div>
 ${acc?`<button class="btn ghost sm" data-a="authLogin" style="margin-top:12px">I already have an account</button>`:''}
