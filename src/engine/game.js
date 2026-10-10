@@ -137,7 +137,7 @@ function newGame(name,age,gender,extra){
  else if(businessStatus==='worker') G.p.work={cat:'Services',title:'Employed',set:true};
  else if(businessStatus==='student') G.p.work={cat:'Student',title:'Student',set:true};
  snap();
- note('Welcome, '+(username?'@'+username:name)+'. Your circle starts here — meet people, visit places, build trust.','info');
+ note('Welcome, '+(username?'@'+username:name)+'. Meet people, share experiences, belong to communities — support each other when trust is real.','info');
  return G}
 function snap(){G.snap.push({day:G.day,cash:G.p.cash,nw:netWorth(),trust:Math.round(G.p.trust),rep:Math.round(G.p.rep)});if(G.snap.length>120)G.snap.shift()}
 
@@ -1843,7 +1843,7 @@ function setAvatar(parts){
   G.p.avatar=Object.assign({},G.p.avatar||defaultAvatar(G.p.gender),parts||{});
   return true;
 }
-function markOnboarded(){G.p.onboarded=true;note('You are set up. Build trust, visit shops, invite people into Ajo.','ajo');fx('Welcome to your circle','good');return true}
+function markOnboarded(){G.p.onboarded=true;note('You are set up. Meet people, share experiences at local places, build groups — Ajo only when a community you trust is ready.','ajo');fx('Welcome — start by meeting people','good');return true}
 function ensureSetup(){
   // After character create, player should set home — not a demo unlock
   if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
