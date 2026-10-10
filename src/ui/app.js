@@ -10,6 +10,16 @@ loadEngine();
 /* ============ UI ============ */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
+
+const CIRCLE_GAMES_UI=[
+  {id:'lucky',ic:'🎯',n:'Lucky Number',d:'Everyone picks 1–10. Closest to the secret number wins.'},
+  {id:'rps',ic:'✊',n:'Rock · Paper · Scissors',d:'Best of three against the circle — simultaneous throw.'},
+  {id:'who',ic:'🕵️',n:"Who's Who?",d:'Guess which member matches the clue.'},
+  {id:'emoji',ic:'😎',n:'Emoji Match',d:'Pick the emoji that fits the prompt before others.'},
+  {id:'scramble',ic:'🔤',n:'Word Scramble',d:'Unscramble a Kano / circle word together.'}
+];
+function circleGamesCatalog(){return (typeof CIRCLE_GAMES!=='undefined'&&CIRCLE_GAMES.length)?CIRCLE_GAMES:(window.CIRCLE_GAMES||CIRCLE_GAMES_UI)}
+
 const UI={tab:'life',modal:null,form:{name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''},regStep:1,authMode:null,ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members',maxMembers:30},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[],treatForm:{biz:null,product:null,friend:null,note:'',mode:'request'}};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
@@ -1375,9 +1385,9 @@ function dmChatPage(uid){
 function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
  const P=G.p,host=a.host==='player'?null:npc(a.host),st=a.status;
  const tab=UI.ajoTab||'home';
- const tabs=[['home','Circle'],['chat','Chat'],['games','🎮 Games'],['activity','Activity']];
+ const tabs=[['home','Circle'],['games','Games'],['chat','Chat'],['activity','Activity']];
  let h=`<div class="row"><div class="av">${a.host==='player'?avatar(P.gender):(host?host.em:'🤝')}</div><div><h2>${esc(a.name)}</h2><div class="muted sm">${fmt(a.amt)} every ${a.freq} days · ${a.members.length}/${a.size} · ${a.vis==='public'?'Public':'Private'}</div></div></div>`;
- h+=`<div class="people-seg" style="margin:12px 0">${tabs.map(([k,l])=>`<button data-a="ajoTab" data-v="${k}" class="${tab===k?'on':''}">${l}</button>`).join('')}</div>`;
+ h+=`<div class="people-seg ajo-tabs" style="margin:12px 0;flex-wrap:wrap">${tabs.map(([k,l])=>`<button data-a="ajoTab" data-v="${k}" class="${tab===k?'on':''}">${k==='games'?'🎮 ':''}${l}</button>`).join('')}</div>`;
 
  if(tab==='chat'){
   const log=a.chat||[];
@@ -1405,7 +1415,7 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
   }
   const active=a.game&&a.game.status==='playing'?a.game:null;
   if(active){
-   const def=(typeof CIRCLE_GAMES!=='undefined'?CIRCLE_GAMES:[]).find(x=>x.id===active.type)||{n:active.type,ic:'🎮'};
+   const def=circleGamesCatalog().find(x=>x.id===active.type)||{n:active.type,ic:'🎮'};
    h+=`<div class="card" style="background:var(--card)"><b>${def.ic||'🎮'} ${esc(def.n||active.type)}</b>
     <div class="muted sm" style="margin-top:4px">Playing with ${active.players.length} members</div></div>`;
    if(active.type==='lucky'){
@@ -1439,7 +1449,7 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
    h+=`<div class="card" style="margin-bottom:10px"><b>Last result</b><div class="sm" style="margin-top:4px">${esc(a.game.result)}</div></div>`;
   }
   h+=`<div class="muted sm" style="margin-bottom:10px">Play light games with other people in this loop. Wins boost mood and a little reputation.</div>`;
-  const list=typeof CIRCLE_GAMES!=='undefined'?CIRCLE_GAMES:[];
+  const list=circleGamesCatalog();
   h+=list.map(g=>`<button class="g-card" style="width:100%;margin:0 0 8px;text-align:left" data-a="ajoGameStart" data-id="${a.id}" data-v="${g.id}">
     <div class="g-av" style="font-size:28px">${g.ic}</div>
     <div class="meta"><b>${esc(g.n)}</b><div class="l">${esc(g.d)}</div></div>
@@ -1526,7 +1536,10 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
 
  if(a.payouts&&a.payouts.length){h+=`<section class="card"><b>Payouts</b>${a.payouts.map(p=>`<div class="tx"><div><b>${nm(p.to)}</b><div class="tiny muted">Round ${p.cycle+1}${p.fee?` · fee ${fmt(p.fee)}`:''}</div></div><span class="pos">${fmt(p.amt)}</span></div>`).join('')}</section>`}
  if(st==='done')h+=`<div class="card empty"><div class="big">✅</div>Circle complete.</div>`;
- h+=`<button class="btn" style="margin-top:12px" data-a="ajoChatOpen" data-id="${a.id}">💬 Open circle chat</button>`;
+ h+=`<div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">
+  <button class="btn" style="flex:1" data-a="ajoTab" data-v="games">🎮 Play games</button>
+  <button class="btn ghost" style="flex:1" data-a="ajoChatOpen" data-id="${a.id}">💬 Circle chat</button>
+ </div>`;
  return h}
 
 
