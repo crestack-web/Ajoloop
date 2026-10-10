@@ -301,7 +301,7 @@ function render(){
  app.innerHTML=hud()+'<main>'+({life:lifeView,town:townView,people:peopleView,groups:groupsView,ajo:ajoView,more:moreView}[UI.tab])()+'</main>'+navHtml()+sheetHtml();
  if(st0){const s1=document.getElementById('sheet');if(s1)s1.scrollTop=st0}
  flush();
- requestAnimationFrame(()=>{mountLiveMap();mountSpotPicker();mountHomePicker()});
+ requestAnimationFrame(()=>{mountLiveMap();mountSpotPicker();mountHomePicker();bindSpotPhotoUpload()});
 }
 
 function createView(){
@@ -553,7 +553,10 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
    }
    if(dp){
      const L=LOCS[dp.loc]||{};
-     h+=`<div class="card"><div class="row sp"><div><b>${L.ic||'📍'} ${esc(L.n||dp.loc)}</b><div class="muted sm">Shared with friends · they can request to visit</div>${dp.note?`<div class="tiny" style="margin-top:4px">${esc(dp.note)}</div>`:''}</div>
+     const title=dp.name||L.n||dp.loc;
+     const ic=L.ic||'📍';
+     h+=`<div class="card">${dp.img?`<div class="spot-preview" style="background-image:url('${esc(dp.img)}');margin:0 0 10px"></div>`:''}
+      <div class="row sp"><div><b>${ic} ${esc(title)}</b><div class="muted sm">Shared with friends · they can request to visit</div>${dp.note?`<div class="tiny" style="margin-top:4px">${esc(dp.note)}</div>`:''}</div>
       <button class="btn sm ghost" data-a="dailyPlaceClear">Clear</button></div>
       <button class="btn sm" style="margin-top:10px" data-a="dailyPlaceOpen">Change place</button></div>`;
    } else {
@@ -811,6 +814,36 @@ function mountLiveMap(){
   setTimeout(()=>{try{_liveMap.invalidateSize()}catch(e){}},80);
 }
 
+
+function bindSpotPhotoUpload(){
+  const file=document.getElementById('sf-file');
+  if(!file||file._bound) return;
+  file._bound=true;
+  file.addEventListener('change',()=>{
+    const f=file.files&&file.files[0];
+    if(!f) return;
+    if(f.size>4e6){fx('Photo too large (max ~4MB).','warn');return}
+    const reader=new FileReader();
+    reader.onload=()=>{
+      let data=reader.result;
+      // Soft cap data URL size in form
+      if(String(data).length>900000){
+        fx('Compressing… try a smaller photo if this fails.','warm');
+      }
+      if(!UI.spotForm) UI.spotForm={};
+      UI.spotForm.img=data;
+      const input=document.getElementById('sf-img');
+      if(input) input.value=typeof data==='string'&&data.startsWith('http')?data:'';
+      // Keep data URL in form even if input shows empty for data:
+      if(typeof data==='string'&&data.startsWith('data:')){
+        UI.spotForm.img=data;
+      }
+      render();
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
 function mountSpotPicker(){
   const el=document.getElementById('spot-pick-map');
   if(!el||typeof L==='undefined') return;
@@ -879,7 +912,11 @@ function spotAddSheet(){
     <label class="l">Area (auto from pin)</label><div class="opts">${allAreas().map(a=>`<button data-a="spotArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
     <label class="l">Linked daily place (optional)</label><div class="opts">${['market','restaurant','park','work','bank','social','ajo'].map(id=>`<button data-a="spotLoc" data-v="${id}" class="${(f.loc||'')===id?'on':''}">${LOCS[id].ic} ${LOCS[id].n}</button>`).join('')}</div>
     <label class="l">Landmark (optional)</label><input id="sf-label" maxlength="48" placeholder="e.g. Near the old gate" value="${esc(f.label||'')}">
-    <label class="l">Photo URL (optional)</label><input id="sf-img" maxlength="300" placeholder="https://…" value="${esc(f.img||'')}">
+    <label class="l">Photo of the place</label>
+    <div class="field"><input type="url" id="sf-img" maxlength="500" placeholder="Paste image URL or upload below" value="${esc(f.img||'')}"></div>
+    <input type="file" id="sf-file" accept="image/*" style="margin:8px 0;font-size:13px">
+    ${f.img?`<div class="spot-preview" style="background-image:url('${esc(f.img)}')"></div>`:''}
+    <label class="l" style="margin-top:10px"><input type="checkbox" id="sf-daily" ${f.setDaily?'checked':''}> Also set as my place today</label>
     <label class="l">Icon</label><div class="opts">${ics.map(ic=>`<button data-a="spotIc" data-v="${ic}" class="${f.ic===ic?'on':''}">${ic}</button>`).join('')}</div>
     <label class="l">Note (optional)</label><input id="sf-note" maxlength="120" placeholder="Why friends meet here" value="${esc(f.note||'')}">
     <button class="btn" style="margin-top:14px" data-a="spotSave">Save spot on map</button>
@@ -1149,10 +1186,19 @@ function townView(){const L=LOCS[G.p.loc],meta=locMeta(G.p.loc),acts=locActions(
  ${mode==='spots'?`<div class="px" style="margin:8px 0"><button class="btn" data-a="spotAdd">＋ Add a spot you usually go</button></div>
    <div class="muted tiny px" style="margin-bottom:8px">Your community can see these addresses (area + landmark — not exact street for strangers) and meet friends nearby to build trust.</div>
    <div class="section-label">Your spots</div>
-   ${mySpots().length?mySpots().map(s=>`<div class="g-card" style="width:calc(100% - 24px)"><div class="g-av">${s.ic||'📍'}</div><div class="meta"><b>${esc(s.name)}</b><div class="l">${esc(s.area)}${s.label?' · '+esc(s.label):''}</div></div>
-     <button class="btn sm ghost" data-a="spotOpen" data-id="${s.id}">Open</button>
-     <button class="btn sm ghost" data-a="spotRemove" data-id="${s.id}">Remove</button></div>`).join('')
-   :'<div class="card empty"><div class="big">📌</div>No spots yet. Add places you usually go.</div>'}
+   ${mySpots().length?mySpots().map(s=>`<div class="card spot-tile-card" style="margin:8px 12px">
+     <div class="sti" style="${s.img?`background-image:url('${esc(s.img)}')`:''}">${s.img?'':(s.ic||'📍')}</div>
+     <div class="stb">
+       <b>${esc(s.name)}</b>
+       <div class="tiny muted">${esc(s.area||'')}${s.label?(' · '+esc(s.label)):''}</div>
+       <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
+         <button class="btn sm" data-a="spotSetDaily" data-id="${s.id}">Here today</button>
+         <button class="btn sm ghost" data-a="spotOpen" data-id="${s.id}">Open</button>
+         <button class="btn sm ghost" data-a="spotRemove" data-id="${s.id}">Remove</button>
+       </div>
+     </div>
+   </div>`).join('')
+   :'<div class="card empty"><div class="big">📌</div>No spots yet. Pin a place on the map and add a photo.</div>'}
    <div class="section-label">Community spots</div>
    ${communitySpots().filter(s=>s.by!=='player').length?communitySpots().filter(s=>s.by!=='player').map(s=>`<button class="g-card" data-a="spotOpen" data-id="${s.id}" style="width:calc(100% - 24px)"><div class="g-av">${s.ic||'📍'}</div><div class="meta"><b>${esc(s.name)}</b><div class="l">${esc(s.area)}${s.label?' · '+esc(s.label):''}</div></div></button>`).join('')
    :'<div class="card empty">No other community spots in view. Enable nearby and set home area.</div>'}`:''}`}
@@ -1402,22 +1448,32 @@ function giftReadySheet(){
 function dailyPlaceSheet(){
   const places=Object.keys(LOCS).filter(k=>k!=='ajo'&&k!=='home');
   const dp=typeof myDailyPlace==='function'?myDailyPlace():null;
-  const cur=UI.dailyPlaceForm||{loc:(dp&&dp.loc)||G.p.loc||'market',note:(dp&&dp.note)||''};
+  const cur=UI.dailyPlaceForm||{loc:(dp&&dp.loc)||G.p.loc||'market',note:(dp&&dp.note)||'',spotId:(dp&&dp.spotId)||null};
   UI.dailyPlaceForm=cur;
+  const mine=typeof playerSpots==='function'?playerSpots():(G.spots||[]).filter(s=>s.by==='player'&&!s.removed);
   return `<h2>Where I am today</h2>
-  <div class="muted sm" style="margin:4px 0 12px">Friends can see this on your profile and request to visit. You approve or decline each request.</div>
-  <label class="l">Place</label>
+  <div class="muted sm" style="margin:4px 0 12px">Friends can see this and request to visit. You approve each request.</div>
+  ${mine.length?`<label class="l">Your map places</label>
+  <div class="daily-spot-grid">${mine.map(s=>{
+    const on=cur.spotId===s.id;
+    return `<button type="button" class="daily-spot-tile ${on?'on':''}" data-a="dailyPlaceSpot" data-id="${s.id}">
+      <div class="dst-img" style="${s.img?`background-image:url('${esc(s.img)}')`:''}">${s.img?'':(s.ic||'📍')}</div>
+      <div class="dst-meta"><b>${esc(s.name)}</b><span class="tiny muted">${esc(s.area||'')}${s.label?(' · '+esc(s.label)):''}</span></div>
+    </button>`;
+  }).join('')}</div>
+  <div class="tiny muted" style="margin:6px 0 12px">Create more under Town → My spots (pin on map + photo).</div>`:''}
+  <label class="l">City places</label>
   <div class="opts" style="flex-wrap:wrap">${places.map(k=>{
     const L=LOCS[k];
-    return `<button data-a="dailyPlaceLoc" data-v="${k}" class="${cur.loc===k?'on':''}">${L.ic} ${esc(L.n)}</button>`;
+    const on=!cur.spotId&&cur.loc===k;
+    return `<button data-a="dailyPlaceLoc" data-v="${k}" class="${on?'on':''}">${L.ic} ${esc(L.n)}</button>`;
   }).join('')}</div>
   <label class="l">Note (optional)</label>
-  <div class="field"><input type="text" data-f="dailyPlaceNote" maxlength="120" placeholder="e.g. At Mama Put until evening" value="${esc(cur.note||UI.gi.dailyPlaceNote||'')}"></div>
+  <div class="field"><input type="text" data-f="dailyPlaceNote" maxlength="120" placeholder="e.g. At the stall until evening" value="${esc(cur.note||UI.gi.dailyPlaceNote||'')}"></div>
   <button class="btn" style="width:100%;margin-top:14px" data-a="dailyPlaceSave">Share with friends</button>
   ${dp?`<button class="btn ghost" style="width:100%;margin-top:8px" data-a="dailyPlaceClear">Stop sharing today</button>`:''}`;
 }
 
-const NG_BANKS_UI=[{c:'058',n:'GTBank'},{c:'033',n:'UBA'},{c:'011',n:'First Bank'},{c:'057',n:'Zenith'},{c:'232',n:'Sterling'},{c:'044',n:'Access'},{c:'221',n:'Stanbic IBTC'},{c:'070',n:'Fidelity'},{c:'214',n:'FCMB'},{c:'035',n:'Wema'},{c:'050',n:'Ecobank'},{c:'076',n:'Polaris'},{c:'101',n:'Providus'}];
 function kycSheet(){
   ensureKyc();
   const k=G.p.kyc;
@@ -2821,9 +2877,14 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const name=(document.getElementById('sf-name')||{}).value||UI.spotForm.name;
     const label=(document.getElementById('sf-label')||{}).value||UI.spotForm.label;
     const note=(document.getElementById('sf-note')||{}).value||UI.spotForm.note;
-    const img=(document.getElementById('sf-img')||{}).value||UI.spotForm.img;
+    const imgEl=document.getElementById('sf-img');
+    const img=(imgEl&&imgEl.value)||UI.spotForm.img||'';
+    const setDaily=!!(document.getElementById('sf-daily')||{}).checked;
     const s=addSpot({name,area:UI.spotForm.area,label,ic:UI.spotForm.ic,note,loc:UI.spotForm.loc,img,lat:UI.spotForm.lat,lng:UI.spotForm.lng,address:UI.spotForm.address});
-    if(s){UI.modal={t:'spot',id:s.id};UI.townMode='live';UI.mapFocus=s.id;commit()} else render();
+    if(s){
+      if(setDaily) setDailyPlaceFromSpot(s.id, note||'');
+      UI.modal={t:'spot',id:s.id};UI.townMode='live';UI.mapFocus=s.id;commit();
+    } else render();
   }break;
   case 'spotOpen':UI.modal={t:'spot',id:d.id};render();break;
   case 'spotRemove':run(removeSpot,d.id);UI.modal=null;break;
@@ -2909,11 +2970,26 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
 
   
   case 'dailyPlaceOpen':UI.dailyPlaceForm={loc:(myDailyPlace()&&myDailyPlace().loc)||G.p.loc||'market',note:(myDailyPlace()&&myDailyPlace().note)||''};UI.gi.dailyPlaceNote=UI.dailyPlaceForm.note||'';UI.modal={t:'dailyPlace'};render();break;
-  case 'dailyPlaceLoc':if(!UI.dailyPlaceForm)UI.dailyPlaceForm={};UI.dailyPlaceForm.loc=d.v;render();break;
+  case 'dailyPlaceLoc':if(!UI.dailyPlaceForm)UI.dailyPlaceForm={};UI.dailyPlaceForm.loc=d.v;UI.dailyPlaceForm.spotId=null;render();break;
+  case 'dailyPlaceSpot':{
+    if(!UI.dailyPlaceForm) UI.dailyPlaceForm={};
+    UI.dailyPlaceForm.spotId=d.id;
+    UI.dailyPlaceForm.loc=null;
+    render();
+  }break;
   case 'dailyPlaceSave':{
-    const loc=(UI.dailyPlaceForm&&UI.dailyPlaceForm.loc)||G.p.loc||'market';
     const note=UI.gi.dailyPlaceNote||(UI.dailyPlaceForm&&UI.dailyPlaceForm.note)||'';
-    if(setDailyPlace(loc,note)){UI.modal=null;delete UI.gi.dailyPlaceNote;commit()} else {flush();render()}
+    const spotId=UI.dailyPlaceForm&&UI.dailyPlaceForm.spotId;
+    let ok=false;
+    if(spotId) ok=setDailyPlaceFromSpot(spotId,note);
+    else {
+      const loc=(UI.dailyPlaceForm&&UI.dailyPlaceForm.loc)||G.p.loc||'market';
+      ok=setDailyPlace(loc,note);
+    }
+    if(ok){UI.modal=null;delete UI.gi.dailyPlaceNote;commit()} else {flush();render()}
+  }break;
+  case 'spotSetDaily':{
+    if(setDailyPlaceFromSpot(d.id,'')) commit(); else {flush();render()}
   }break;
   case 'dailyPlaceClear':run(clearDailyPlace);UI.modal=null;break;
   case 'visitRequest':run(requestVisit,d.id,'');break;

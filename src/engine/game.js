@@ -1556,13 +1556,36 @@ function nearbyPeople(){
 }
 
 /* ---- Daily place & visit requests (friends, approval only) ---- */
-function setDailyPlace(locId, placeNote){
+function setDailyPlace(locId, placeNote, extra){
+  extra=extra||{};
+  placeNote=String(placeNote||'').trim().slice(0,120);
+  // Custom map spot as daily place
+  if(extra.spotId){
+    const s=(G.spots||[]).find(x=>x.id===extra.spotId&&!x.removed);
+    if(!s) return no('Spot not found.');
+    G.p.dailyPlace={
+      loc:s.loc||'social',
+      spotId:s.id,
+      name:s.name,
+      note:placeNote||s.note||'',
+      img:s.img||'',
+      lat:s.lat,lng:s.lng,
+      area:s.area,
+      day:G.day,hour:G.hour,visible:true
+    };
+    if(s.loc&&LOCS[s.loc]&&G.p.loc!==s.loc) travel(s.loc);
+    note('You checked in at '+s.name+(placeNote?(' — '+placeNote):'')+'. Friends can request to visit.','good');
+    fx('Checked in · '+(s.ic||'📍'),'warm');
+    return true;
+  }
   if(!LOCS[locId]) return no('Unknown place.');
   if(locId==='ajo') return no('Pick a public place friends can visit.');
-  placeNote=String(placeNote||'').trim().slice(0,120);
   G.p.dailyPlace={
     loc:locId,
+    spotId:null,
+    name:LOCS[locId].n,
     note:placeNote,
+    img:LOCS[locId].img||'',
     day:G.day,
     hour:G.hour,
     visible:true
@@ -1571,6 +1594,12 @@ function setDailyPlace(locId, placeNote){
   note('You checked in at '+LOCS[locId].n+(placeNote?(' — '+placeNote):'')+'. Friends can request to visit.','good');
   fx('Checked in · '+LOCS[locId].ic,'warm');
   return true;
+}
+function setDailyPlaceFromSpot(spotId, placeNote){
+  return setDailyPlace(null, placeNote, {spotId});
+}
+function playerSpots(){
+  return (G.spots||[]).filter(s=>s.by==='player'&&!s.removed);
 }
 function clearDailyPlace(){
   if(!G.p.dailyPlace) return no('No daily place set.');

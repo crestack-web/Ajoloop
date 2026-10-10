@@ -676,3 +676,15 @@ a.btn.green{color:#04281a}
 .so-rank{width:22px;height:22px;border-radius:50%;background:var(--danfo);color:#241a00;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center}
 .so-ic{font-size:20px;line-height:1}
 .so-name{flex:1;font-weight:700;font-size:14px}
+
+/* Custom daily place tiles */
+.daily-spot-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}
+.daily-spot-tile{text-align:left;padding:0;overflow:hidden;border-radius:16px;background:var(--card2);border:2px solid transparent;box-shadow:var(--shadow-sm)}
+.daily-spot-tile.on{border-color:var(--danfo)}
+.daily-spot-tile .dst-img{height:88px;background:var(--card) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:32px}
+.daily-spot-tile .dst-meta{padding:8px 10px}
+.daily-spot-tile .dst-meta b{display:block;font-size:13px;font-weight:800}
+.spot-preview{height:120px;border-radius:14px;background:var(--card2) center/cover no-repeat;margin:8px 0;box-shadow:var(--shadow-sm)}
+.spot-tile-card{display:flex;gap:12px;align-items:stretch;padding:0;overflow:hidden}
+.spot-tile-card .sti{width:88px;min-height:88px;background:var(--card) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
+.spot-tile-card .stb{flex:1;padding:10px 12px 10px 0;min-width:0}
