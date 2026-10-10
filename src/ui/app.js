@@ -1109,13 +1109,22 @@ function npcSheet(n){const here_=npcLoc(n)===G.p.loc,p=G.p;const know=n.rel>=50;
  </div>
  ${n.hist.length?`<div class="section-label">Between you two</div>${n.hist.slice(0,6).map(h=>`<div class="tx sm"><span>${esc(h.why)} <span class="muted tiny">Day ${h.day}</span></span><span class="${h.d>0?'pos':'neg'}">${h.d>0?'+':''}${h.d}</span></div>`).join('')}`:''}`}
 
-function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${vals.map(v=>`<button data-a="anset" data-k="${k}" data-v="${v}" class="${f[k]===v?'on':''}">${fm?fm(v):v}</button>`).join('')}</div>`;
- const pot1=f.amt*(f.size-1),fee=Math.round(pot1*AJO_FEE_PCT),hostGets=pot1-fee;
+function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${vals.map(v=>`<button data-a="anset" data-k="${k}" data-v="${v}" class="${+f[k]===+v?'on':''}">${fm?fm(v):v}</button>`).join('')}</div>`;
+ const size=Math.max(3,Math.min(20,parseInt(f.size)||5));
+ const amt=Math.max(500,Math.min(500000,parseInt(f.amt)||5000));
+ const freq=Math.max(1,Math.min(60,parseInt(f.freq)||7));
+ const pot1=amt*(size-1),fee=Math.round(pot1*AJO_FEE_PCT),hostGets=pot1-fee;
  return `<h2>Create an Ajo</h2><div class="muted sm" style="margin-top:4px">Starts <b>public</b> so others can request to join. You can switch to private anytime.</div>
- <label class="l">Name</label><input type="text" id="f-ajo" maxlength="24" value="${esc(f.name)}">
- <label class="l">Members</label>${opt('size',[3,4,5,6])}
- <label class="l">Contribution</label>${opt('amt',[2000,5000,10000],fmt)}
- <label class="l">Every</label>${opt('freq',[3,7,14],v=>v+' days')}
+ <label class="l">Name</label><div class="field"><input type="text" id="f-ajo" maxlength="24" value="${esc(f.name)}" placeholder="e.g. Kano Hustlers"></div>
+ <label class="l">Members</label>
+ <div class="field-row"><input type="number" id="f-ajo-size" min="3" max="20" step="1" value="${size}" data-f="ajoSize"><span class="field-hint">3–20 people</span></div>
+ <div class="opts" style="margin-top:6px">${opt('size',[3,4,5,6,8,10,12])}</div>
+ <label class="l">Contribution amount (₦)</label>
+ <div class="field-row"><input type="number" id="f-ajo-amt" min="500" max="500000" step="100" value="${amt}" data-f="ajoAmt"><span class="field-hint">Your amount</span></div>
+ <div class="opts" style="margin-top:6px">${opt('amt',[1000,2000,5000,10000,20000,50000],fmt)}</div>
+ <label class="l">Every (days)</label>
+ <div class="field-row"><input type="number" id="f-ajo-freq" min="1" max="60" step="1" value="${freq}" data-f="ajoFreq"><span class="field-hint">1–60 days</span></div>
+ <div class="opts" style="margin-top:6px">${opt('freq',[3,7,14,21,30],v=>v+' days')}</div>
  <div class="card" style="background:var(--card)"><b>How payout works</b>
  <div class="muted sm" style="margin-top:8px;line-height:1.45">
  <b>Round 1</b> → You (organizer). Members pay; you do not contribute that round.<br>
@@ -1127,7 +1136,7 @@ function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${v
  <div class="money-row"><span class="label">You receive</span><span class="val gold">${fmt(hostGets)}</span></div>
  </div>
  <button class="btn" style="margin-top:12px" data-a="ajoCreate">Create circle</button>
- <div class="tiny muted" style="margin-top:10px">Offline demo uses virtual cash. Real collections need a payment partner later.</div>`}
+ <div class="tiny muted" style="margin-top:10px">Set any members, contribution, and schedule. Offline demo uses virtual cash.</div>`}
 
 
 
@@ -1870,7 +1879,23 @@ function flush(){const q=FX.splice(0);if(!q.length)return;let i=0,ti=0;const cas
 
 /* ---- input ---- */
 const run=(fn,...a)=>{fn(...a);commit()};
-document.addEventListener('input',e=>{if(e.target.id==='f-name')UI.form.name=e.target.value;if(e.target.id==='f-age')UI.form.age=e.target.value;if(e.target.id==='f-ajo')UI.ajoNew.name=e.target.value;if(e.target.dataset&&e.target.dataset.f)UI.gi[e.target.dataset.f]=e.target.value});
+document.addEventListener('change',e=>{
+  if(e.target&&(e.target.id==='f-ajo-size'||e.target.id==='f-ajo-amt'||e.target.id==='f-ajo-freq')&&UI.modal&&UI.modal.t==='ajoNew'){
+    if(e.target.id==='f-ajo-size')UI.ajoNew.size=+e.target.value||UI.ajoNew.size;
+    if(e.target.id==='f-ajo-amt')UI.ajoNew.amt=+e.target.value||UI.ajoNew.amt;
+    if(e.target.id==='f-ajo-freq')UI.ajoNew.freq=+e.target.value||UI.ajoNew.freq;
+    render();
+  }
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='f-name')UI.form.name=e.target.value;
+  if(e.target.id==='f-age')UI.form.age=e.target.value;
+  if(e.target.id==='f-ajo')UI.ajoNew.name=e.target.value;
+  if(e.target.id==='f-ajo-size'){UI.ajoNew.size=+e.target.value||UI.ajoNew.size;UI.gi.ajoSize=e.target.value}
+  if(e.target.id==='f-ajo-amt'){UI.ajoNew.amt=+e.target.value||UI.ajoNew.amt;UI.gi.ajoAmt=e.target.value}
+  if(e.target.id==='f-ajo-freq'){UI.ajoNew.freq=+e.target.value||UI.ajoNew.freq;UI.gi.ajoFreq=e.target.value}
+  if(e.target.dataset&&e.target.dataset.f)UI.gi[e.target.dataset.f]=e.target.value
+});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.enter){const b=document.querySelector('[data-a="'+e.target.dataset.enter+'"]');if(b)b.click()}});
 document.addEventListener('change',e=>{
   const inp=e.target;
@@ -2121,8 +2146,16 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'ajoChatOpen':UI.modal={t:'ajoChat',id:d.id};render();break;
   case 'ajoChatBack':UI.ajoTab='home';UI.modal={t:'ajo',id:d.id};render();break;
   case 'ajoNew':UI.modal={t:'ajoNew'};render();break;
-  case 'anset':UI.ajoNew[d.k]=+d.v;render();break;
-  case 'ajoCreate':case 'ajoMake':{const nameEl=document.getElementById('f-ajo');const f=UI.ajoNew;if(nameEl&&nameEl.value)f.name=nameEl.value;const id=createAjo((f.name||'Kano Hustlers').trim(),f.size,f.amt,f.freq);if(id){UI.ajoTab='home';UI.modal={t:'ajo',id}}commit();break}
+  case 'anset':UI.ajoNew[d.k]=+d.v;if(d.k==='size')delete UI.gi.ajoSize;if(d.k==='amt')delete UI.gi.ajoAmt;if(d.k==='freq')delete UI.gi.ajoFreq;render();break;
+  case 'ajoCreate':case 'ajoMake':{const nameEl=document.getElementById('f-ajo');const f=UI.ajoNew;if(nameEl&&nameEl.value)f.name=nameEl.value;
+    const sizeEl=document.getElementById('f-ajo-size'),amtEl=document.getElementById('f-ajo-amt'),freqEl=document.getElementById('f-ajo-freq');
+    const size=sizeEl&&sizeEl.value!==''?+sizeEl.value:(UI.gi.ajoSize!==undefined?+UI.gi.ajoSize:f.size);
+    const amt=amtEl&&amtEl.value!==''?+amtEl.value:(UI.gi.ajoAmt!==undefined?+UI.gi.ajoAmt:f.amt);
+    const freq=freqEl&&freqEl.value!==''?+freqEl.value:(UI.gi.ajoFreq!==undefined?+UI.gi.ajoFreq:f.freq);
+    f.size=size;f.amt=amt;f.freq=freq;
+    const id=createAjo((f.name||'Kano Hustlers').trim(),size,amt,freq);
+    if(id){UI.ajoTab='home';UI.modal={t:'ajo',id};['ajoSize','ajoAmt','ajoFreq'].forEach(k=>delete UI.gi[k])}
+    commit();break}
   case 'ajoRequest':run(requestJoinAjo,d.id);break;
   case 'ajoAnsReq':run(answerJoinReq,d.id,d.r,d.y==='1');break;
   case 'ajoChatSend':{const t=(document.getElementById('ajo-chat-in')||{}).value||'';run(ajoChatSend,d.id,t);break}
