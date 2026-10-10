@@ -5,7 +5,7 @@
  * Creates a Bachs checkout session for wallet top-up (NGN).
  */
 import { createClient } from '@supabase/supabase-js';
-import { bachsFetch, amountToBachs } from '../_bachs.js';
+import { bachsFetch, amountToBachs, getBachsApiKey } from '../_bachs.js';
 
 function supabaseAdmin() {
   const url = process.env.SUPABASE_PROJECT_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -34,8 +34,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    if (!process.env.BACHS_API_KEY) {
-      return res.status(503).json({ error: 'Payments not configured (BACHS_API_KEY)' });
+    if (!getBachsApiKey()) {
+      return res.status(503).json({ error: 'Payments not configured (set BATCHS_API_KEY on Vercel)' });
     }
 
     const auth = req.headers.authorization || '';

@@ -1,12 +1,12 @@
 # Payments (Bachs)
 
-Real NGN top-ups use **Bachs** (`BACHS_API_KEY` on Vercel). The secret key never ships to the browser.
+Real NGN top-ups use **Bachs** (`BATCHS_API_KEY` (or `BACHS_API_KEY`) on Vercel). The secret key never ships to the browser.
 
 ## Env (Vercel)
 
 | Variable | Where | Purpose |
 |----------|--------|---------|
-| `BACHS_API_KEY` | Server | Bachs secret (`sk_live_…` or `sk_sandbox_…`) |
+| `BATCHS_API_KEY` | Server | Bachs secret (also `BACHS_API_KEY`) (`sk_live_…` or `sk_sandbox_…`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server | Credit wallets from webhooks |
 | `SUPABASE_PROJECT_URL` or `VITE_SUPABASE_URL` | Server + client | Project URL |
 | `SUPABASE_ANON_KEY` or `VITE_SUPABASE_ANON_KEY` | Client | Auth |

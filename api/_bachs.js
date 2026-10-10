@@ -1,17 +1,29 @@
 /**
  * Bachs API helpers — server only. Never import from client.
- * Env: BACHS_API_KEY (required), BACHS_BASE_URL (optional override)
+ * Env key names accepted (Vercel):
+ *   BATCHS_API_KEY | BACHS_API_KEY | BATCH_API_KEY
+ * Optional: BACHS_BASE_URL / BATCHS_BASE_URL
  */
-export function bachsBaseUrl(apiKey = process.env.BACHS_API_KEY || '') {
-  if (process.env.BACHS_BASE_URL) return process.env.BACHS_BASE_URL.replace(/\/$/, '');
+export function getBachsApiKey() {
+  return (
+    process.env.BATCHS_API_KEY ||
+    process.env.BACHS_API_KEY ||
+    process.env.BATCH_API_KEY ||
+    ''
+  ).trim();
+}
+
+export function bachsBaseUrl(apiKey = getBachsApiKey()) {
+  const override = process.env.BACHS_BASE_URL || process.env.BATCHS_BASE_URL || '';
+  if (override) return override.replace(/\/$/, '');
   if (String(apiKey).startsWith('sk_sandbox_')) return 'https://sandbox-api.bachs.io';
   return 'https://api.bachs.io';
 }
 
 export async function bachsFetch(path, { method = 'GET', body, apiKey } = {}) {
-  const key = apiKey || process.env.BACHS_API_KEY;
+  const key = apiKey || getBachsApiKey();
   if (!key) {
-    const err = new Error('BACHS_API_KEY is not configured');
+    const err = new Error('BATCHS_API_KEY (or BACHS_API_KEY) is not configured');
     err.status = 500;
     throw err;
   }
@@ -43,5 +55,5 @@ export async function bachsFetch(path, { method = 'GET', body, apiKey } = {}) {
 
 export function amountToBachs(naira) {
   const n = Math.round(Number(naira) || 0);
-  return (n).toFixed(2);
+  return n.toFixed(2);
 }
