@@ -283,19 +283,19 @@ function ajoQuickAct(id,kind){
 }
 
 /* ---- Circle games (play with other members in the loop) ---- */
-const CIRCLE_GAMES=[
+const CIRCLE_GAMES=window.CIRCLE_GAMES=[
   {id:'lucky',ic:'🎯',n:'Lucky Number',d:'Everyone picks 1–10. Closest to the secret number wins.'},
   {id:'rps',ic:'✊',n:'Rock · Paper · Scissors',d:'Best of three against the circle — simultaneous throw.'},
   {id:'who',ic:'🕵️',n:"Who's Who?",d:'Guess which member matches the clue.'},
   {id:'emoji',ic:'😎',n:'Emoji Match',d:'Pick the emoji that fits the prompt before others.'},
   {id:'scramble',ic:'🔤',n:'Word Scramble',d:'Unscramble a Kano / circle word together.'}
 ];
-function circleGameList(){return CIRCLE_GAMES}
+window.circleGameList=function circleGameList(){return CIRCLE_GAMES}
 function ajoGameActive(a){return a&&a.game&&a.game.status==='playing'?a.game:null}
-function startCircleGame(ajoId,type){
+window.startCircleGame=function startCircleGame(ajoId,type){
   const a=ajoOf(ajoId);if(!a)return no('Circle not found.');
   if(!a.members.includes('player'))return no('Join the circle to play.');
-  if(a.members.length<2)return no('Need at least 2 members to play.');
+  if(a.members.length<2)return no('Invite at least one more member into this circle, then play together.');
   if(ajoGameActive(a))return no('Finish the current game first.');
   const def=CIRCLE_GAMES.find(g=>g.id===type);if(!def)return no('Unknown game.');
   const g={id:'cg_'+Date.now().toString(36),type,by:'player',status:'playing',day:G.day,players:a.members.slice(),scores:{},picks:{},winner:null,data:{}};
@@ -344,7 +344,7 @@ function startCircleGame(ajoId,type){
   fx(def.ic+' '+def.n+' started','warm');
   return true;
 }
-function playCircleGame(ajoId,choice){
+window.playCircleGame=function playCircleGame(ajoId,choice){
   const a=ajoOf(ajoId);if(!a||!a.game||a.game.status!=='playing')return no('No active game.');
   if(!a.members.includes('player'))return no('Members only.');
   const g=a.game;
@@ -428,7 +428,7 @@ function playCircleGame(ajoId,choice){
   }
   return no('Unknown game state.');
 }
-function skipCircleGame(ajoId){
+window.skipCircleGame=function skipCircleGame(ajoId){
   const a=ajoOf(ajoId);if(!a||!a.game)return false;
   a.game.status='done';a.game.result='Game closed.';
   ajoAct(a,'game','Game closed without a finish.');
