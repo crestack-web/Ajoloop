@@ -1,0 +1,267 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Welcome to Ajo Loop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;700&display=swap">
+<style>
+/* Layout: one calm column that opens into two at the hero and the mission. The rotating ring is the single moving thing; everything else is type and rules. */
+:root{
+  --bg:#17123f; --surface:#221a63; --surface2:#2d2480; --line:#4a40a8;
+  --fg:#f6f2ff; --mut:#bdb4e6; --gold:#ffc928; --gold-text:#ffc928; --on-gold:#241a00; --green:#22c177;
+  --display:"Bricolage Grotesque","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  --body:"Figtree","Segoe UI",system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#f6f2ff; --surface:#ebe4ff; --surface2:#ddd2ff; --line:#b9aaf0;
+  --fg:#1d1650; --mut:#51468c; --gold:#ffc928; --gold-text:#8a5d00; --on-gold:#241a00; --green:#0f7f4b;
+  color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#f6f2ff; --surface:#ebe4ff; --surface2:#ddd2ff; --line:#b9aaf0;
+  --fg:#1d1650; --mut:#51468c; --gold:#ffc928; --gold-text:#8a5d00; --on-gold:#241a00; --green:#0f7f4b;
+  color-scheme:light}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.6;padding-inline:clamp(16px,5vw,48px);padding-block:0 72px;-webkit-text-size-adjust:100%}
+.wrap{max-width:1080px;margin-inline:auto}
+h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.02em;text-wrap:balance;line-height:1.05}
+p{margin:0;text-wrap:pretty}
+a{color:var(--gold-text)}
+:focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:4px}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-text)}
+
+/* top bar */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:20px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.01em}
+.logo svg{width:30px;height:30px;flex:none}
+.bar span.tag{font-size:13px;color:var(--mut)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(24px,5vw,64px);align-items:center;padding-block:clamp(24px,6vw,72px) clamp(40px,7vw,88px)}
+.hero h1{font-size:clamp(40px,7.4vw,84px);font-weight:800}
+.hero h1 em{font-style:normal;color:var(--gold-text)}
+.hero .lede{margin-top:24px;font-size:clamp(18px,2.2vw,21px);max-width:34em;color:var(--mut)}
+.hero .lede strong{color:var(--fg);font-weight:700}
+.ring{justify-self:center;width:min(100%,380px)}
+.ring svg{display:block;width:100%;height:auto;overflow:visible}
+.ring figcaption{margin-top:12px;font-size:14px;color:var(--mut);text-align:center;max-width:26em;margin-inline:auto}
+.orbit{transform-box:view-box;transform-origin:50% 50%;animation:spin 14s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.orbit{animation:none}}
+
+/* sections */
+section{padding-block:clamp(40px,7vw,88px);border-top:1px solid var(--line)}
+.head{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:clamp(20px,4vw,56px);align-items:end;margin-bottom:clamp(28px,5vw,56px)}
+.head h2{font-size:clamp(30px,4.6vw,52px);font-weight:700}
+.head p{color:var(--mut);max-width:36em}
+
+/* history: a real sequence, so a vertical timeline is honest */
+.timeline{list-style:none;margin:0;padding:0;display:grid;gap:0;max-width:820px}
+.timeline li{display:grid;grid-template-columns:minmax(0,170px) minmax(0,1fr);gap:clamp(16px,3vw,40px);padding-block:26px;border-top:1px solid var(--line)}
+.timeline li:first-child{border-top:0;padding-top:0}
+.when{font-family:var(--display);font-weight:700;font-size:19px;line-height:1.2;color:var(--gold-text)}
+.when small{display:block;font-family:var(--body);font-weight:500;font-size:13px;color:var(--mut);margin-top:4px}
+.timeline h3{font-size:22px;font-weight:700;margin-bottom:8px;line-height:1.2}
+.timeline p{color:var(--mut)}
+
+/* many names */
+.names{margin-top:clamp(40px,6vw,72px)}
+.names h3{font-size:clamp(24px,3.4vw,34px);font-weight:700;margin-bottom:8px}
+.names>p{color:var(--mut);max-width:38em;margin-bottom:24px}
+.namegrid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:0;border-radius:18px;overflow:hidden;background:transparent;box-shadow:0 0 0 1px var(--line)}
+.namegrid li{background:var(--surface);box-shadow:0 0 0 .5px var(--line);padding:16px 18px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.namegrid b{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.01em}
+.namegrid span{font-size:14px;color:var(--mut)}
+.namegrid li.us{background:var(--gold)}
+.namegrid li.us b,.namegrid li.us span{color:var(--on-gold)}
+.note{margin-top:16px;font-size:14px;color:var(--mut);max-width:44em}
+
+/* mission */
+.mission{background:linear-gradient(180deg,transparent,var(--surface) 30%,var(--surface));margin-inline:calc(-1 * clamp(16px,5vw,48px));padding-inline:clamp(16px,5vw,48px);border-top:0}
+.statement{max-width:900px;font-family:var(--display);font-weight:700;font-size:clamp(30px,5.2vw,58px);line-height:1.08;letter-spacing:-.025em;text-wrap:balance}
+.statement mark{background:none;color:var(--gold-text)}
+.hard{margin-top:28px;max-width:40em;color:var(--mut);font-size:19px}
+.hard strong{color:var(--fg)}
+.pillars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(20px,3vw,40px);margin-top:clamp(36px,6vw,72px)}
+.pillars>div{border-top:3px solid var(--gold);padding-top:18px}
+.pillars h3{font-size:26px;font-weight:700;margin-bottom:10px}
+.pillars p{color:var(--mut)}
+
+/* the five places */
+.places{list-style:none;margin:0;padding:0;max-width:860px}
+.places li{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:clamp(12px,3vw,40px);align-items:baseline;padding-block:20px;border-top:1px solid var(--line)}
+.places li:last-child{border-bottom:1px solid var(--line)}
+.places b{font-family:var(--display);font-size:clamp(26px,3.6vw,38px);font-weight:800;letter-spacing:-.02em}
+.places p{color:var(--mut);font-size:18px}
+.places li.ajo b{color:var(--gold-text)}
+.places .opt{display:inline-block;margin-left:8px;font-family:var(--body);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);border-radius:99px;padding:2px 9px;vertical-align:middle;color:var(--mut)}
+
+/* promises + close */
+.promises{max-width:760px;display:grid;gap:14px;list-style:none;margin:0;padding:0}
+.promises li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:14px;font-size:18px}
+.promises svg{width:24px;height:24px;margin-top:3px;color:var(--green)}
+.close{text-align:left}
+.close p.big{font-family:var(--display);font-weight:800;font-size:clamp(32px,6vw,68px);line-height:1.02;letter-spacing:-.03em;max-width:15em;text-wrap:balance}
+.close p.big em{font-style:normal;color:var(--gold-text)}
+.fine{margin-top:40px;font-size:14px;color:var(--mut);max-width:46em}
+
+@media (max-width:820px){
+  .hero{grid-template-columns:minmax(0,1fr)}
+  .ring{order:-1;width:min(78%,300px)}
+  .head{grid-template-columns:minmax(0,1fr);align-items:start}
+  .pillars{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  body{font-size:16.5px}
+  .timeline li,.places li{grid-template-columns:minmax(0,1fr);gap:6px}
+  .bar span.tag{display:none}
+}
+</style>
+
+<div class="wrap">
+  <header class="bar">
+    <div class="logo">
+      <img src="/logo.png" alt="AjoLoop" width="36" height="36" style="width:36px;height:36px;object-fit:contain;border-radius:8px">
+      Ajo Loop
+    </div>
+    <a href="/" class="tag" style="text-decoration:none">Open the app →</a>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div>
+        <p class="eyebrow">Welcome</p>
+        <h1 style="margin-top:14px">Nobody should face a hard season <em>alone.</em></h1>
+        <p class="lede">Ajo Loop is a place to belong. We are building it on an old African idea: ordinary people looking after each other, taking turns, and showing up when life gets heavy. <strong>Start with friends, find your community, and let trust grow from there.</strong></p>
+      </div>
+      <figure class="ring" style="margin:0">
+        <svg viewBox="0 0 320 320" role="img" aria-label="Eight people in a circle. A gold marker travels from person to person, showing that everyone takes a turn.">
+          <circle cx="160" cy="160" r="112" fill="none" stroke="var(--line)" stroke-width="2" stroke-dasharray="3 9" stroke-linecap="round"/>
+          <g id="people"></g>
+          <g class="orbit"><circle cx="160" cy="48" r="11" fill="var(--gold)"/><circle cx="160" cy="48" r="20" fill="none" stroke="var(--gold)" stroke-width="2" opacity=".45"/></g>
+          <text x="160" y="154" text-anchor="middle" font-family="Bricolage Grotesque, Trebuchet MS, sans-serif" font-weight="800" font-size="30" fill="var(--fg)">The pot</text>
+          <text x="160" y="180" text-anchor="middle" font-family="Figtree, Segoe UI, sans-serif" font-size="14" fill="var(--mut)">goes round to all</text>
+        </svg>
+        <figcaption>In a rotating savings circle, everyone gives a little each round and one person receives the whole pot. By the end, everyone has had a turn.</figcaption>
+      </figure>
+    </div>
+
+    <section id="history">
+      <div class="head">
+        <h2>Where this comes from</h2>
+        <p>Ajo is the Yoruba name for a rotating savings circle. Versions of it exist all over Africa and beyond. Nobody wrote the early history down, so the dates below are broad, and practice has always varied from town to town.</p>
+      </div>
+      <ol class="timeline">
+        <li>
+          <div class="when">Long before banks<small>Dates uncertain</small></div>
+          <div><h3>Neighbours start pooling</h3><p>Across the continent, people gathered small sums on a schedule and gave the whole amount to one member at a time. There was no paperwork. Kinship, market reputation and the fear of letting down people you see every day did the work of a contract.</p></div>
+        </li>
+        <li>
+          <div class="when">Yoruba land<small>Esusu and the alajo</small></div>
+          <div><h3>A trusted collector</h3><p>Among the Yoruba, groups called <b>esusu</b> met on a fixed rhythm. A respected collector, the <b>alajo</b>, gathered contributions daily or weekly and made sure each person's turn came. Being a good alajo meant being known as someone whose word held.</p></div>
+        </li>
+        <li>
+          <div class="when">The colonial period<small>Late 1800s to mid 1900s</small></div>
+          <div><h3>Banks that did not fit</h3><p>In many places the formal banks served trade for export and asked for collateral or papers that traders, farmers and women often did not have. Savings circles kept running alongside them and quietly financed stalls, school fees, weddings and funerals.</p></div>
+        </li>
+        <li>
+          <div class="when">Across the Atlantic<small>Carried by people</small></div>
+          <div><h3>The idea travels</h3><p>Africans who were enslaved, and later those who migrated, took the practice with them. It lives on in the Caribbean as sou-sou, susu and partner, and in diaspora communities around the world.</p></div>
+        </li>
+        <li>
+          <div class="when">1950s<small>Written down</small></div>
+          <div><h3>Scholars take notice</h3><p>The anthropologist William Bascom published a well-known study of Yoruba esusu in 1952. It is one of the early written accounts of something millions of people already took for granted.</p></div>
+        </li>
+        <li>
+          <div class="when">Today<small>Still going</small></div>
+          <div><h3>Old trust, new tools</h3><p>Market women, drivers, teachers and neighbours still run circles, now next to cooperatives, microfinance banks and phone apps. The weak point has not changed: trust. A collector who disappears can end a circle and a friendship. That is why clear records and real consent matter.</p></div>
+        </li>
+      </ol>
+
+      <div class="names">
+        <h3>One idea, many names</h3>
+        <p>The same arrangement has been named in almost every language on the continent. A few of them:</p>
+        <ul class="namegrid">
+          <li><b>Esusu</b><span>Yoruba, Nigeria</span></li>
+          <li><b>Isusu</b><span>Igbo, Nigeria</span></li>
+          <li><b>Adashe</b><span>Hausa, northern Nigeria</span></li>
+          <li><b>Susu</b><span>Ghana and West Africa</span></li>
+          <li><b>Njangi</b><span>Cameroon</span></li>
+          <li><b>Tontine</b><span>Francophone Africa</span></li>
+          <li><b>Iqub</b><span>Ethiopia</span></li>
+          <li><b>Hagbad</b><span>Somalia</span></li>
+          <li><b>Chama</b><span>Kenya</span></li>
+          <li><b>Stokvel</b><span>South Africa</span></li>
+          <li><b>Gameya</b><span>Egypt</span></li>
+          <li class="us"><b>Ajo</b><span>Where we start</span></li>
+        </ul>
+        <p class="note">Rotating savings circles are not only African. Similar groups exist in Asia and Latin America under other names. Africa is where this one comes from for us.</p>
+      </div>
+    </section>
+
+    <section class="mission" id="mission">
+      <p class="eyebrow">Our mission</p>
+      <p class="statement" style="margin-top:18px">To help people stay <mark>rooted in community</mark>, with real friends and neighbours who support them through the hardest parts of living.</p>
+      <p class="hard">A hospital bill that arrives without warning. School fees due on Monday. A shop that needs restocking. A wedding you cannot afford to miss. <strong>Hardship is lighter when someone knows your name and picks up the phone.</strong> Money circles worked for centuries because of that, and the money was never the whole of it.</p>
+      <div class="pillars">
+        <div><h3>Belong first</h3><p>Anyone can start a group for friends, a street, a trade or a shared interest. Joining is free and asks nothing of you. A group is about people, not payments.</p></div>
+        <div><h3>Show up</h3><p>Support is mostly attention: a call, a seat at the table, a hand with a heavy week. Trust grows from small things done again and again, and we want to make those easy to see.</p></div>
+        <div><h3>Choose with open eyes</h3><p>A savings circle is a separate, optional step with its own terms. You read them and say yes yourself. Being in a group never puts you in one.</p></div>
+      </div>
+    </section>
+
+    <section id="world">
+      <div class="head">
+        <h2>One world, five places</h2>
+        <p>Ajo Loop is a social life game first. You build a life in Kano City, meet people, and find where you belong. Each part has a job.</p>
+      </div>
+      <ul class="places">
+        <li><b>Life</b><p>Gives you an identity: your character, your daily needs, your name in the neighbourhood.</p></li>
+        <li><b>Town</b><p>Gives you somewhere to go: the market, the workplace, the park, the Suya Spot.</p></li>
+        <li><b>People</b><p>Gives you someone to meet, and a reason to keep showing up for them.</p></li>
+        <li><b>Groups</b><p>Gives you somewhere to belong, public or private, started by anyone.</p></li>
+        <li class="ajo"><b>Ajo</b><p>Gives you an optional way to take part in rotating savings, kept apart from everything else.<span class="opt">Optional</span></p></li>
+      </ul>
+    </section>
+
+    <section id="promises">
+      <div class="head">
+        <h2>What we hold ourselves to</h2>
+        <p>Trust is the whole product, so we start with limits on ourselves.</p>
+      </div>
+      <ul class="promises">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>Game money is game money. It is never mixed with real naira.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>Joining or leaving a group never creates, changes or cancels a financial promise.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>Every savings circle has its own members, written terms and records, and nobody joins without saying yes.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>New people are not treated as untrustworthy. Everyone starts from a fair place.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>Private groups stay private, and your public profile shows only what you choose.</span></li>
+      </ul>
+    </section>
+
+    <section class="close">
+      <p class="big">The loop was always <em>the people.</em></p>
+      <p class="lede" style="margin-top:22px;color:var(--mut);max-width:34em">Generations before us built trust one turn at a time. Ajo Loop is a place for that to keep happening, among friends, in a community that has your back.</p>
+      
+      <p style="margin-top:28px">
+        <a href="/" class="cta-enter" style="display:inline-flex;align-items:center;gap:10px;background:var(--gold);color:var(--on-gold);font-family:var(--display);font-weight:800;font-size:18px;padding:14px 22px;border-radius:14px;text-decoration:none">Enter AjoLoop</a>
+      </p>
+
+      <p class="fine">This page tells the story in broad strokes. Names, rules and customs differ between regions and families, and many of the earliest records are oral. If you know your own community's version, it belongs here too.</p>
+    </section>
+  </main>
+</div>
+
+<script>
+/* eight people around the ring; tones come from the page tokens so both themes work */
+(function(){
+  var g=document.getElementById('people'),n=8,cx=160,cy=160,r=112,out='';
+  for(var i=0;i<n;i++){
+    var a=(i/n)*Math.PI*2-Math.PI/2,x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);
+    out+='<g transform="translate('+x.toFixed(1)+' '+y.toFixed(1)+')"><circle r="19" fill="var(--surface2)" stroke="var(--line)" stroke-width="2"/><circle cy="-4" r="6" fill="var(--fg)" opacity=".85"/><path d="M-10 11a10 8 0 0 1 20 0z" fill="var(--fg)" opacity=".85"/></g>';
+  }
+  g.innerHTML=out;
+})();
+</script>
+
+</body></html>

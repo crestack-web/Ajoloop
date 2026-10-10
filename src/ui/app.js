@@ -320,6 +320,7 @@ ${`<button type="button" class="intro-mute" data-a="introMute" aria-label="${UI.
   <div class="muted sm" style="text-align:center;margin-top:4px">${esc(acc.name||acc.username)}</div>
   <button class="btn" data-a="loginContinue" style="margin-top:16px">Continue</button>
   <button class="btn ghost sm" data-a="authRegister" style="margin-top:10px;display:block;width:100%">Create a new account</button>
+  <a class="btn ghost sm" href="/welcome.html" style="margin-top:10px;display:block;width:100%;text-align:center;text-decoration:none">Our story · Welcome</a>
 </div>
 <div class="card flat auth-card" style="margin-top:14px">
   <div class="muted sm" style="margin-bottom:4px;text-align:center">Or sign in with email</div>
@@ -1302,6 +1303,10 @@ function settingsV(){
 <div class="muted sm" style="margin:6px 0 10px">${uname?'Signed in as <b>@'+esc(uname)+'</b>':'Playing on this device'}${online?(signedIn?' · 🟢 Online':' · 🟢 Online ready'):' · ⚪ Offline'}</div>
 <button class="btn" data-a="logout" style="width:100%">Log out</button>
 <div class="tiny muted" style="margin-top:8px">Saves your progress${online?' to the cloud':''}, then returns to the welcome screen. You can sign back in anytime.</div>
+</section>
+<section class="card"><b>About</b>
+<div class="muted sm" style="margin:6px 0 10px">The idea behind Ajo Loop — community, trust, and the circle.</div>
+<a class="btn sm" href="/welcome.html" style="text-decoration:none">Read the welcome story</a>
 </section>
 <section class="card"><b>Connection</b>
 <div class="muted sm" style="margin:6px 0">${online?'🟢 Online — progress syncs to your account.':'⚪ Offline — local only on this device.'}</div>
