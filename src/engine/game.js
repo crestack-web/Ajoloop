@@ -141,7 +141,7 @@ function newGame(name,age,gender,extra){
  const interests=(extra.interests||[]).filter(Boolean).slice(0,6);
  const businessStatus=BIZ_STATUS.some(b=>b.id===extra.businessStatus)?extra.businessStatus:'none';
  G={v:1,day:1,hour:6,nid:1,
- p:{name,username,age,gender,interests,businessStatus,job:null,cash:20000,savings:0,energy:100,hunger:20,happiness:60,rep:50,trust:52,biz:10,social:10,reliab:50,loc:'home',blockedUntil:0,shiftDay:0,missed:0,boastDay:0,oppDay:0,oppN:0,bizRepDay:0,avatar:defaultAvatar(gender),work:{cat:'',title:'',set:false},onboarded:false},
+ p:{name,username,age,gender,interests,businessStatus,job:null,cash:0,savings:0,energy:100,hunger:20,happiness:60,rep:50,trust:52,biz:10,social:10,reliab:50,loc:'home',blockedUntil:0,shiftDay:0,missed:0,boastDay:0,oppDay:0,oppN:0,bizRepDay:0,avatar:defaultAvatar(gender),work:{cat:'',title:'',set:false},onboarded:false},
  npcs:NP0.map(n=>({...n,met:false,lastSeen:0,hist:[],tk:{d:0,c:0},said:''})),
  tx:[],btx:[],biz:null,ajos:SEED(),debts:[],promises:[],sched:[],notes:[],th:[],rh:[],mile:{},ev:null,lastEv:'',openJobs:['shop','rider','sales'],snap:[]};
  initGroups();initPlaces();ensureSetup();

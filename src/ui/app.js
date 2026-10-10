@@ -260,6 +260,12 @@ function commit(){
 function render(){
  if(!G){
   if(UI.introMuted==null) UI.introMuted=getIntroMuted();
+  // Allow avatar builder during registration (before game state exists)
+  if(UI.modal&&UI.modal.t==='avatar'){
+    app.innerHTML=`<div class="title auth-simple" style="padding-bottom:24px">${avatarSheet(!!UI.modal.create)}</div>`;
+    flush();
+    return;
+  }
   app.innerHTML=createView();
   requestAnimationFrame(()=>{playIntroAudio()});
   return
@@ -1173,7 +1179,7 @@ function peopleView(){
     const spot=n.spots[0],L=LOCS[spot],hereNow=npcLoc(n)===G.p.loc;
     return `<div class="suggest-card"><div class="av">${n.em}</div><div class="meta"><b>${n.n}<span class="npc-badge">NPC</span></b><div class="l">${n.occ}</div><div class="tiny muted">${L.ic} often at ${L.n}${hereNow?' · here now':''}</div></div>
      <button class="btn sm ${hereNow?'':'ghost'}" data-a="${hereNow?'npc':'goto'}" ${hereNow?`data-id="${n.id}"`:`data-to="${npcLoc(n)}"`}>${hereNow?'Meet':'Go'}</button></div>`;
-   }).join(''):'<div class="card empty"><div class="big">✨</div>You already know everyone in this demo town.</div>'}
+   }).join(''):'<div class="card empty"><div class="big">✨</div>No new people nearby right now. Check Places or come back later.</div>'}
    <div class="section-label">Still to meet (${un.length})</div>
    ${un.map(n=>`<div class="person" style="opacity:.85"><div class="av">${n.em}</div><div class="meta"><b>${n.n}</b><div class="l">${n.occ}</div></div><span class="chip">${LOCS[n.spots[0]].ic} ${LOCS[n.spots[0]].n}</span></div>`).join('')}`;
  } else if(!met.length){
@@ -1242,12 +1248,12 @@ function settingsV(){
   const acc=typeof Account!=='undefined'?Account.load():null;
   const uname=(G&&G.p&&G.p.username)||(acc&&acc.username)||'';
   return `<section class="card"><b>Account</b>
-<div class="muted sm" style="margin:6px 0 10px">${uname?'Signed in as <b>@'+esc(uname)+'</b>':'Playing on this device'}${online?(signedIn?' · 🟢 Online':' · 🟢 Online ready'):' · ⚪ Offline demo'}</div>
+<div class="muted sm" style="margin:6px 0 10px">${uname?'Signed in as <b>@'+esc(uname)+'</b>':'Playing on this device'}${online?(signedIn?' · 🟢 Online':' · 🟢 Online ready'):' · ⚪ Offline'}</div>
 <button class="btn" data-a="logout" style="width:100%">Log out</button>
 <div class="tiny muted" style="margin-top:8px">Saves your progress${online?' to the cloud':''}, then returns to the welcome screen. You can sign back in anytime.</div>
 </section>
 <section class="card"><b>Connection</b>
-<div class="muted sm" style="margin:6px 0">${online?'🟢 Online — progress syncs to your account.':'⚪ Offline demo — local only on this device.'}</div>
+<div class="muted sm" style="margin:6px 0">${online?'🟢 Online — progress syncs to your account.':'⚪ Offline — local only on this device.'}</div>
 </section>
 <section class="card"><b>About AjoLoop</b><div class="muted sm" style="margin:6px 0;line-height:1.5">
 Meet people. Share real experiences at local places. Build communities you can rely on. When a circle is ready, Ajo is a voluntary way to save together — not the starting point.
@@ -1450,7 +1456,7 @@ function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${v
  <div class="money-row"><span class="label">You receive</span><span class="val gold">${fmt(hostGets)}</span></div>
  </div>
  <button class="btn" style="margin-top:12px" data-a="ajoCreate">Create circle</button>
- <div class="tiny muted" style="margin-top:10px">Set any members, contribution, and schedule. Offline demo uses virtual cash.</div>`}
+ <div class="tiny muted" style="margin-top:10px">Set any members, contribution, and schedule. Use your wallet balance for contributions.</div>`}
 
 
 
@@ -2262,7 +2268,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'gender':UI.form.gender=d.v;UI.avForm=Object.assign(defaultAvatar(d.v),{skin:(UI.avForm&&UI.avForm.skin)||defaultAvatar(d.v).skin,hairColor:(UI.avForm&&UI.avForm.hairColor)||'black',gender:d.v});render();break;
   
   case 'avOpen':UI.avForm=Object.assign({},G.p.avatar||defaultAvatar(G.p.gender));UI.avCat='skin';UI.modal={t:'avatar'};render();break;
-  case 'avOpenCreate':UI.avForm=Object.assign({},UI.avForm||defaultAvatar(UI.form.gender));UI.avCat='skin';UI.modal={t:'avatar',create:true};render();break;
+  case 'avOpenCreate':{const g=(UI.form&&UI.form.gender)||'Male';UI.avForm=Object.assign({},defaultAvatar(g),UI.avForm||{},{gender:g});UI.avCat='skin';UI.modal={t:'avatar',create:true};render();break}
   case 'avCat':UI.avCat=d.v;render();break;
   case 'avSet':if(!UI.avForm)UI.avForm=defaultAvatar(UI.form.gender);UI.avForm[d.k]=d.v;UI.avForm.gender=(G&&G.p&&G.p.gender)||UI.form.gender||UI.avForm.gender;render();break;
   case 'avRandom':{
@@ -2317,7 +2323,10 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
         if(s&&s.p){G=s;migrate()}
         else if(acc){newGame(acc.name||acc.username,acc.age||24,acc.gender||'Male',{username:acc.username,interests:acc.interests||[],businessStatus:acc.businessStatus||'none'})}
       }
-      UI.tab='life';UI.authMode=null;commit();
+      if(G&&G.p&&!G.p.onboarded) markOnboarded();
+      UI.tab='life';UI.authMode=null;UI.modal=null;commit();
+      try{if(typeof api!=='undefined'&&api.online) await api.syncWalletToGame()}catch(e){}
+      commit();
       fx('Signed in','good');
     })();
   }break;
@@ -2395,15 +2404,33 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     if(!(f.interests||[]).length){UI.regStep=2;fx('Pick your interests.','warn');render();break}
     if(!f.businessStatus){UI.regStep=3;fx('Choose business status.','warn');render();break}
     const age=Math.max(18,Math.min(60,parseInt(f.age)||24));
-    newGame(n,age,f.gender,{username:user,interests:f.interests,businessStatus:f.businessStatus});
-    if(UI.avForm){UI.avForm.gender=f.gender;setAvatar(UI.avForm)} else setAvatar(defaultAvatar(f.gender));
-    Account.save({
-      username:user,name:n,age,gender:f.gender,
-      interests:f.interests.slice(),businessStatus:f.businessStatus,
-      avatar:G.p.avatar,created:Date.now()
-    });
-    UI.tab='life';UI.authMode=null;UI.regStep=1;commit();
-    try{if(typeof api!=='undefined'&&api.online&&G) api.pushState(G)}catch(e){}
+    try{
+      newGame(n,age,f.gender||'Male',{username:user,interests:f.interests,businessStatus:f.businessStatus});
+      if(UI.avForm){UI.avForm.gender=f.gender||'Male';setAvatar(UI.avForm)} else setAvatar(defaultAvatar(f.gender||'Male'));
+      // Production: start from real wallet (0 until top-up), not demo cash
+      if(typeof api!=='undefined'&&api.online){G.p.cash=0}
+      markOnboarded();
+      Account.save({
+        username:user,name:n,age,gender:f.gender||'Male',
+        interests:(f.interests||[]).slice(),businessStatus:f.businessStatus,
+        avatar:G.p.avatar,created:Date.now()
+      });
+      UI.tab='life';UI.authMode=null;UI.regStep=1;UI.modal=null;
+      commit();
+      (async()=>{
+        try{
+          if(typeof api!=='undefined'&&api.online){
+            await api.syncWalletToGame();
+            await api.pushState(G);
+            commit();
+          }
+        }catch(e){console.warn('post-begin sync',e)}
+      })();
+    }catch(err){
+      console.error(err);
+      fx('Could not start — try again.','warn');
+      flush();render();
+    }
   }break;
   case 'tab':UI.tab=(d.v==='groups'?'ajo':d.v);UI.modal=null;render();break;
   case 'townMode':UI.townMode=d.v==='city'?'live':d.v;render();break;
