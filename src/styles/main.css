@@ -578,3 +578,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-of
 }
 .biz-status.on{border-color:var(--danfo,#ffc928);background:#2a2272}
 .biz-status .bs-ic{font-size:22px;width:32px;text-align:center}
+
+
+/* Ajo circle tabs — always show Games */
+.ajo-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0!important;overflow:visible!important}
+.ajo-tabs button{flex:1 1 auto;min-width:72px;justify-content:center}
