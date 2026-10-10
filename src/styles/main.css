@@ -633,3 +633,14 @@ button.g-card .g-av,button.g-card .meta,button.g-card img{pointer-events:none}
 .gift-result{margin-top:12px;text-align:center;font-weight:800;color:var(--danfo)}
 .gift-ready{text-align:center;padding:24px 8px 12px;min-height:280px;display:flex;flex-direction:column;justify-content:center}
 .ready-text{font-size:48px;font-weight:900;line-height:1.05;letter-spacing:-1px;color:#fbbf24;opacity:.95}
+
+
+/* Onboarding intro audio control */
+.intro-mute{
+  display:inline-flex;align-items:center;gap:6px;
+  margin:8px auto 4px;padding:8px 14px;border-radius:99px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  color:var(--mut,#a99fc8);font-size:12px;font-weight:800;cursor:pointer;
+}
+.intro-mute:active{transform:scale(.97)}
+.title.auth-simple .intro-mute,.title.auth-reg .intro-mute{display:flex;width:fit-content}
