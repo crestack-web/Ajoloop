@@ -228,7 +228,7 @@ function render(){
  app.innerHTML=hud()+'<main>'+({life:lifeView,town:townView,people:peopleView,groups:groupsView,ajo:ajoView,more:moreView}[UI.tab])()+'</main>'+navHtml()+sheetHtml();
  if(st0){const s1=document.getElementById('sheet');if(s1)s1.scrollTop=st0}
  flush();
- requestAnimationFrame(()=>{mountLiveMap();mountSpotPicker()});
+ requestAnimationFrame(()=>{mountLiveMap();mountSpotPicker();mountHomePicker()});
 }
 
 function createView(){
@@ -549,12 +549,42 @@ function homeBanner(){
     <button class="btn" data-a="homeEdit">Choose home in Kano</button></div>`;
 }
 
+
+/* —— Auto-detect location → address —— */
+async function reverseGeocode(lat,lng){
+  try{
+    const url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lng)+'&zoom=17&addressdetails=1';
+    const res=await fetch(url,{headers:{'Accept':'application/json'}});
+    if(!res.ok) throw new Error('geocode');
+    const j=await res.json();
+    const a=j.address||{};
+    const parts=[a.road||a.pedestrian||a.neighbourhood||a.suburb,a.suburb||a.village||a.town,a.city||a.county||a.state]
+      .filter(Boolean)
+      .filter((v,i,arr)=>arr.indexOf(v)===i);
+    const short=parts.slice(0,3).join(', ')||(j.display_name||'').split(',').slice(0,3).join(',').trim();
+    return {address:short.slice(0,120),display:j.display_name||short,raw:a};
+  }catch(e){
+    return {address:'',display:'',raw:{}};
+  }
+}
+function detectUserLocation(cb,errCb){
+  if(!navigator.geolocation){if(errCb)errCb('Location not available on this device.');return}
+  navigator.geolocation.getCurrentPosition(pos=>{
+    cb(+pos.coords.latitude.toFixed(6),+pos.coords.longitude.toFixed(6),pos.coords.accuracy);
+  },err=>{
+    const msg=err&&err.code===1?'Location permission denied. Allow location for this site.':
+      (err&&err.code===3?'Location timed out. Try again outdoors.':'Could not get location.');
+    if(errCb)errCb(msg); else fx(msg,'warn');
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+}
+
 /* —— Live OpenStreetMap (Leaflet) —— */
-let _liveMap=null,_pickMap=null,_pickMarker=null;
+let _liveMap=null,_pickMap=null,_pickMarker=null,_homeMap=null;
 
 function destroyLiveMaps(){
   try{if(_liveMap){_liveMap.remove();_liveMap=null}}catch(e){}
   try{if(_pickMap){_pickMap.remove();_pickMap=null;_pickMarker=null}}catch(e){}
+  try{if(_homeMap){_homeMap.remove();_homeMap=null}}catch(e){}
 }
 
 function liveMapBlock(){
@@ -751,14 +781,45 @@ function spotDetailSheet(id){
     ${s.by==='player'?`<button class="btn ghost red" style="margin-top:12px" data-a="spotRemove" data-id="${s.id}">Remove this spot</button>`:''}`;
 }
 
+
+function mountHomePicker(){
+  const el=document.getElementById('home-pick-map');
+  if(!el||typeof L==='undefined') return;
+  const f=UI.homeForm||{};
+  if(f.lat==null||f.lng==null) return;
+  try{if(_homeMap){_homeMap.remove();_homeMap=null}}catch(e){}
+  _homeMap=L.map(el,{zoomControl:true,dragging:true}).setView([f.lat,f.lng],15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OSM'}).addTo(_homeMap);
+  const m=L.marker([f.lat,f.lng],{draggable:true}).addTo(_homeMap);
+  m.on('dragend',async()=>{
+    const ll=m.getLatLng();
+    UI.homeForm.lat=+ll.lat.toFixed(6);
+    UI.homeForm.lng=+ll.lng.toFixed(6);
+    UI.homeForm.area=nearestArea(UI.homeForm.lat,UI.homeForm.lng);
+    const geo=await reverseGeocode(UI.homeForm.lat,UI.homeForm.lng);
+    if(geo.address) UI.homeForm.address=geo.address;
+    render();
+  });
+  setTimeout(()=>{try{_homeMap.invalidateSize()}catch(e){}},80);
+}
+
 function homeSheet(){
-  const f=UI.homeForm, styles=HOME_STYLES;
-  return `<div class="sec" style="margin-top:0">Your home<small>Area is public-facing. Street label stays private on this device for now.</small></div>
-    <label class="l">Area (Kano)</label><div class="opts">${allAreas().map(a=>`<button data-a="homeArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
-    <label class="l">Private label (optional)</label><input id="hf-label" maxlength="40" placeholder="e.g. Near mosque" value="${esc(f.label)}">
-    <label class="l">Home type</label><div class="opts">${styles.map(s=>`<button data-a="homeStyle" data-v="${s.id}" class="${f.style===s.id?'on':''}">${s.ic} ${s.n}</button>`).join('')}</div>
-    <button class="btn" style="margin-top:12px" data-a="homeSave">Save home</button>
-    <div class="tiny muted" style="margin-top:10px">We never show a precise street pin to strangers. Online version will keep the same rule.</div>`;
+  const f=UI.homeForm||{}, styles=HOME_STYLES;
+  const hasPin=f.lat!=null&&f.lng!=null;
+  return `<div class="sec" style="margin-top:0">Your home<small>Detect from the map — area is public; full address stays private on this device.</small></div>
+    <button class="btn" data-a="homeDetect" style="margin-bottom:10px">📍 Detect my location</button>
+    <div class="muted tiny" style="margin-bottom:10px">${f.detecting?'Finding you on the map…':(hasPin?('Pin: '+f.lat+', '+f.lng+(f.address?(' · '+esc(f.address)):'')):'Tap detect to fill your address from GPS.')}</div>
+    ${hasPin?`<div id="home-pick-map" class="spot-pick-map" style="height:180px;border-radius:16px;margin-bottom:12px"></div>`:''}
+    <label class="l">Area (auto from map)</label>
+    <div class="opts">${allAreas().map(a=>`<button data-a="homeArea" data-v="${a}" class="${f.area===a?'on':''}">${a}</button>`).join('')}</div>
+    <label class="l">Address from map</label>
+    <div class="field"><input type="text" id="hf-address" maxlength="120" placeholder="Detected street / neighbourhood" value="${esc(f.address||'')}"></div>
+    <label class="l">Private note (optional)</label>
+    <div class="field"><input type="text" id="hf-label" maxlength="40" placeholder="e.g. Near central mosque" value="${esc(f.label||'')}"></div>
+    <label class="l">Home type</label>
+    <div class="opts">${styles.map(s=>`<button data-a="homeStyle" data-v="${s.id}" class="${(f.style||'compound')===s.id?'on':''}">${s.ic} ${s.n}</button>`).join('')}</div>
+    <button class="btn" style="margin-top:12px" data-a="homeSave">Save as my address</button>
+    <div class="tiny muted" style="margin-top:10px">Precise pin places you on the live map. Strangers only see your area, not your exact street.</div>`;
 }
 function bizManageSheet(){
   const existing=playerBiz(), f=UI.bizForm;
@@ -2031,32 +2092,101 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   }break;
   case 'tab':UI.tab=d.v;UI.modal=null;render();break;
   case 'townMode':UI.townMode=d.v==='city'?'live':d.v;render();break;
-  case 'homeEdit':UI.homeForm={area:(G.p.home&&G.p.home.area)||'Fagge',label:(G.p.home&&G.p.home.label)||'',style:(G.p.home&&G.p.home.style)||'compound'};UI.modal={t:'home'};render();break;
+  case 'homeEdit':{
+    const h=G.p.home||{};
+    UI.homeForm={
+      area:h.area||'Fagge',label:h.label||'',style:h.style||'compound',
+      lat:h.lat!=null?h.lat:null,lng:h.lng!=null?h.lng:null,address:h.address||'',detecting:false
+    };
+    UI.modal={t:'home'};render();
+    if(UI.homeForm.lat==null&&navigator.geolocation){
+      UI.homeForm.detecting=true;render();
+      detectUserLocation(async(lat,lng)=>{
+        UI.homeForm.lat=lat;UI.homeForm.lng=lng;
+        UI.homeForm.area=nearestArea(lat,lng);
+        UI.homeForm.detecting=false;
+        const geo=await reverseGeocode(lat,lng);
+        if(geo.address) UI.homeForm.address=geo.address;
+        if(!UI.homeForm.label&&geo.address) UI.homeForm.label=geo.address.split(',')[0].trim().slice(0,40);
+        fx('Location detected — review and save.','good');
+        render();
+      },msg=>{UI.homeForm.detecting=false;fx(msg,'warn');render()});
+    }
+  }break;
+  case 'homeDetect':{
+    UI.homeForm=UI.homeForm||{};
+    UI.homeForm.detecting=true;render();
+    detectUserLocation(async(lat,lng)=>{
+      UI.homeForm.lat=lat;UI.homeForm.lng=lng;
+      UI.homeForm.area=nearestArea(lat,lng);
+      UI.homeForm.detecting=false;
+      const geo=await reverseGeocode(lat,lng);
+      if(geo.address) UI.homeForm.address=geo.address;
+      fx('Address filled from your map location.','good');
+      render();
+    },msg=>{UI.homeForm.detecting=false;fx(msg,'warn');render()});
+  }break;
   case 'homeArea':UI.homeForm.area=d.v;render();break;
   case 'homeStyle':UI.homeForm.style=d.v;render();break;
   case 'homeSave':{
-    const label=(document.getElementById('hf-label')||{}).value||UI.homeForm.label;
-    if(setHome(UI.homeForm.area,label,UI.homeForm.style)){UI.modal=null;if(setupSteps().every(s=>s.ok))markOnboarded();commit()} else render();
+    const label=(document.getElementById('hf-label')||{}).value||(UI.homeForm&&UI.homeForm.label)||'';
+    const address=(document.getElementById('hf-address')||{}).value||(UI.homeForm&&UI.homeForm.address)||'';
+    const f=UI.homeForm||{};
+    if(setHome(f.area,label,f.style,{lat:f.lat,lng:f.lng,address,detected:f.lat!=null})){
+      UI.modal=null;
+      if(typeof setupSteps==='function'&&setupSteps().every(s=>s.ok))markOnboarded();
+      commit();
+    } else render();
     break}
 
   case 'spotAdd':UI.spotForm={name:'',area:(G.p.home&&G.p.home.area)||'Fagge',label:'',ic:'📍',note:'',loc:G.p.loc!=='home'?G.p.loc:'market',img:'',lat:null,lng:null,address:''};UI.modal={t:'spotAdd'};render();break;
-  case 'spotGeo':
   case 'mapTogglePeople':UI.mapShowPeople=!(UI.mapShowPeople!==false);render();break;
   case 'mapTogglePlaces':UI.mapShowPlaces=!(UI.mapShowPlaces!==false);render();break;
   case 'mapToggleBiz':UI.mapShowBiz=!(UI.mapShowBiz!==false);render();break;
   case 'mapLocate':{
-    if(!navigator.geolocation){fx('Location not available on this device.','warn');break}
-    fx('Finding you…','good');
-    navigator.geolocation.getCurrentPosition(pos=>{
-      const lat=+pos.coords.latitude.toFixed(6),lng=+pos.coords.longitude.toFixed(6);
-      if(d.a==='mapLocate'){
-        if(_liveMap) _liveMap.setView([lat,lng],16);
-        L&&_liveMap&&L.circleMarker([lat,lng],{radius:8,color:'#5b8cff'}).addTo(_liveMap).bindPopup('You are here').openPopup();
-      } else {
-        UI.spotForm.lat=lat;UI.spotForm.lng=lng;UI.spotForm.area=nearestArea(lat,lng);
-        render();
+    fx('Finding you on the map…','good');
+    detectUserLocation(async(lat,lng)=>{
+      const area=nearestArea(lat,lng);
+      const geo=await reverseGeocode(lat,lng);
+      // Always remember last known position on the player
+      G.p.lat=lat;G.p.lng=lng;
+      if(_liveMap){
+        _liveMap.setView([lat,lng],16);
+        L.circleMarker([lat,lng],{radius:9,color:'#5b8cff',fillColor:'#5b8cff',fillOpacity:0.7})
+          .addTo(_liveMap).bindPopup(geo.address?('You · '+geo.address):'You are here').openPopup();
       }
-    },()=>fx('Could not get location. Allow location access or tap the map.','warn'),{enableHighAccuracy:true,timeout:12000});
+      // If home not set, auto-fill address from map
+      if(!(G.p.home&&G.p.home.done)){
+        UI.homeForm={
+          area,label:(geo.address||'').split(',')[0].trim().slice(0,40),
+          style:'compound',lat,lng,address:geo.address||'',detecting:false
+        };
+        fx('We found your place — save it as your address?','warm');
+        UI.modal={t:'home'};
+        commit();
+        return;
+      }
+      // Home exists: update coords/address quietly if user relocated
+      if(G.p.home){
+        G.p.home.lat=lat;G.p.home.lng=lng;
+        if(geo.address) G.p.home.address=geo.address;
+        if(area) {G.p.home.area=area;G.p.area=area}
+      }
+      fx(geo.address?('You are near '+geo.address):('Located in '+area),'good');
+      commit();
+    },msg=>{fx(msg,'warn');flush()});
+  }break;
+  case 'spotGeo':{
+    fx('Finding you…','good');
+    detectUserLocation(async(lat,lng)=>{
+      UI.spotForm.lat=lat;UI.spotForm.lng=lng;
+      UI.spotForm.area=nearestArea(lat,lng);
+      const geo=await reverseGeocode(lat,lng);
+      if(geo.address) UI.spotForm.address=geo.address;
+      if(!UI.spotForm.name) UI.spotForm.name=(geo.address||'').split(',')[0].trim().slice(0,28)||'My spot';
+      fx('Spot location filled from your map position.','good');
+      render();
+    },msg=>{fx(msg,'warn');flush()});
   }break;
   case 'spotVisit':{
     if(visitSpot(d.id)){UI.modal=null;UI.tab='town';UI.townMode='live';UI.mapFocus=d.id;commit()}
