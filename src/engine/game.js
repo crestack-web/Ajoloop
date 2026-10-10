@@ -93,7 +93,7 @@ const SEED=()=>[
  {id:'a1',name:'Kasuwa Kings',host:'musa',size:5,amt:5000,freq:7,purpose:'business',members:['musa','aisha','yusuf','fatima']},
  {id:'a2',name:"Alhaja's Circle",host:'halima',size:4,amt:10000,freq:7,purpose:'wedding',members:['halima','ibrahim','zainab']},
  {id:'a3',name:'Teachers & Traders',host:'maryam',size:4,amt:2000,freq:3,purpose:'education',members:['maryam','hauwa','garba']}
-].map(a=>({...a,status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[],purpose:a.purpose||'general',memberReasons:{},pendingPayout:null,roundPot:null}));
+].map(a=>({...a,status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[],purpose:a.purpose||'general',memberReasons:{},pendingPayout:null,roundPot:null,codes:[]}));
 
 let G=null; const FX=[];
 const fx=(t,k='say')=>FX.push({t,k});
@@ -290,6 +290,94 @@ function requestJoinAjo(id,reason){
   }
   return true;
 }
+
+/* ---- Ajo invite codes & share links ---- */
+function createAjoInviteCode(id,opts){
+  const a=ajoOf(id);
+  if(!a) return no('Circle not found.');
+  if(a.host!=='player') return no('Only the organizer can create invite codes.');
+  if(a.status!=='open') return no('Codes only work while the circle is still gathering members.');
+  opts=opts||{};
+  if(!a.codes) a.codes=[];
+  // prune expired
+  a.codes=a.codes.filter(c=>!c.rev&&c.exp>=G.day);
+  if(a.codes.filter(c=>c.exp>=G.day).length>=5) return no('Too many active codes. Revoke one first.');
+  const code=mkAjoCode();
+  const inv={
+    id:'ac'+G.nid++,
+    code,
+    by:'player',
+    day:G.day,
+    exp:G.day+clamp(parseInt(opts.ttl)||14,1,60),
+    max:clamp(parseInt(opts.max)||10,1,50),
+    uses:0,
+    rev:false
+  };
+  a.codes.push(inv);
+  ajoAct(a,'invite','Invite code created: '+code);
+  note('Invite code '+code+' ready to share for '+a.name+'.','ajo');
+  fx('Code ready','good');
+  return inv;
+}
+function revokeAjoCode(aid,codeId){
+  const a=ajoOf(aid);
+  if(!a||a.host!=='player') return no('Only the organizer can revoke codes.');
+  const c=(a.codes||[]).find(x=>x.id===codeId);
+  if(!c) return no('Code not found.');
+  c.rev=true;
+  ajoAct(a,'invite','Invite code '+c.code+' revoked.');
+  fx('Code revoked','cold');
+  return true;
+}
+function findAjoByCode(code){
+  code=String(code||'').trim().toUpperCase();
+  if(!code) return null;
+  for(const a of (G.ajos||[])){
+    if(a.status!=='open') continue;
+    const inv=(a.codes||[]).find(c=>c.code===code&&!c.rev&&c.exp>=G.day&&c.uses<c.max);
+    if(inv) return {a,inv};
+  }
+  return null;
+}
+function redeemAjoCode(code,reason){
+  code=String(code||'').trim().toUpperCase();
+  if(!code) return no('Enter an invite code.');
+  G.cf=G.cf||{};
+  const k='ajo|'+(G.p&&G.p.username||'player')+'|'+G.day;
+  if((G.cf[k]||0)>=8) return no('Too many wrong codes today. Try again tomorrow.');
+  const hit=findAjoByCode(code);
+  if(!hit){
+    G.cf[k]=(G.cf[k]||0)+1;
+    return no('That Ajo code is not valid or has expired.');
+  }
+  const {a,inv}=hit;
+  const why=joinCheck(a);
+  if(why) return no(why);
+  // Join directly via invite code (trusted path)
+  if(!a.members.includes('player')){
+    a.members.push('player');
+    if(!a.memberReasons) a.memberReasons={};
+    const reasonTxt=String(reason||'').trim().slice(0,200);
+    if(reasonTxt) a.memberReasons.player=reasonTxt;
+    inv.uses=(inv.uses||0)+1;
+    a.invited=true;
+    ajoAct(a,'join',(G.p.name||'Someone')+' joined with invite code'+(reasonTxt?(' — '+reasonTxt):''));
+    note('You joined '+a.name+' with code '+code+'.','ajo');
+    fx('Joined circle!','good');
+    if(a.members.length>=a.size) toStones(a);
+  }
+  return a.id;
+}
+function ajoInviteLink(code){
+  code=String(code||'').trim().toUpperCase();
+  try{
+    const base=(location.href||'').split('#')[0].split('?')[0];
+    return base+'#ajo='+encodeURIComponent(code);
+  }catch(e){
+    return '#ajo='+code;
+  }
+}
+
 function answerJoinReq(aid,rid,yes){
   const a=ajoOf(aid);if(!a||a.host!=='player')return no('Only the organizer can decide.');
   const r=(a.joinReqs||[]).find(x=>x.id===rid);if(!r||r.st!=='pending')return no('No pending request.');
@@ -527,7 +615,7 @@ function createAjo(name,size,amt,freq,opts){if(!atAjo())return false;if(blocked(
  if(freq<1)return no('Frequency must be at least 1 day.');
  const purpose=AJO_PURPOSES.some(p=>p.id===opts.purpose)?opts.purpose:'general';
  const hostReason=String(opts.reason||'').trim().slice(0,200);
- const a={id:'p'+G.nid++,name:name||'Kano Hustlers',host:'player',size,amt,freq,purpose,members:['player'],status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[],memberReasons:{},pendingPayout:null,roundPot:null};
+ const a={id:'p'+G.nid++,name:name||'Kano Hustlers',host:'player',size,amt,freq,purpose,members:['player'],status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[],memberReasons:{},pendingPayout:null,roundPot:null,codes:[]};
  if(hostReason)a.memberReasons.player=hostReason;
  G.ajos.unshift(a);miles('ajohost','Started your own Ajo');
  const pur=ajoPurpose(purpose);
@@ -851,8 +939,20 @@ function createGroup(o,u='player'){if(G.susp.includes(u))return no('This account
 
 /* ---- joining, requests, invitations ---- */
 function invState(i){if(i.rev)return 'revoked';if(i.to&&i.acc.length)return 'accepted';if(i.dec)return 'declined';if(G.day>i.exp)return 'expired';if(!i.to&&i.uses>=i.max)return 'full';return 'pending'}
-function mkCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c,t=0;const dup=x=>G.groups.some(g=>g.inv.some(i=>i.code===x));
+function mkCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c,t=0;
+ const dup=x=>{
+  if(G.groups&&G.groups.some(g=>(g.inv||[]).some(i=>i.code===x))) return true;
+  if(G.ajos&&G.ajos.some(a=>(a.codes||[]).some(i=>i.code===x&&!i.rev))) return true;
+  return false;
+ };
  do{c='KANO-';for(let k=0;k<6;k++)c+=A[Math.floor(Math.random()*A.length)]}while(dup(c)&&t++<20);if(dup(c))c+=G.nid;return c}
+function mkAjoCode(){
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c,t=0;
+  const dup=x=>(G.ajos||[]).some(a=>(a.codes||[]).some(i=>i.code===x))||(G.groups||[]).some(g=>(g.inv||[]).some(i=>i.code===x));
+  do{c='AJO-';for(let k=0;k<6;k++)c+=A[Math.floor(Math.random()*A.length)]}while(dup(c)&&t++<20);
+  if(dup(c)) c+='X'+G.nid;
+  return c;
+}
 function acceptDirect(g,i,u){i.acc.push({u,day:G.day});addMember(g,u);gtrack('invitation_accepted',g,{by:i.by,u});fx('You joined '+g.name+'!','warm');return true}
 function joinGroup(gid,u='player'){if(G.susp.includes(u))return no('This account is suspended.');const g=grp(gid),gone='That group is not available.';
  if(!g||g.ban.includes(u))return no(gone);if(g.mem[u])return no('You are already in this group.');if(gcount(g)>=gCap(g))return no('This group is full.');
@@ -2123,7 +2223,7 @@ function ensureSetup(){
   if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
   if(G.p.onboarded==null)G.p.onboarded=false;
 }
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.advances)a.advances=[];if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[];if(!a.purpose)a.purpose='general';if(!a.memberReasons)a.memberReasons={};if(a.roundPot==null)a.roundPot=null;});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};if(!G.p.username)G.p.username=(G.p.name||'').replace(/\s+/g,'').slice(0,20);if(!G.p.interests)G.p.interests=G.p.ints||[];if(!G.p.businessStatus)G.p.businessStatus='none';if(G.p.stars==null)G.p.stars=0;if(!G.p.giftSlots)G.p.giftSlots=[null,null,null,null,null,null];if(!G.p.giftsClaimed)G.p.giftsClaimed=[];(G.bizs||[]).forEach(b=>{
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.advances)a.advances=[];if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[];if(!a.purpose)a.purpose='general';if(!a.memberReasons)a.memberReasons={};if(a.roundPot==null)a.roundPot=null;if(!a.codes)a.codes=[];});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};if(!G.p.username)G.p.username=(G.p.name||'').replace(/\s+/g,'').slice(0,20);if(!G.p.interests)G.p.interests=G.p.ints||[];if(!G.p.businessStatus)G.p.businessStatus='none';if(G.p.stars==null)G.p.stars=0;if(!G.p.giftSlots)G.p.giftSlots=[null,null,null,null,null,null];if(!G.p.giftsClaimed)G.p.giftsClaimed=[];(G.bizs||[]).forEach(b=>{
   if(!b.avatar||b.avatar.kind!=='building')b.avatar=defaultStoreAvatar(b.cat||'Other');
   if(!b.loc){const areaLoc={Fagge:'market',Gwale:'restaurant',Nasarawa:'social','Kano Municipal':'work',Tarauni:'market',Dala:'social',Kumbotso:'market',Ungogo:'park'};b.loc=areaLoc[b.area]||'market'}
 });ensureSetup()}

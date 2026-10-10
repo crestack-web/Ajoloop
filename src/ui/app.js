@@ -1232,7 +1232,10 @@ function ajoView(){const cat=UI.acat||'';
  ${debts.map(d=>`<div class="card"><div class="row sp"><div><b>Debt: ${fmt(d.amt)}</b><div class="muted sm">${esc(ajoOf(d.ajo).name)}</div></div><button class="btn sm red" data-a="debt" data-id="${d.id}">Pay</button></div></div>`).join('')}
  <div class="section-label">My circles</div>
  ${mine.length?mine.map(ajoCard).join(''):'<div class="card empty"><div class="big">🤝</div>No circle yet. Create one for a community need, or request a public loop below.</div>'}
- <div class="px" style="margin-top:12px"><button class="btn" data-a="ajoNew">＋ Create public Ajo</button></div>
+ <div class="px" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+ <button class="btn" data-a="ajoNew" style="flex:1">＋ Create public Ajo</button>
+ <button class="btn ghost" data-a="ajoCodeOpen" style="flex:1">Have a code?</button>
+</div>
  ${pendingOut.length?`<div class="section-label">Your requests</div>${pendingOut.map(a=>{const r=(a.joinReqs||[]).find(x=>x.from==='player'&&x.st==='pending');const pur=ajoPurpose(a.purpose);return `<div class="card"><b>${esc(a.name)}</b><div class="muted sm">${pur.ic} ${esc(pur.n)} · ${fmt(a.amt)} / ${a.freq}d</div>${r&&r.reason?`<div class="tiny muted" style="margin-top:4px">Your reason: ${esc(r.reason)}</div>`:''}</div>`}).join('')}`:''}
  <div class="section-label">Public loops open to request</div>
  <div class="muted tiny px" style="margin-bottom:8px">Organizers made these discoverable. Send a request with your reason — they accept or decline.</div>
@@ -1407,7 +1410,7 @@ function topUpSheet(){
 function sheetHtml(){let h='';
  if(G.ev)return wrap(eventSheet(),true);
  const m=UI.modal;if(!m)return '';
- if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='ajoJoin')h=ajoJoinSheet(ajoOf(m.id));if(m.t==='avatar')h=avatarSheet(!!m.create);if(m.t==='storeAvatar')h=storeAvatarSheet(!!m.create);if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
+ if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='ajoJoin')h=ajoJoinSheet(ajoOf(m.id));if(m.t==='ajoCode')h=ajoCodeSheet();if(m.t==='ajoShare')h=ajoShareSheet(ajoOf(m.id));if(m.t==='avatar')h=avatarSheet(!!m.create);if(m.t==='storeAvatar')h=storeAvatarSheet(!!m.create);if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
  if(m.t==='home')h=homeSheet();if(m.t==='work')h=workSheet();if(m.t==='bizManage')h=bizManageSheet();if(m.t==='biz')h=bizDetailSheet(bizById(m.id));if(m.t==='chat')h=chatSheet(m.id);if(m.t==='treat')h=treatRequestSheet();if(m.t==='treats')h=treatsInboxSheet();
  if(m.t==='spotAdd')h=spotAddSheet();if(m.t==='spot')h=spotDetailSheet(m.id);
  if(m.t==='gifts')h=giftsHubSheet();
@@ -1525,6 +1528,55 @@ function ajoStoneOrderCard(a,animating){
   </section>`;
 }
 
+
+function ajoCodeSheet(){
+  return `<h2>Join Ajo with a code</h2>
+  <div class="muted sm" style="margin:4px 0 12px">Enter a code like <b>AJO-AB12CD</b> from an organizer. You join that circle if seats remain.</div>
+  <label class="l">Invite code</label>
+  <div class="field"><input type="text" data-f="ajoCode" id="f-ajo-code" maxlength="16" placeholder="AJO-XXXXXX" value="${esc((UI.gi.ajoCode||'').toUpperCase())}" style="text-transform:uppercase"></div>
+  <label class="l">Why are you joining? (optional)</label>
+  <div class="field"><input type="text" data-f="ajoCodeReason" maxlength="200" placeholder="e.g. Saving for wedding furniture" value="${esc(UI.gi.ajoCodeReason||'')}"></div>
+  <button class="btn" style="width:100%;margin-top:14px" data-a="ajoCodeRedeem">Join circle</button>`;
+}
+function ajoShareSheet(a){
+  if(!a) return '<div class="muted">Circle not found</div>';
+  const codes=(a.codes||[]).filter(c=>!c.rev&&c.exp>=G.day);
+  const ttl=UI.gi.ajoCodeTtl||14;
+  const max=UI.gi.ajoCodeMax||10;
+  return `<h2>Invite to ${esc(a.name)}</h2>
+  <div class="muted sm" style="margin:4px 0 12px">Share a code or link. People join while the circle is still gathering.</div>
+  <label class="l">Valid for (days)</label>
+  <div class="opts">${[7,14,30].map(v=>`<button data-a="ajoCodeTtl" data-v="${v}" class="${+ttl===v?'on':''}">${v}d</button>`).join('')}</div>
+  <label class="l">Max uses</label>
+  <div class="opts">${[5,10,25].map(v=>`<button data-a="ajoCodeMax" data-v="${v}" class="${+max===v?'on':''}">${v}</button>`).join('')}</div>
+  <button class="btn" style="width:100%;margin-top:12px" data-a="ajoCodeCreate" data-id="${a.id}">Create invite code</button>
+  ${codes.length?`<div class="section-label" style="margin-top:16px">Active codes</div>${codes.map(c=>{
+    const link=typeof ajoInviteLink==='function'?ajoInviteLink(c.code):('#ajo='+c.code);
+    return `<div class="card" style="margin-top:8px"><div class="row sp"><b style="letter-spacing:.04em">${esc(c.code)}</b><span class="pill wait">${c.uses}/${c.max}</span></div>
+     <div class="tiny muted">Expires day ${c.exp}</div>
+     <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn sm" data-a="ajoCodeShare" data-id="${a.id}" data-c="${esc(c.code)}">Share</button>
+      <button class="btn sm ghost" data-a="ajoCodeCopy" data-c="${esc(c.code)}">Copy code</button>
+      <button class="btn sm ghost" data-a="ajoCodeRevoke" data-id="${a.id}" data-r="${c.id}">Revoke</button>
+     </div>
+     <div class="tiny muted" style="margin-top:6px;word-break:break-all">${esc(link)}</div></div>`;
+  }).join('')}`:'<div class="muted sm" style="margin-top:12px">No active codes yet.</div>'}`;
+}
+function ajoShare(code, ajoId){
+  const a=ajoOf(ajoId);
+  if(!a) return;
+  const link=ajoInviteLink(code);
+  const text='Join my Ajo circle "'+a.name+'" on AjoLoop. Code: '+code;
+  if(navigator.share){
+    navigator.share({title:a.name+' — Ajo invite', text, url:link}).catch(()=>{});
+    return;
+  }
+  const payload=text+'\n'+link;
+  const done=m=>{fx(m,'warm');render()};
+  try{
+    navigator.clipboard.writeText(payload).then(()=>done('Invite copied — paste into WhatsApp or chat'),()=>done('Code: '+code));
+  }catch(e){done('Code: '+code)}
+}
 function ajoJoinSheet(a){
   if(!a)return '<div class="muted">Circle not found</div>';
   const pur=ajoPurpose(a.purpose);
@@ -2260,7 +2312,16 @@ function gstatsV(){const m=groupMetrics(),pc=x=>x==null?'n/a':Math.round(x*100)+
 function gShare(code,gid){const g=grp(gid);if(!g)return;const url=location.href.split('#')[0]+'#join='+code,text='Join "'+g.name+'" on Kano City with code '+code;
  if(navigator.share){navigator.share({title:g.name,text,url}).catch(()=>{});return}
  const done=m=>{fx(m,'warm');render()};try{navigator.clipboard.writeText(text+' '+url).then(()=>done('Invitation copied. Paste it into any chat.'),()=>done('Copy this code: '+code))}catch(e){done('Copy this code: '+code)}}
-function deepLink(){if(!G)return;let h='';try{h=(location.hash||'').slice(1)}catch(e){}const m=h.match(/^(join|g)=([\w-]+)$/);if(!m)return;try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}UI.tab='groups';if(m[1]==='join'){UI.modal={t:'gcode'};UI.gi.code=m[2].toUpperCase()}else{UI.modal={t:'grp',id:m[2]};UI.gt='home'}}
+function deepLink(){if(!G)return;let h='';try{h=(location.hash||'').slice(1)}catch(e){}
+ const m=h.match(/^(join|g|ajo)=([\w-]+)$/i);if(!m)return;
+ try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}
+ if(m[1].toLowerCase()==='ajo'){
+   UI.tab='ajo';UI.modal={t:'ajoCode'};UI.gi.ajoCode=m[2].toUpperCase();render();return;
+ }
+ UI.tab='groups';
+ if(m[1]==='join'){UI.modal={t:'gcode'};UI.gi.code=m[2].toUpperCase()}
+ else{UI.modal={t:'grp',id:m[2]};UI.gt='home'}
+}
 
 function gClick(a,d){const M=UI.modal||{};
  switch(a){
@@ -2814,6 +2875,30 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const reason=UI.gi.ajoJoinReason||'';
     if(requestJoinAjo(d.id,reason)){delete UI.gi.ajoJoinReason;UI.modal={t:'ajo',id:d.id};UI.ajoTab='home'}
     commit();break}
+  
+  case 'ajoCodeOpen':UI.gi.ajoCode='';UI.gi.ajoCodeReason='';UI.modal={t:'ajoCode'};render();break;
+  case 'ajoShareOpen':UI.modal={t:'ajoShare',id:d.id};render();break;
+  case 'ajoCodeTtl':UI.gi.ajoCodeTtl=+d.v;render();break;
+  case 'ajoCodeMax':UI.gi.ajoCodeMax=+d.v;render();break;
+  case 'ajoCodeCreate':{
+    const inv=createAjoInviteCode(d.id,{ttl:UI.gi.ajoCodeTtl||14,max:UI.gi.ajoCodeMax||10});
+    if(inv) commit(); else {flush();render()}
+  }break;
+  case 'ajoCodeRevoke':run(revokeAjoCode,d.id,d.r);break;
+  case 'ajoCodeShare':ajoShare(d.c,d.id);break;
+  case 'ajoCodeCopy':{
+    const c=String(d.c||'').toUpperCase();
+    try{navigator.clipboard.writeText(c).then(()=>fx('Code copied','warm'),()=>fx(c,'warm'))}catch(e){fx(c,'warm')}
+  }break;
+  case 'ajoCodeRedeem':{
+    const el=document.getElementById('f-ajo-code');
+    const code=(el&&el.value)||UI.gi.ajoCode||'';
+    const reason=UI.gi.ajoCodeReason||'';
+    const id=redeemAjoCode(code,reason);
+    if(id){UI.gi.ajoCode='';UI.gi.ajoCodeReason='';UI.modal={t:'ajo',id};UI.ajoTab='home';commit()}
+    else {flush();render()}
+  }break;
+
   case 'ajoCat':UI.acat=d.v||'';render();break;
   case 'ajoAnsReq':run(answerJoinReq,d.id,d.r,d.y==='1');break;
   case 'ajoChatSend':{const t=(document.getElementById('ajo-chat-in')||{}).value||'';run(ajoChatSend,d.id,t);break}
