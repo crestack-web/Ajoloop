@@ -1,77 +1,128 @@
-# Ajoloop production status (implementation report)
+# Ajoloop production status
 
-## 1. Original state
-- Hybrid architecture: Vite SPA + engine in `game.js` with **localStorage** game snapshot; Supabase used for auth, optional `game_states`, wallets, KYC.
-- **Core Ajo circles, members, contributions, stones, pots, games** lived only in per-user JSON (`G.ajos`) — not shared between real users.
-- NPCs, seeded businesses, and many social flows are intentionally simulated for the life-sim layer.
-- Payments: Bachs checkout/webhook + wallet ledger partially real; contributions still spent local `G.p.cash` unless wired to wallet APIs.
+Last updated: financial integrity pass (migration 003 + atomic contribute/cycle/claim).
 
-### Critical issues found
-- Multiplayer Ajo not in database (race conditions, no shared membership).
-- Contribution “paid” could mean local button only.
-- Client could not be trusted for amounts (must read circle.amount server-side).
-- Service role correctly limited to API routes (not browser) — keep this invariant.
+## 1. Original state (pre-foundation)
+- Hybrid SPA: local life-sim engine + Supabase auth/wallet.
+- Ajo membership and contributions largely local JSON.
+- Contribute API debited wallet then recorded contribution in two steps (refund on failure — race window).
 
-## 2. What was implemented (this pass)
-### Database (`supabase/migrations/002_ajo_core.sql`)
-- `ajo_circles`, `ajo_members`, `ajo_invite_codes`, `ajo_contributions`, `ajo_payouts`
-- `businesses`, `products`, `notifications`
-- RLS policies (member/host scoped reads; host create; self-join)
-- `ajo_join_circle()` — atomic join with row lock (prevents overfill)
-- `ajo_record_contribution()` — service_role only
+## 2. Implemented (this pass)
+
+### Database — `supabase/migrations/003_financial_integrity.sql`
+| Change | Purpose |
+|--------|---------|
+| Unique index on `wallet_ledger.reference` | No double ledger entry for same ref |
+| `credit_wallet` / `debit_wallet` idempotent on reference | Safe retries |
+| `ajo_contribute_atomic()` | One transaction: auth → member check → balance → debit → contribution |
+| `ajo_start_circle()` | Host starts full circle; sets `order_ids` (host first) |
+| `ajo_advance_cycle()` | Host only; requires all confirmed/skipped; creates **pending** payout from `order_ids[cycle]` |
+| `ajo_claim_payout()` | Recipient only; credits wallet once; marks claimed |
+
+### Payout model (documented, not invented)
+**Traditional rotating pot** (matches existing engine):
+- Recipient = `order_ids[cycle]` (host is index 0 / first).
+- Pot = sum of **confirmed** contribution amounts for that cycle.
+- Platform fee = `fee_pct` of pot **only on cycle 0**.
+- Claim moves funds wallet→user via `credit_wallet` with fixed reference `ajo_payout_{circle}_c{cycle}`.
+- **Need-based prioritization is NOT implemented** — requires an explicit product decision before coding.
 
 ### APIs
-- `POST /api/ajo/create` — authenticated create + host membership
-- `POST /api/ajo/join` — by circleId or invite code + RPC join
-- `POST /api/ajo/contribute` — **server reads amount from DB**, debits wallet via `debit_wallet`, records contribution; refunds on failure
-- `GET /api/ajo/list` — open public + mine
-- `POST /api/ajo/invite` — host invite codes
-- Shared `api/_supabase.js` helpers
+- `POST /api/ajo/contribute` → `ajo_contribute_atomic` (no multi-step refund path)
+- `POST /api/ajo/start` → start active circle
+- `POST /api/ajo/advance` → close cycle + pending payout
+- `POST /api/ajo/claim` → claim payout to wallet
+- Webhook: signature check when secret set; refuses credit without `reference`; prefers `payment_intents.amount`
 
-### Client / UI
-- `api.ajoCreate / ajoJoin / ajoContribute / ajoList / ajoInviteCode`
-- Online create/join-by-code/contribute paths; local engine still mirrors for existing UI
-- Local-only contribution path remains for offline/dev (not presented as bank-settled)
+### Client
+- `ajoStart`, `ajoAdvance`, `ajoClaim`
+- Contribute sends stable `idempotencyKey`
 
-## 3. What was not claimed as done
-- Full migration of every local Ajo UI field to cloud-only
-- Stones roll / cycle advance as DB transactions
-- Shared multiplayer games
-- Business CRUD fully wired to `businesses` table
-- Password reset UI, email verification flows beyond Supabase defaults
-- Webhook signature verification depends on Bachs secret being set (`BACHS_WEBHOOK_SECRET`)
-- Legal/regulatory readiness for real-money Ajo in Nigeria
+### Local simulation
+- Offline `payAjo` / local `G.ajos` unchanged for life-sim.
+- Online path uses `cloudId` + wallet APIs; simulated pay is not a bank settlement.
 
-## 4. Verification
-| Check | Result |
-|-------|--------|
-| Schema migration authored | PASS (file present; run in Supabase required) |
-| Service role not in browser bundle | PASS (API-only) |
-| Contribution amount from client | PASS (server uses circle.amount) |
-| Production build | see CI/local run |
-| E2E two-user join | NOT RUN (needs live Supabase project) |
-| RLS multi-account tests | NOT RUN |
-| Payment webhook live | BLOCKED without production events |
+## 3. Wallet / ledger integrity
+- Single wallets table + ledger (no second wallet).
+- Debit refuses overdraft (`insufficient balance`).
+- Ledger reference uniqueness + function-level short-circuit on duplicate reference.
+- Clients never call `credit_wallet` / `debit_wallet` (service_role / security definer only as granted).
 
-## 5. Remaining blockers
+## 4. Contribution atomicity
+Single Postgres function under the caller’s JWT (`auth.uid()`):
+1. Lock circle row  
+2. Verify membership + `status = active`  
+3. Amount from `circle.amount` only  
+4. Host cycle 0 → `skipped` (no debit)  
+5. Already `confirmed` → return duplicate (no second debit)  
+6. `debit_wallet` + insert/upsert contribution in same transaction  
+
+## 5. Cycle completion
+- Host calls `ajo_advance_cycle` only when count of confirmed/skipped ≥ required payers.
+- Advances `cycle` or marks `done` when `cycle+1 >= size`.
+- Creates `ajo_payouts` row `pending` (not “paid externally”).
+
+## 6. Payout processing
+- **Internal wallet claim only** (not Bachs bank transfer in this pass).
+- Bank withdrawal remains separate (`/api/payments/withdraw`) after claim.
+- Duplicate claim returns existing state without double credit.
+
+## 7. Payment provider (Bachs)
+- Checkout creates `payment_intents` + session.
+- Webhook credits only on success-like events.
+- Signature: HMAC-SHA256 or static token vs `BACHS_WEBHOOK_SECRET` / `BATCHS_WEBHOOK_SECRET`.
+- Production can force secret via `REQUIRE_WEBHOOK_SECRET=1`.
+- Browser `?payment=success` is **not** treated as proof of payment (wallet sync only).
+
+## 8. Tests executed
+| Test | Result |
+|------|--------|
+| `node tests/financial_invariants.test.cjs` | **PASS** |
+| Live Supabase RPC E2E (two users) | **NOT RUN** (no staging DB credentials in this environment) |
+| Production `vite build` | **NOT RUN** (registry/network limits in agent environment) |
+| Forged webhook without secret in prod | **NOT RUN** live; code returns 401 when secret configured |
+
+## 9. Environment variables
+| Variable | Required |
+|----------|----------|
+| `SUPABASE_PROJECT_URL` | Yes |
+| `SUPABASE_ANON_KEY` | Yes |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes (webhooks, withdraw) |
+| `BATCHS_API_KEY` | Yes for live checkout/payouts |
+| `APP_URL` | Yes |
+| `BACHS_WEBHOOK_SECRET` or `BATCHS_WEBHOOK_SECRET` | **Strongly recommended**; required if `REQUIRE_WEBHOOK_SECRET=1` |
+| `KYC_NIN_SALT` | Optional |
+
+### Manual steps
+1. Run `001_live_backend.sql` (if not already).  
+2. Run `002_ajo_core.sql`.  
+3. Run **`003_financial_integrity.sql`**.  
+4. Set webhook URL to `/api/payments/webhook` and shared secret in Bachs + Vercel.  
+5. Redeploy Vercel.
+
+## 10. Outstanding business-rule decisions
+| Decision | Severity |
+|----------|----------|
+| Confirm traditional order-only payouts vs need-based prioritization | CRITICAL before marketing “need-based” |
+| Whether host must always receive cycle 0 | HIGH (currently yes) |
+| Late/missed contribution penalties beyond block | MEDIUM |
+| External bank payout of pot without wallet claim step | MEDIUM |
+
+## 11. Regulatory / operational blockers
 | Item | Severity |
 |------|----------|
-| Run `002_ajo_core.sql` on Supabase | CRITICAL |
-| Wire stones/cycle/payout claim to DB + wallet credit | CRITICAL for real-money Ajo |
-| E2E tests with two accounts | HIGH |
-| Confirm Bachs webhook secret + idempotency in prod | HIGH |
-| Replace NPC-only social discovery with real profiles for “people” | MEDIUM |
-| Business/products UI → `businesses`/`products` tables | MEDIUM |
-| Nigerian regulatory/legal review before public real-money circles | CRITICAL (process, not code) |
+| Nigerian payments / ROSCA regulatory review | CRITICAL |
+| Staging E2E with two real accounts + funded wallets | CRITICAL |
+| Webhook secret configured in production | HIGH |
+| Monitoring/alerts on failed webhooks & debit errors | HIGH |
+| Stones UI fully driven by `order_ids` from DB | MEDIUM |
 
-## 6. Launch recommendation
-**READY FOR STAGING** — core online Ajo create/join/contribute foundation is implementable after migration is applied and env vars are set.  
-**NOT READY** for unsupervised public production with real pooled Ajo payouts until cycle/payout DB logic and E2E verification are complete.
+## 12. Recommendation
 
-### Required env (Vercel)
-- `SUPABASE_PROJECT_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `BATCHS_API_KEY`
-- `APP_URL`
-- Optional: `BACHS_WEBHOOK_SECRET`, `KYC_NIN_SALT`
+**READY FOR STAGING**
+
+Not **READY FOR PRODUCTION REVIEW** for public real-money Ajo until:
+- Migration 003 applied on the project,
+- Webhook secret verified end-to-end,
+- Two-account contribution → advance → claim tested on staging,
+- Explicit sign-off on payout recipient rules and legal review.

@@ -488,7 +488,7 @@ export const api = {
     }
   },
 
-  async ajoContribute({ circleId, cycle }) {
+  async ajoContribute({ circleId, cycle, idempotencyKey } = {}) {
     if (!supabase) return { error: 'Online mode not configured' };
     const session = await this.getSession();
     if (!session?.access_token) return { error: 'Sign in required' };
@@ -496,7 +496,7 @@ export const api = {
       const res = await fetch('/api/ajo/contribute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ circleId, cycle }),
+        body: JSON.stringify({ circleId, cycle, idempotencyKey: idempotencyKey || `ajo-${circleId}-${cycle ?? 'x'}` }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return { error: data.error || 'Contribution failed' };
@@ -516,6 +516,61 @@ export const api = {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return { error: data.error || 'Could not load circles' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
+
+
+  async ajoStart({ circleId }) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/ajo/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ circleId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'Could not start circle' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
+
+  async ajoAdvance({ circleId }) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/ajo/advance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ circleId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'Could not advance cycle' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
+
+  async ajoClaim({ circleId, cycle, useReason }) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/ajo/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ circleId, cycle, useReason }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'Claim failed' };
       return data;
     } catch (e) {
       return { error: e.message || 'Network error' };
