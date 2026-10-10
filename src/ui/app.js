@@ -2027,39 +2027,75 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
   const active=a.game&&a.game.status==='playing'?a.game:null;
   if(active){
    const def=circleGamesCatalog().find(x=>x.id===active.type)||{n:active.type,ic:'🎮'};
-   h+=`<div class="card" style="background:var(--card)"><b>${def.ic||'🎮'} ${esc(def.n||active.type)}</b>
-    <div class="muted sm" style="margin-top:4px">Playing with ${active.players.length} members</div></div>`;
-   if(active.type==='lucky'){
-    h+=`<div class="muted sm" style="margin:10px 0">Pick a number from 1 to 10. Closest to the secret wins.</div>
-     <div class="opts">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-a="ajoGamePlay" data-id="${a.id}" data-v="${n}">${n}</button>`).join('')}</div>`;
-   } else if(active.type==='rps'){
-    const d=active.data||{};
-    h+=`<div class="muted sm" style="margin:10px 0">Round ${Math.min(d.round||1,3)} of 3 · You ${d.wins||0} – ${d.losses||0} Circle${d.last?` · last: ${d.last.you} vs ${d.last.npc}`:''}</div>
-     <div class="opts">
-      <button class="btn" data-a="ajoGamePlay" data-id="${a.id}" data-v="rock">✊ Rock</button>
-      <button class="btn" data-a="ajoGamePlay" data-id="${a.id}" data-v="paper">✋ Paper</button>
-      <button class="btn" data-a="ajoGamePlay" data-id="${a.id}" data-v="scissors">✌️ Scissors</button>
-     </div>`;
-   } else if(active.type==='who'){
-    h+=`<div class="card" style="margin:10px 0"><div class="muted tiny">Clue</div><b>${esc(active.data.clue||'')}</b></div>
-     <div class="opts" style="flex-direction:column;align-items:stretch">${(active.data.options||[]).map(id=>`<button data-a="ajoGamePlay" data-id="${a.id}" data-v="${id}" style="text-align:left">${esc(nm(id))}</button>`).join('')}</div>`;
-   } else if(active.type==='emoji'){
-    h+=`<div class="card" style="margin:10px 0;text-align:center"><div class="muted sm">${esc(active.data.prompt||'')}</div>
-     <div class="opts" style="justify-content:center;margin-top:10px">${(active.data.opts||[]).map(e=>`<button style="font-size:28px;padding:12px 16px" data-a="ajoGamePlay" data-id="${a.id}" data-v="${e}">${e}</button>`).join('')}</div></div>`;
-   } else if(active.type==='scramble'){
-    h+=`<div class="card" style="margin:10px 0;text-align:center"><div class="muted sm">Unscramble</div>
-     <div style="font-size:28px;font-weight:900;letter-spacing:.12em;margin:8px 0">${esc(active.data.scrambled||'')}</div>
-     <div class="field"><input type="text" id="ajo-scramble" maxlength="16" placeholder="Your guess" style="text-transform:uppercase"></div>
-     <button class="btn" style="margin-top:10px" data-a="ajoGameScramble" data-id="${a.id}">Submit</button></div>`;
+   const oppId=(active.players||[]).find(x=>x!=='player');
+   const oppName=oppId?nm(oppId):'Circle';
+   h+=`<div class="african-game-shell">
+    <div class="ag-top"><div><b>${def.ic||'🎮'} ${esc(def.n||active.type)}</b>
+    <div class="muted tiny">${esc(def.d||'')}</div></div>
+    <button class="btn sm ghost" data-a="ajoGameSkip" data-id="${a.id}">Close board</button></div>
+    <div class="ag-players">
+      <div class="ag-you"><span class="ag-av">${playerAvatar(36)}</span><div><b>You</b><div class="tiny muted">South</div></div></div>
+      <div class="ag-turn">${(active.data.board&&active.data.board.turn===0)?'Your turn':'Their turn'}</div>
+      <div class="ag-opp"><div><b>${esc(oppName)}</b><div class="tiny muted">North</div></div><span class="ag-av">${oppId&&npc(oppId)?npc(oppId).em:'👤'}</span></div>
+    </div>`;
+   const b=active.data&&active.data.board;
+   if(active.type==='ayo'&&b){
+    const north=b.pits.slice(6,12).slice().reverse();
+    const south=b.pits.slice(0,6);
+    h+=`<div class="ayo-board">
+      <div class="ayo-store opp">${b.store[1]}</div>
+      <div class="ayo-grid">
+        <div class="ayo-row north">${north.map((n,i)=>{
+          const pit=11-i;
+          return `<button type="button" class="ayo-pit" disabled><span class="ayo-seeds">${'•'.repeat(Math.min(n,8))}${n>8?'+':''}</span><span class="ayo-n">${n}</span></button>`;
+        }).join('')}</div>
+        <div class="ayo-row south">${south.map((n,i)=>{
+          const can=b.turn===0&&n>0;
+          return `<button type="button" class="ayo-pit ${can?'playable':''}" data-a="ajoGamePlay" data-id="${a.id}" data-v="${i}" ${can?'':'disabled'}><span class="ayo-seeds">${'•'.repeat(Math.min(n,8))}${n>8?'+':''}</span><span class="ayo-n">${n}</span></button>`;
+        }).join('')}</div>
+      </div>
+      <div class="ayo-store you">${b.store[0]}</div>
+    </div>
+    <div class="tiny muted" style="text-align:center;margin-top:8px">Tap one of your pits to sow seeds. Capture 2s and 3s on their side.</div>`;
+   } else if(active.type==='morabaraba'&&b){
+    h+=`<div class="mora-board"><div class="muted sm" style="margin-bottom:8px">${b.phase==='place'?'Place a cow on an empty point':'Move a cow to an adjacent point'}</div>
+     <div class="mora-grid">${b.cells.map((c,i)=>{
+       const empty=c==null;
+       const mine=c===0;
+       if(b.phase==='place'&&empty&&b.turn===0)
+         return `<button class="mora-cell empty" data-a="ajoGamePlay" data-id="${a.id}" data-v="${i}">·</button>`;
+       if(b.phase==='move'&&mine&&b.turn===0)
+         return `<button class="mora-cell you sel" data-a="moraPick" data-v="${i}">🐄</button>`;
+       return `<button class="mora-cell ${c===0?'you':c===1?'opp':'empty'}" disabled>${c===0?'🐄':c===1?'🐃':'·'}</button>`;
+     }).join('')}</div>
+     ${UI.moraFrom!=null?`<div class="muted sm" style="margin-top:8px">Selected ${UI.moraFrom}. Tap an adjacent empty cell.
+       <div class="opts" style="margin-top:6px">${(MORA_ADJ_UI[UI.moraFrom]||[]).filter(t=>b.cells[t]==null).map(t=>`<button data-a="ajoGamePlay" data-id="${a.id}" data-v="${UI.moraFrom}:${t}">→ ${t}</button>`).join('')||'No moves'}</div></div>`:''}
+    </div>`;
+   } else if(active.type==='yote'&&b){
+    h+=`<div class="yote-board"><div class="yote-grid">${b.cells.map((c,i)=>{
+      const mine=c===0;
+      return `<button class="yote-cell ${c===0?'you':c===1?'opp':''}" data-a="${mine&&b.turn===0?'yotePick':'noop'}" data-v="${i}" ${mine&&b.turn===0?'': 'disabled'}>${c===0?'●':c===1?'○':'·'}</button>`;
+    }).join('')}</div>
+    ${UI.yoteFrom!=null?`<div class="muted sm">From ${UI.yoteFrom}. Choose destination.
+      <div class="opts">${(typeof yoteMoves==='function'?yoteMoves(b,0):[]).filter(m=>m.from===UI.yoteFrom).map(m=>`<button data-a="ajoGamePlay" data-id="${a.id}" data-v="${m.from}:${m.to}">→ ${m.to}${m.cap!=null?' (cap)':''}</button>`).join('')}</div></div>`:''}
+    <div class="tiny muted">Captured: you ${b.captured[0]} · them ${b.captured[1]}</div></div>`;
+   } else if(active.type==='senet'&&b){
+    const roll=active.data.pendingRoll;
+    h+=`<div class="senet-board">
+      <div class="senet-track">${Array.from({length:15},(_,i)=>{
+        const yp=b.pos[0].map((p,pi)=>p===i?pi:-1).filter(x=>x>=0);
+        const op=b.pos[1].map((p,pi)=>p===i?pi:-1).filter(x=>x>=0);
+        return `<div class="senet-sq"><span class="sn">${i+1}</span>${yp.map(()=>'<i class="sy">◆</i>').join('')}${op.map(()=>'<i class="so">◇</i>').join('')}</div>`;
+      }).join('')}</div>
+      <div class="muted sm" style="margin:10px 0">${roll!=null?`Roll: <b>${roll}</b> — pick a piece to move`:'Tap roll, then pick a piece'}</div>
+      ${roll==null?`<button class="btn" data-a="ajoGamePlay" data-id="${a.id}" data-v="0">Throw sticks</button>`:
+        `<div class="opts">${[0,1,2].map(p=>b.pos[0][p]<15?`<button data-a="ajoGamePlay" data-id="${a.id}" data-v="${p}">Piece ${p+1} @ ${b.pos[0][p]||'start'}</button>`:'').join('')}</div>`}
+    </div>`;
    }
-   h+=`<button class="btn ghost sm" style="margin-top:12px" data-a="ajoGameSkip" data-id="${a.id}">End game</button>`;
+   h+=`</div>`;
    return h;
   }
-  // result of last finished game
-  if(a.game&&a.game.status==='done'&&a.game.result){
-   h+=`<div class="card" style="margin-bottom:10px"><b>Last result</b><div class="sm" style="margin-top:4px">${esc(a.game.result)}</div></div>`;
-  }
-  h+=`<div class="muted sm" style="margin-bottom:10px">Play light games with other people in this loop. Wins boost mood and a little reputation.</div>`;
+  h+=`<div class="muted sm" style="margin-bottom:10px">Board games from African history — Ayo, Morabaraba, Yote, Senet. Play against a circle member. Wins lift mood and reputation.</div>`;
   const list=circleGamesCatalog();
   h+=list.map(g=>`<button type="button" class="g-card game-card" style="width:100%;margin:0 0 8px;text-align:left;cursor:pointer" data-a="ajoGameStart" data-id="${a.id}" data-v="${g.id}">
     <div class="g-av" style="font-size:28px">${g.ic}</div>
@@ -3072,6 +3108,11 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     if(!fn){fx('Games not loaded — hard-refresh the app.','warn');flush();break}
     if(fn(d.id,d.v)) commit(); else {flush();render()}
   }break;
+  
+  case 'moraPick':UI.moraFrom=+d.v;render();break;
+  case 'yotePick':UI.yoteFrom=+d.v;render();break;
+  case 'noop':break;
+
   case 'ajoGamePlay':{
     const fn=window.playCircleGame||(typeof playCircleGame==='function'?playCircleGame:null);
     if(!fn){fx('Games not loaded — hard-refresh.','warn');flush();break}

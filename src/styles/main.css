@@ -688,3 +688,34 @@ a.btn.green{color:#04281a}
 .spot-tile-card{display:flex;gap:12px;align-items:stretch;padding:0;overflow:hidden}
 .spot-tile-card .sti{width:88px;min-height:88px;background:var(--card) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
 .spot-tile-card .stb{flex:1;padding:10px 12px 10px 0;min-width:0}
+
+/* African board games */
+.african-game-shell{background:linear-gradient(180deg,#1a3d2e,#0f241c);border-radius:20px;padding:14px;color:#e8f5e9;box-shadow:var(--shadow)}
+.african-game-shell .muted,.african-game-shell .tiny{color:#a5c9b5}
+.ag-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+.ag-players{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+.ag-you,.ag-opp{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);padding:6px 10px;border-radius:999px}
+.ag-you{outline:2px solid #ffc928}
+.ag-turn{font-size:12px;font-weight:800;background:rgba(255,201,40,.2);color:#ffc928;padding:4px 10px;border-radius:999px}
+.ag-av{font-size:22px;line-height:1}
+.ayo-board{display:flex;align-items:center;gap:8px;background:#6b4226;border-radius:18px;padding:12px;box-shadow:inset 0 0 0 3px #4a2c14}
+.ayo-grid{flex:1;display:flex;flex-direction:column;gap:8px}
+.ayo-row{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.ayo-pit{aspect-ratio:1;border-radius:50%;background:#3d2412;border:2px solid #2a180c;color:#f5e6c8;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;min-height:48px}
+.ayo-pit.playable{outline:2px solid #ffc928;cursor:pointer}
+.ayo-pit.playable:active{transform:scale(.96)}
+.ayo-seeds{font-size:9px;letter-spacing:-1px;line-height:1;color:#f0d78c;max-width:100%;overflow:hidden}
+.ayo-n{font-weight:900;font-size:13px}
+.ayo-store{width:44px;min-height:100px;border-radius:16px;background:#3d2412;border:2px solid #2a180c;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#ffc928}
+.mora-grid,.yote-grid{display:grid;gap:6px}
+.mora-grid{grid-template-columns:repeat(3,1fr);max-width:220px;margin:0 auto}
+.yote-grid{grid-template-columns:repeat(5,1fr)}
+.mora-cell,.yote-cell{aspect-ratio:1;border-radius:12px;background:#2a4a3a;border:1px solid #1a3028;font-size:18px;color:#e8f5e9}
+.mora-cell.you,.yote-cell.you{background:#ffc928;color:#241a00}
+.mora-cell.opp,.yote-cell.opp{background:#4a6741}
+.mora-cell.empty:not([disabled]){outline:1px dashed #ffc928}
+.senet-track{display:flex;flex-wrap:wrap;gap:4px}
+.senet-sq{width:calc(20% - 4px);min-height:44px;background:#2a4a3a;border-radius:8px;position:relative;padding:4px}
+.senet-sq .sn{font-size:10px;opacity:.6}
+.senet-sq .sy{color:#ffc928;margin-right:2px}
+.senet-sq .so{color:#a5c9b5}

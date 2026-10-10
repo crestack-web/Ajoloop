@@ -487,156 +487,323 @@ function ajoQuickAct(id,kind){
 
 /* ---- Circle games (play with other members in the loop) ---- */
 const CIRCLE_GAMES=window.CIRCLE_GAMES=[
-  {id:'lucky',ic:'🎯',n:'Lucky Number',d:'Everyone picks 1–10. Closest to the secret number wins.'},
-  {id:'rps',ic:'✊',n:'Rock · Paper · Scissors',d:'Best of three against the circle — simultaneous throw.'},
-  {id:'who',ic:'🕵️',n:"Who's Who?",d:'Guess which member matches the clue.'},
-  {id:'emoji',ic:'😎',n:'Emoji Match',d:'Pick the emoji that fits the prompt before others.'},
-  {id:'scramble',ic:'🔤',n:'Word Scramble',d:'Unscramble a Kano / circle word together.'}
+  {id:'ayo',ic:'🫘',n:'Ayo Olopon',d:'Classic Yoruba seed game — sow seeds, capture 2s and 3s. Rooted in centuries of play across West Africa.'},
+  {id:'morabaraba',ic:'🐄',n:'Morabaraba',d:'Southern African "cows" game — place, move, and mill three-in-a-row to capture.'},
+  {id:'yote',ic:'⬡',n:'Yote',d:'West African hunt board — jump to capture, then remove a second piece.'},
+  {id:'senet',ic:'𓊽',n:'Senet race',d:'Inspired by the ancient Egyptian board — race your pieces home on a 30-square path.'}
 ];
 window.circleGameList=function circleGameList(){return CIRCLE_GAMES}
 function ajoGameActive(a){return a&&a.game&&a.game.status==='playing'?a.game:null}
+
+/* —— Ayo Olopon (Oware-family) —— */
+function ayoNewBoard(){
+  // pits 0-5 player (south), 6-11 opponent (north). Stores separate.
+  return {pits:Array(12).fill(4), store:[0,0], turn:0, // 0=player,1=opp
+    history:[]};
+}
+function ayoLegal(board,side){
+  const base=side===0?0:6;
+  const moves=[];
+  for(let i=0;i<6;i++) if(board.pits[base+i]>0) moves.push(base+i);
+  return moves;
+}
+function ayoSow(board,pit){
+  const b={pits:board.pits.slice(),store:board.store.slice(),turn:board.turn,history:board.history.slice()};
+  let seeds=b.pits[pit];
+  if(seeds<=0) return null;
+  b.pits[pit]=0;
+  let i=pit;
+  while(seeds>0){
+    i=(i+1)%12;
+    // skip opponent's store conceptually: only 12 pits; stores receive only when passing own end in full mancala — Ayo uses no mid-sow into store
+    b.pits[i]++;
+    seeds--;
+  }
+  // Capture: if last seed lands in opponent's pit with 2 or 3 total, capture and continue leftward on opponent side
+  const side=board.turn;
+  const oppBase=side===0?6:0;
+  const last=i;
+  if(last>=oppBase&&last<oppBase+6){
+    let c=last;
+    while(c>=oppBase&&c<oppBase+6){
+      const n=b.pits[c];
+      if(n===2||n===3){
+        b.store[side]+=n;
+        b.pits[c]=0;
+        c--;
+      } else break;
+    }
+  }
+  // If opponent has no seeds, player must feed if possible — simplified: allow any move
+  b.turn=1-side;
+  // End if one side empty and other cannot move meaningfully
+  const pLeft=b.pits.slice(0,6).reduce((s,x)=>s+x,0);
+  const oLeft=b.pits.slice(6,12).reduce((s,x)=>s+x,0);
+  if(pLeft===0||oLeft===0){
+    b.store[0]+=pLeft;b.store[1]+=oLeft;
+    for(let k=0;k<12;k++) b.pits[k]=0;
+    b.over=true;
+  }
+  return b;
+}
+function ayoAiMove(board){
+  const moves=ayoLegal(board,1);
+  if(!moves.length) return null;
+  // Prefer captures
+  let best=moves[0],bestScore=-1;
+  for(const m of moves){
+    const nb=ayoSow(board,m);
+    if(!nb) continue;
+    const score=nb.store[1]-board.store[1]+(nb.over&&nb.store[1]>nb.store[0]?5:0)+Math.random();
+    if(score>bestScore){bestScore=score;best=m}
+  }
+  return best;
+}
+
+/* —— Morabaraba (simplified 3x3 mills + cows) —— */
+function moraNew(){
+  // 24 points simplified to 3 rings of 8 — use 9 cells for "three men's morris" style for playability
+  // board 9 cells (0-8), players place 3 each then move adjacent
+  return {cells:Array(9).fill(null),phase:'place',placed:[0,0],turn:0,hand:[3,3],mills:0};
+}
+const MORA_ADJ={0:[1,3],1:[0,2,4],2:[1,5],3:[0,4,6],4:[1,3,5,7],5:[2,4,8],6:[3,7],7:[4,6,8],8:[5,7]};
+const MORA_MILLS=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+function moraMillsAt(cells,side){
+  return MORA_MILLS.filter(m=>m.every(i=>cells[i]===side));
+}
+function moraApply(board,from,to){
+  const b={cells:board.cells.slice(),phase:board.phase,placed:board.placed.slice(),turn:board.turn,hand:board.hand.slice(),mills:board.mills};
+  const side=b.turn;
+  if(b.phase==='place'){
+    if(b.cells[to]!=null) return null;
+    b.cells[to]=side;b.hand[side]--;b.placed[side]++;
+    if(b.hand[0]===0&&b.hand[1]===0) b.phase='move';
+  } else {
+    if(b.cells[from]!==side||b.cells[to]!=null) return null;
+    if(!(MORA_ADJ[from]||[]).includes(to)) return null;
+    b.cells[from]=null;b.cells[to]=side;
+  }
+  const before=moraMillsAt(board.cells,side).length;
+  const after=moraMillsAt(b.cells,side).length;
+  if(after>before){
+    // remove one opponent piece
+    const opp=1-side;
+    const targets=b.cells.map((v,i)=>v===opp?i:-1).filter(i=>i>=0);
+    if(targets.length){
+      const rm=targets[Math.floor(Math.random()*targets.length)];
+      b.cells[rm]=null;
+      b.mills++;
+    }
+  }
+  const oppCount=b.cells.filter(x=>x===1-side).length+(b.phase==='place'?b.hand[1-side]:0);
+  if(b.phase==='move'&&oppCount<3){b.over=true;b.winner=side}
+  b.turn=1-side;
+  return b;
+}
+
+/* —— Yote (simplified 5x6 capture) —— */
+function yoteNew(){
+  const cells=Array(30).fill(null);
+  // place 6 each on ends
+  for(let i=0;i<6;i++) cells[i]=0;
+  for(let i=24;i<30;i++) cells[i]=1;
+  return {cells,turn:0,captured:[0,0]};
+}
+function yoteMoves(board,side){
+  const moves=[];
+  const W=5;
+  const dirs=[-1,1,-W,W];
+  for(let i=0;i<30;i++){
+    if(board.cells[i]!==side) continue;
+    for(const d of dirs){
+      const j=i+d;
+      if(j<0||j>=30) continue;
+      if(d===-1||d===1){ if(Math.floor(i/W)!==Math.floor(j/W)) continue }
+      if(board.cells[j]==null) moves.push({from:i,to:j,cap:null});
+      const k=j+d;
+      if(k<0||k>=30) continue;
+      if(d===-1||d===1){ if(Math.floor(i/W)!==Math.floor(k/W)) continue }
+      if(board.cells[j]===1-side&&board.cells[k]==null) moves.push({from:i,to:k,cap:j});
+    }
+  }
+  return moves;
+}
+function yoteApply(board,move){
+  const b={cells:board.cells.slice(),turn:board.turn,captured:board.captured.slice()};
+  b.cells[move.to]=b.cells[move.from];b.cells[move.from]=null;
+  if(move.cap!=null){
+    b.cells[move.cap]=null;b.captured[board.turn]++;
+    // second removal: any opponent
+    const opp=b.cells.map((v,i)=>v===1-board.turn?i:-1).filter(i=>i>=0);
+    if(opp.length){const rm=opp[Math.floor(Math.random()*opp.length)];b.cells[rm]=null;b.captured[board.turn]++}
+  }
+  if(b.cells.filter(x=>x===1-board.turn).length===0){b.over=true;b.winner=board.turn}
+  b.turn=1-board.turn;
+  return b;
+}
+
+/* —— Senet race (simplified) —— */
+function senetNew(){
+  // 3 pieces each on track of 15
+  return {pos:[[0,0,0],[0,0,0]],turn:0,finished:[0,0]};
+}
+function senetRoll(){return 1+Math.floor(Math.random()*3)} // 1-3 sticks
+function senetApply(board,piece,roll){
+  const b={pos:[board.pos[0].slice(),board.pos[1].slice()],turn:board.turn,finished:board.finished.slice()};
+  const side=b.turn;
+  let p=b.pos[side][piece]+roll;
+  if(p>=15){b.pos[side][piece]=15;b.finished[side]++;}
+  else {
+    // bump opponent on same square back
+    for(let o=0;o<3;o++) if(b.pos[1-side][o]===p) b.pos[1-side][o]=0;
+    b.pos[side][piece]=p;
+  }
+  if(b.finished[side]>=3){b.over=true;b.winner=side}
+  b.turn=1-side;
+  return b;
+}
+
 window.startCircleGame=function startCircleGame(ajoId,type){
   const a=ajoOf(ajoId);if(!a)return no('Circle not found.');
   if(!a.members.includes('player'))return no('Join the circle to play.');
   if(ajoGameActive(a))return no('Finish the current game first.');
   const def=(window.CIRCLE_GAMES||CIRCLE_GAMES).find(g=>g.id===type);if(!def)return no('Unknown game.');
-  const players=a.members.slice();
-  if(players.length<2) players.push('_circle');
-  const g={id:'cg_'+Date.now().toString(36),type,by:'player',status:'playing',day:G.day,players,scores:{},picks:{},winner:null,data:{}};
-  if(type==='lucky'){
-    g.data.target=1+Math.floor(Math.random()*10);
-    g.data.phase='pick'; // player picks, then resolve
-  } else if(type==='rps'){
-    g.data.round=1;g.data.max=3;g.data.wins=0;g.data.losses=0;g.data.ties=0;
-  } else if(type==='who'){
-    let others=a.members.filter(m=>m!=='player');
-    // If alone, use met NPCs or seed names as pretend members for the quiz
-    if(!others.length){
-      others=G.npcs.filter(n=>n.met).map(n=>n.id).slice(0,4);
-      if(!others.length) others=G.npcs.slice(0,4).map(n=>n.id);
-    }
-    const target=pick(others)||others[0];
-    const n=npc(target);
-    const clues=[];
-    if(n){
-      if(n.occ)clues.push('Works as: '+n.occ);
-      if(n.bio)clues.push(n.bio.split('.')[0]+'.');
-      if(n.tags&&n.tags[0])clues.push('Known for being '+n.tags[0]);
-      if(n.spots&&n.spots[0]&&LOCS[n.spots[0]])clues.push('Often at '+LOCS[n.spots[0]].n);
-    }
-    g.data.target=target;
-    g.data.clue=pick(clues)||'A member of this circle';
-    g.data.options=shuffle([target,...shuffle(others.filter(x=>x!==target)).slice(0,3)].slice(0,4));
-  } else if(type==='emoji'){
-    const prompts=[
-      {q:'Celebration!',a:'🎉',opts:['🎉','😴','🌧️','📦']},
-      {q:'Market day hustle',a:'🛒',opts:['🛒','🛏️','🌊','🚀']},
-      {q:'Keep the promise',a:'🤝',opts:['🤝','🐍','🔥','🧊']},
-      {q:'Food is ready',a:'🍛',opts:['🍛','📎','🚲','🌙']},
-      {q:'Trust in the circle',a:'💚',opts:['💚','💣','📻','🧊']}
-    ];
-    const p=pick(prompts);
-    g.data.prompt=p.q;g.data.answer=p.a;g.data.opts=shuffle(p.opts.slice());
-  } else if(type==='scramble'){
-    const words=['TRUST','KANO','CIRCLE','POT','STONE','AJO','MARKET','HUSTLE','PROMISE','NEIGHBOUR'];
-    const w=pick(words);
-    g.data.word=w;
-    g.data.scrambled=shuffle(w.split('')).join('');
-    // ensure not same
-    if(g.data.scrambled===w) g.data.scrambled=w.split('').reverse().join('');
-  }
+  const opp=a.members.find(m=>m!=='player')||(G.npcs.find(n=>n.met)||G.npcs[0]||{}).id||'_circle';
+  const g={id:'cg_'+Date.now().toString(36),type,by:'player',status:'playing',day:G.day,players:['player',opp],winner:null,data:{}};
+  if(type==='ayo') g.data.board=ayoNewBoard();
+  else if(type==='morabaraba') g.data.board=moraNew();
+  else if(type==='yote') g.data.board=yoteNew();
+  else if(type==='senet') g.data.board=senetNew();
+  else return no('Unknown game.');
   a.game=g;
-  if(!a.games)a.games=[];
-  ajoAct(a,'game',G.p.name+' started '+def.n);
+  ajoAct(a,'game',G.p.name+' opened the board for '+def.n);
   if(!a.chat)a.chat=[];
-  a.chat.push({by:'player',t:'🎮 Let\'s play '+def.n+'!',day:G.day,hour:G.hour});
-  fx(def.ic+' '+def.n+' started','warm');
+  a.chat.push({by:'player',t:'🎮 '+def.n+' — who is ready?',day:G.day,hour:G.hour});
+  fx(def.ic+' '+def.n,'warm');
   return true;
 }
+
 window.playCircleGame=function playCircleGame(ajoId,choice){
   const a=ajoOf(ajoId);if(!a||!a.game||a.game.status!=='playing')return no('No active game.');
-  if(!a.members.includes('player'))return no('Members only.');
-  const g=a.game;
-  const finish=(win,msg)=>{
-    g.status='done';g.winner=win?'player':null;g.result=msg;
-    if(win){
-      G.p.happiness=clamp(G.p.happiness+6,0,100);
-      G.p.rep=clamp(G.p.rep+0.5,0,100);
-      G.p.social=clamp((G.p.social||10)+1,0,100);
-      a.members.filter(m=>m!=='player').forEach(m=>{const n=npc(m);if(n)n.rel=clamp(n.rel+2,0,100)});
-      note(a.name+': '+msg,'good');
-      fx('You won! 🏆','good');
-    } else {
-      G.p.happiness=clamp(G.p.happiness+2,0,100);
-      note(a.name+': '+msg,'ajo');
-      fx(msg,'warm');
+  const g=a.game;const def=(window.CIRCLE_GAMES||CIRCLE_GAMES).find(x=>x.id===g.type)||{n:g.type};
+  let board=g.data.board;
+  if(!board)return no('Board missing.');
+
+  if(g.type==='ayo'){
+    if(board.turn!==0)return no('Wait for your opponent.');
+    const pit=+choice;
+    if(!ayoLegal(board,0).includes(pit))return no('Pick one of your pits with seeds.');
+    board=ayoSow(board,pit);
+    if(!board)return no('Illegal move.');
+    g.data.board=board;
+    // AI turn
+    while(board&&!board.over&&board.turn===1){
+      const m=ayoAiMove(board);
+      if(m==null){board.turn=0;break}
+      board=ayoSow(board,m);
+      g.data.board=board;
     }
-    if(!a.games)a.games=[];
-    a.games.unshift({type:g.type,day:G.day,win:!!win,result:msg});
-    if(a.games.length>20)a.games=a.games.slice(0,20);
-    ajoAct(a,'game',msg);
-    if(!a.chat)a.chat=[];
-    a.chat.push({by:'system',t:'🎮 '+msg,day:G.day,hour:G.hour});
-  };
-  if(g.type==='lucky'){
-    const pickN=clamp(parseInt(choice)||0,1,10);
-    g.picks.player=pickN;
-    // NPCs pick
-    (g.players||a.members).filter(m=>m!=='player').forEach(m=>{g.picks[m]=1+Math.floor(Math.random()*10)});
-    const target=g.data.target;
-    let best=null,bestDist=99;
-    Object.keys(g.picks).forEach(m=>{
-      const d=Math.abs(g.picks[m]-target);
-      if(d<bestDist){bestDist=d;best=m}
-      else if(d===bestDist&&m==='player') best=m; // tie-break favor player slightly is ok? better report ties
-    });
-    // check ties
-    const winners=Object.keys(g.picks).filter(m=>Math.abs(g.picks[m]-target)===bestDist);
-    const win=winners.includes('player');
-    const detail='Secret was '+target+'. You picked '+pickN+'. '+(win?(winners.length>1?'Shared win!':'You were closest!'):nm(best)+' was closest.');
-    finish(win,detail);
-    return true;
-  }
-  if(g.type==='rps'){
-    const map={rock:'✊',paper:'✋',scissors:'✌️'};
-    const you=choice;
-    if(!map[you])return no('Pick rock, paper, or scissors.');
-    const npcPick=pick(['rock','paper','scissors']);
-    const beat={rock:'scissors',paper:'rock',scissors:'paper'};
-    let roundWin=null;
-    if(you===npcPick){g.data.ties++;roundWin='tie'}
-    else if(beat[you]===npcPick){g.data.wins++;roundWin='win'}
-    else {g.data.losses++;roundWin='lose'}
-    g.data.last={you,npc:npcPick,roundWin};
-    g.data.round++;
-    if(g.data.wins>=2||g.data.losses>=2||g.data.round>3){
-      const win=g.data.wins>g.data.losses;
-      finish(win, win
-        ?('RPS win '+g.data.wins+'-'+g.data.losses+'! Circle cheered.')
-        :(g.data.wins===g.data.losses?'RPS draw '+g.data.wins+'-'+g.data.losses+'.':('Circle edged you '+g.data.losses+'-'+g.data.wins+'.')));
-    } else {
-      fx(map[you]+' vs '+map[npcPick]+' — '+(roundWin==='win'?'You take the round!':roundWin==='tie'?'Tie': 'They take the round'),roundWin==='win'?'good':'warm');
+    if(board.over){
+      g.status='done';
+      g.winner=board.store[0]>board.store[1]?'player':board.store[1]>board.store[0]?'opp':'draw';
+      if(g.winner==='player'){G.p.happiness=clamp(G.p.happiness+8);addRep(2,'Won Ayo Olopon');fx('You won Ayo! Store '+board.store[0]+'–'+board.store[1],'good')}
+      else if(g.winner==='draw') fx('Ayo draw '+board.store[0]+'–'+board.store[1],'warm');
+      else fx('Opponent took the pot of seeds '+board.store[1]+'–'+board.store[0],'cold');
+      ajoAct(a,'game','Ayo finished: '+board.store[0]+' to '+board.store[1]);
     }
     return true;
   }
-  if(g.type==='who'){
-    const win=choice===g.data.target;
-    finish(win, win?('Correct — it was '+nm(g.data.target)+'!'):('It was '+nm(g.data.target)+'. Nice try.'));
+
+  if(g.type==='morabaraba'){
+    if(board.turn!==0)return no('Not your turn.');
+    const parts=String(choice).split(':');
+    let nb=null;
+    if(board.phase==='place') nb=moraApply(board,null,+parts[0]);
+    else nb=moraApply(board,+parts[0],+parts[1]);
+    if(!nb)return no('Illegal move.');
+    board=nb;g.data.board=board;
+    // AI
+    if(!board.over&&board.turn===1){
+      if(board.phase==='place'){
+        const empty=board.cells.map((v,i)=>v==null?i:-1).filter(i=>i>=0);
+        const t=empty[Math.floor(Math.random()*empty.length)];
+        board=moraApply(board,null,t)||board;
+      } else {
+        const mine=board.cells.map((v,i)=>v===1?i:-1).filter(i=>i>=0);
+        let moved=false;
+        for(const f of shuffle(mine)){
+          for(const t of shuffle(MORA_ADJ[f]||[])){
+            if(board.cells[t]==null){
+              const x=moraApply(board,f,t);
+              if(x){board=x;moved=true;break}
+            }
+          }
+          if(moved) break;
+        }
+      }
+      g.data.board=board;
+    }
+    if(board.over){
+      g.status='done';g.winner=board.winner===0?'player':'opp';
+      if(g.winner==='player'){addRep(2,'Won Morabaraba');G.p.happiness=clamp(G.p.happiness+6);fx('Morabaraba — you win!','good')}
+      else fx('Morabaraba — opponent mills the last cows','cold');
+    }
     return true;
   }
-  if(g.type==='emoji'){
-    const win=choice===g.data.answer;
-    finish(win, win?('Matched '+g.data.answer+' — sharp!'):('The circle went with '+g.data.answer+'.'));
+
+  if(g.type==='yote'){
+    if(board.turn!==0)return no('Not your turn.');
+    const [from,to]=String(choice).split(':').map(Number);
+    const move=yoteMoves(board,0).find(m=>m.from===from&&m.to===to);
+    if(!move)return no('Illegal Yote move.');
+    board=yoteApply(board,move);g.data.board=board;
+    if(!board.over&&board.turn===1){
+      const ms=yoteMoves(board,1);
+      if(ms.length){board=yoteApply(board,ms[Math.floor(Math.random()*ms.length)]);g.data.board=board}
+      else board.turn=0;
+    }
+    if(board.over){
+      g.status='done';g.winner=board.winner===0?'player':'opp';
+      if(g.winner==='player'){addRep(2,'Won Yote');fx('Yote — board cleared!','good')}
+      else fx('Yote — opponent dominates','cold');
+    }
     return true;
   }
-  if(g.type==='scramble'){
-    const guess=String(choice||'').trim().toUpperCase().replace(/[^A-Z]/g,'');
-    const win=guess===g.data.word;
-    finish(win, win?('Unscrambled '+g.data.word+'!'):('The word was '+g.data.word+'.'));
+
+  if(g.type==='senet'){
+    if(board.turn!==0)return no('Not your turn.');
+    if(g.data.pendingRoll==null){
+      g.data.pendingRoll=senetRoll();
+      fx('Sticks show '+g.data.pendingRoll,'warm');
+      return true;
+    }
+    const piece=+choice;const roll=g.data.pendingRoll;
+    if(piece<0||piece>2)return no('Pick a piece 0–2.');
+    if(board.pos[0][piece]>=15)return no('That piece already finished.');
+    board=senetApply(board,piece,roll);
+    g.data.pendingRoll=null;g.data.board=board;
+    if(!board.over&&board.turn===1){
+      const r=senetRoll();
+      let pi=0;
+      for(let i=0;i<3;i++) if(board.pos[1][i]<15){pi=i;break}
+      board=senetApply(board,pi,r);g.data.board=board;
+    }
+    if(board.over){
+      g.status='done';g.winner=board.winner===0?'player':'opp';
+      if(g.winner==='player'){addRep(2,'Won Senet race');fx('Senet — all pieces home!','good')}
+      else fx('Senet — opponent finished first','cold');
+    }
     return true;
   }
-  return no('Unknown game state.');
+  return no('Unknown game.');
 }
+window.endCircleGame=function endCircleGame(ajoId){
+  const a=ajoOf(ajoId);if(!a||!a.game)return false;
+  a.game.status='cancelled';
+  fx('Board closed','cold');
+  return true;
+}
+
 window.skipCircleGame=function skipCircleGame(ajoId){
   const a=ajoOf(ajoId);if(!a||!a.game)return false;
   a.game.status='done';a.game.result='Game closed.';
