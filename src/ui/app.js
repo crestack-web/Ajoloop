@@ -52,7 +52,7 @@ function playIntroAudio(){
   }catch(e){}
 }
 
-const UI={tab:'life',modal:null,form:{name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''},regStep:1,authMode:null,ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members',maxMembers:30},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[],treatForm:{biz:null,product:null,friend:null,note:'',mode:'request'}};
+const UI={tab:'life',modal:null,form:{name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''},regStep:1,authMode:null,ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7,purpose:'general'},acat:'',more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members',maxMembers:30},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[],treatForm:{biz:null,product:null,friend:null,note:'',mode:'request'}};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
 const bar=(v,c)=>`<div class="bar"><i style="width:${Math.round(v)}%;background:${c}"></i></div>`;
@@ -407,7 +407,7 @@ function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length;
 
 function navHtml(){const dueAjo=G.ajos.some(a=>a.status==='active'&&a.members.includes('player')&&!cyc(a,'player')&&!(a.cycle===0&&a.host==='player')&&G.day>=dueDay(a)-1);
  const gInv=G.groups.some(g=>!g.dead&&g.inv.some(i=>i.to==='player'&&invState(i)==='pending'));
- const t=[['life','🏠','Home'],['town','📍','Places'],['people','💬','People'],['groups','🏘️','Groups'],['ajo','🤝','Ajo'],['more','☰','More']];
+ const t=[['life','🏠','Home'],['town','📍','Places'],['people','💬','People'],['ajo','🤝','Ajo'],['more','☰','More']];
  return `<nav aria-label="Main">${t.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${UI.tab===k?'on':''}" aria-current="${UI.tab===k?'page':'false'}"><span aria-hidden="true">${i}</span>${l}${(k==='ajo'&&dueAjo)||(k==='groups'&&gInv)?'<i class="dot" aria-label="Needs attention"></i>':''}</button>`).join('')}</nav>`}
 
 function gauge(v,c,ic){return `<div class="gauge" style="--c:${c};--v:${v}"><div>${Math.round(v)}</div></div>`}
@@ -470,7 +470,7 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
   <div class="journey-steps">
    <button class="journey-step" data-a="tab" data-v="people"><span class="js-n">1</span><span class="js-t">Meet</span><span class="js-d">People & friends</span></button>
    <button class="journey-step" data-a="tab" data-v="town"><span class="js-n">2</span><span class="js-t">Experience</span><span class="js-d">Places & businesses</span></button>
-   <button class="journey-step" data-a="tab" data-v="groups"><span class="js-n">3</span><span class="js-t">Belong</span><span class="js-d">Groups & hangouts</span></button>
+   <button class="journey-step" data-a="tab" data-v="ajo"><span class="js-n">3</span><span class="js-t">Belong</span><span class="js-d">Groups & hangouts</span></button>
    <button class="journey-step" data-a="tab" data-v="ajo"><span class="js-n">4</span><span class="js-t">Support</span><span class="js-d">Ajo when ready</span></button>
   </div>
   <div class="tiny muted" style="margin-top:8px">Financial circles stay voluntary. Never required to unlock social features.</div>
@@ -539,7 +539,7 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
   <div class="row sp"><b>💬 People</b><button class="btn sm ghost" data-a="tab" data-v="people">${met.length} known</button></div>
   <div class="muted sm" style="margin-top:6px">Chat builds familiarity before Ajo or meetups.</div>
   ${met.slice(0,3).map(n=>`<div class="row sp" style="margin-top:8px"><span>${n.em} ${n.n} · ${relLabel(n)}</span><button class="btn sm ghost" data-a="chatOpen" data-id="${n.id}">Chat</button></div>`).join('')||'<div class="muted sm" style="margin-top:8px">Nobody yet — open People or Map.</div>'}
-  <div class="row sp" style="margin-top:14px"><b>🏘️ Groups</b><button class="btn sm ghost" data-a="tab" data-v="groups">${gCount} joined</button></div>
+  <div class="row sp" style="margin-top:14px"><b>🏘️ Groups</b><button class="btn sm ghost" data-a="tab" data-v="ajo">${gCount} joined</button></div>
   <div class="muted sm" style="margin-top:6px">Social communities — separate from money circles.</div>
  </section>
 
@@ -1188,38 +1188,43 @@ function peopleView(){
  <div class="people-seg">${seg.map(([k,l])=>`<button data-a="peopleFilter" data-v="${k}" class="${filter===k?'on':''}">${l}</button>`).join('')}</div>
  ${body}`}
 
-function ajoView(){const mine=myAjos(),pub=publicAjos(),done=G.ajos.filter(a=>a.status==='done'&&a.members.includes('player')),debts=G.debts.filter(d=>d.m==='player'&&!d.paid);
+function ajoView(){const cat=UI.acat||'';
+ const filterPur=list=>cat?list.filter(a=>(a.purpose||'general')===cat):list;
+ const mine=filterPur(myAjos()),pub=filterPur(publicAjos()),done=filterPur(G.ajos.filter(a=>a.status==='done'&&a.members.includes('player'))),debts=G.debts.filter(d=>d.m==='player'&&!d.paid);
  const pendingOut=G.ajos.filter(a=>(a.joinReqs||[]).some(r=>r.from==='player'&&r.st==='pending'));
- return `<div class="sec">Ajo<small>Public circles you can request · private ones by invite · chat like a group once inside</small></div>
- <div class="note-sep">Round 1 → organizer (fee ${Math.round(AJO_FEE_PCT*100)}% on that pot). Stones order the rest. Communication builds trust before and during the cycle.</div>
- 
+ const purTabs=[{id:'',n:'All'},...AJO_PURPOSES.map(p=>({id:p.id,n:p.ic+' '+p.n.split(' ')[0]}))];
+ return `<div class="sec">Ajo<small>Community savings circles — create one for a real need, request to join, and take the pot when it is your turn</small></div>
+ <div class="note-sep">Pick a purpose (wedding furniture, kitchen, business tools…). Members share why they join. When you claim the pot, you tell the line what it is for.</div>
+ <div class="seg" style="margin:10px 12px;flex-wrap:wrap;overflow:auto">${purTabs.map(p=>`<button data-a="ajoCat" data-v="${p.id}" class="${cat===p.id?'on':''}">${p.n}</button>`).join('')}</div>
  ${blocked()?`<div class="warnbox">🚫 Blocked from new Ajo for ${G.p.blockedUntil-G.day} more day(s).</div>`:''}
  ${debts.map(d=>`<div class="card"><div class="row sp"><div><b>Debt: ${fmt(d.amt)}</b><div class="muted sm">${esc(ajoOf(d.ajo).name)}</div></div><button class="btn sm red" data-a="debt" data-id="${d.id}">Pay</button></div></div>`).join('')}
  <div class="section-label">My circles</div>
- ${mine.length?mine.map(ajoCard).join(''):'<div class="card empty"><div class="big">🤝</div>No circle yet. Create one or request a public loop below.</div>'}
+ ${mine.length?mine.map(ajoCard).join(''):'<div class="card empty"><div class="big">🤝</div>No circle yet. Create one for a community need, or request a public loop below.</div>'}
  <div class="px" style="margin-top:12px"><button class="btn" data-a="ajoNew">＋ Create public Ajo</button></div>
- ${pendingOut.length?`<div class="section-label">Your requests</div>${pendingOut.map(a=>`<div class="card"><b>${esc(a.name)}</b><div class="muted sm">Waiting on organizer · ${fmt(a.amt)} / ${a.freq}d</div></div>`).join('')}`:''}
+ ${pendingOut.length?`<div class="section-label">Your requests</div>${pendingOut.map(a=>{const r=(a.joinReqs||[]).find(x=>x.from==='player'&&x.st==='pending');const pur=ajoPurpose(a.purpose);return `<div class="card"><b>${esc(a.name)}</b><div class="muted sm">${pur.ic} ${esc(pur.n)} · ${fmt(a.amt)} / ${a.freq}d</div>${r&&r.reason?`<div class="tiny muted" style="margin-top:4px">Your reason: ${esc(r.reason)}</div>`:''}</div>`}).join('')}`:''}
  <div class="section-label">Public loops open to request</div>
- <div class="muted tiny px" style="margin-bottom:8px">These organizers made their circle discoverable. Send a request — they accept or decline.</div>
+ <div class="muted tiny px" style="margin-bottom:8px">Organizers made these discoverable. Send a request with your reason — they accept or decline.</div>
  ${pub.length?pub.map(a=>{
   const h=a.host==='player'?G.p:npc(a.host);
   const pending=(a.joinReqs||[]).some(r=>r.from==='player'&&r.st==='pending');
   const why=joinCheck(a);
-  return `<div class="g-card" style="width:calc(100% - 24px);display:flex"><div class="g-av">${a.host==='player'?avatar(G.p.gender):(h&&h.em)||'🤝'}</div><div class="meta" style="flex:1"><b>${esc(a.name)}</b><div class="l">${fmt(a.amt)} every ${a.freq} days · ${a.members.length}/${a.size} · ${a.host==='player'?'You':esc(h&&h.n||'Host')}</div>
-   <div class="tiny muted">Public · traditional stones</div></div>
+  const pur=ajoPurpose(a.purpose);
+  return `<div class="g-card" style="width:calc(100% - 24px);display:flex"><div class="g-av">${a.host==='player'?avatar(G.p.gender):(h&&h.em)||pur.ic||'🤝'}</div><div class="meta" style="flex:1"><b>${esc(a.name)}</b><div class="l">${fmt(a.amt)} every ${a.freq} days · ${a.members.length}/${a.size} · ${a.host==='player'?'You':esc(h&&h.n||'Host')}</div>
+   <div class="tiny muted">${pur.ic} ${esc(pur.n)} · public</div></div>
    <div style="display:flex;flex-direction:column;gap:6px">
     <button class="btn sm ghost" data-a="ajoOpen" data-id="${a.id}">View</button>
     ${pending?'<span class="pill wait">Pending</span>':why?`<span class="pill wait">Locked</span>`:`<button class="btn sm" data-a="ajoRequest" data-id="${a.id}">Request</button>`}
    </div></div>`;
- }).join(''):'<div class="card empty"><div class="big">🔎</div>No public seats open right now. Create one for your people.</div>'}
+ }).join(''):'<div class="card empty"><div class="big">🔎</div>No public seats in this category. Create one for your people.</div>'}
  ${done.length?`<div class="section-label">Completed</div>${done.map(ajoCard).join('')}`:''}`}
 
 function ajoCard(a){const st={open:'Gathering',stones:a.rolled?'Order set':'Pick stones',voting:'Voting',active:'Running',done:'Complete'}[a.status]||a.status;const mem=a.members.length;
  const unread=a.chat&&a.chat.length?a.chat.length:0;
+ const pur=ajoPurpose(a.purpose);
  let line='';if(a.status==='active'){const d=dueDay(a);const adv=advancesOutstanding(a,'player');line=`<div class="row sp sm" style="margin-top:8px"><span class="muted">Round ${a.cycle+1}/${a.size} · due Day ${d}</span><span>→ ${nm(a.order[a.cycle])}</span></div>${adv?`<div class="tiny" style="margin-top:4px;color:var(--danfo)">Circle credit owed: ${fmt(adv)} (cuts your pot)</div>`:''}`}
  if(a.status==='stones')line=`<div class="tiny muted" style="margin-top:6px">${a.rolled?'Stone order locked. Ready to start.':'Choose your stone · organizer is always first'}</div>`;
  if(a.status==='open'&&a.host==='player'&&(a.joinReqs||[]).some(r=>r.st==='pending'))line+=`<div class="tiny" style="margin-top:6px;color:var(--danfo)">Join requests waiting</div>`;
- line+=`<div class="tiny muted" style="margin-top:4px">${a.vis==='public'?'🌐 Public':'🔒 Private'}${unread?` · 💬 ${unread} messages`:''}</div>`;
+ line+=`<div class="tiny muted" style="margin-top:4px">${pur.ic} ${esc(pur.n)} · ${a.vis==='public'?'🌐 Public':'🔒 Private'}${unread?` · 💬 ${unread} messages`:''}</div>`;
  return `<button class="card" style="width:calc(100% - 24px);text-align:left;display:block" data-a="ajoOpen" data-id="${a.id}"><div class="row sp"><b style="font-size:17px">${esc(a.name)}</b><span class="pill wait">${st}</span></div><div class="muted sm" style="margin-top:4px">${fmt(a.amt)} every ${a.freq} days · ${mem}/${a.size}</div>${line}</button>`}
 
 function moreView(){const seg=[['ledger','Money'],['rep','Trust & Rep'],['journey','Journey'],['shop','Shop'],['gstats','Groups'],['settings','Settings']];
@@ -1350,7 +1355,7 @@ function topUpSheet(){
 function sheetHtml(){let h='';
  if(G.ev)return wrap(eventSheet(),true);
  const m=UI.modal;if(!m)return '';
- if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='avatar')h=avatarSheet(!!m.create);if(m.t==='storeAvatar')h=storeAvatarSheet(!!m.create);if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
+ if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='ajoJoin')h=ajoJoinSheet(ajoOf(m.id));if(m.t==='avatar')h=avatarSheet(!!m.create);if(m.t==='storeAvatar')h=storeAvatarSheet(!!m.create);if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
  if(m.t==='home')h=homeSheet();if(m.t==='work')h=workSheet();if(m.t==='bizManage')h=bizManageSheet();if(m.t==='biz')h=bizDetailSheet(bizById(m.id));if(m.t==='chat')h=chatSheet(m.id);if(m.t==='treat')h=treatRequestSheet();if(m.t==='treats')h=treatsInboxSheet();
  if(m.t==='spotAdd')h=spotAddSheet();if(m.t==='spot')h=spotDetailSheet(m.id);
  if(m.t==='gifts')h=giftsHubSheet();
@@ -1394,12 +1399,34 @@ function npcSheet(n){const here_=npcLoc(n)===G.p.loc,p=G.p;const know=n.rel>=50;
  </div>
  ${n.hist.length?`<div class="section-label">Between you two</div>${n.hist.slice(0,6).map(h=>`<div class="tx sm"><span>${esc(h.why)} <span class="muted tiny">Day ${h.day}</span></span><span class="${h.d>0?'pos':'neg'}">${h.d>0?'+':''}${h.d}</span></div>`).join('')}`:''}`}
 
+
+function ajoJoinSheet(a){
+  if(!a)return '<div class="muted">Circle not found</div>';
+  const pur=ajoPurpose(a.purpose);
+  return `<h2>Request to join</h2>
+  <div class="card" style="margin-top:12px"><b>${esc(a.name)}</b>
+    <div class="muted sm" style="margin-top:4px">${pur.ic} ${esc(pur.n)} · ${fmt(a.amt)} every ${a.freq} days · ${a.members.length}/${a.size}</div>
+    <div class="tiny muted" style="margin-top:6px">${esc(pur.d)}</div>
+  </div>
+  <label class="l">Why do you want to join?</label>
+  <div class="field"><input type="text" data-f="ajoJoinReason" maxlength="200" placeholder="e.g. Raising money for my daughter's wedding furniture" value="${esc(UI.gi.ajoJoinReason||'')}"></div>
+  <div class="muted tiny">The organizer and members will see this reason. Be honest — it builds trust.</div>
+  <button class="btn" style="margin-top:14px" data-a="ajoRequestSend" data-id="${a.id}">Send request</button>
+  <button class="btn ghost" style="margin-top:8px" data-a="ajoOpen" data-id="${a.id}">Cancel</button>`;
+}
+
 function ajoNewSheet(){const f=UI.ajoNew,opt=(k,vals,fm)=>`<div class="opts">${vals.map(v=>`<button data-a="anset" data-k="${k}" data-v="${v}" class="${+f[k]===+v?'on':''}">${fm?fm(v):v}</button>`).join('')}</div>`;
  const size=Math.max(3,Math.min(20,parseInt(f.size)||5));
  const amt=Math.max(500,Math.min(500000,parseInt(f.amt)||5000));
  const freq=Math.max(1,Math.min(60,parseInt(f.freq)||7));
  const pot1=amt*(size-1),fee=Math.round(pot1*AJO_FEE_PCT),hostGets=pot1-fee;
- return `<h2>Create an Ajo</h2><div class="muted sm" style="margin-top:4px">Starts <b>public</b> so others can request to join. You can switch to private anytime.</div>
+ return `<h2>Create an Ajo</h2><div class="muted sm" style="margin-top:4px">Starts <b>public</b> so others can request to join. Build it around a real community need.</div>
+ <label class="l">Purpose of this circle</label>
+ <div class="opts" style="flex-wrap:wrap">${AJO_PURPOSES.map(p=>`<button data-a="anset" data-k="purpose" data-v="${p.id}" class="${(f.purpose||'general')===p.id?'on':''}">${p.ic} ${esc(p.n)}</button>`).join('')}</div>
+ <div class="muted tiny" style="margin-bottom:8px">${esc(ajoPurpose(f.purpose||'general').d)}</div>
+ <label class="l">Your reason (what the pot is for)</label>
+ <div class="field"><input type="text" data-f="ajoReason" maxlength="200" placeholder="e.g. Buying kitchen set for my sister's wedding" value="${esc(UI.gi.ajoReason||'')}"></div>
+ <div class="muted tiny">Members will see this. When someone claims the pot, they also state their use to the line.</div>
  <label class="l">Name</label><div class="field"><input type="text" id="f-ajo" maxlength="24" value="${esc(f.name)}" placeholder="e.g. Kano Hustlers"></div>
  <label class="l">Members</label>
  <div class="field-row"><input type="number" id="f-ajo-size" min="3" max="20" step="1" value="${size}" data-f="ajoSize"><span class="field-hint">3–20 people</span></div>
@@ -1661,7 +1688,8 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
  const P=G.p,host=a.host==='player'?null:npc(a.host),st=a.status;
  const tab=UI.ajoTab||'home';
  const tabs=[['home','Circle'],['games','Games'],['chat','Chat'],['activity','Activity']];
- let h=`<div class="row"><div class="av">${a.host==='player'?avatar(P.gender):(host?host.em:'🤝')}</div><div><h2>${esc(a.name)}</h2><div class="muted sm">${fmt(a.amt)} every ${a.freq} days · ${a.members.length}/${a.size} · ${a.vis==='public'?'Public':'Private'}</div></div></div>`;
+ const pur=ajoPurpose(a.purpose);
+ let h=`<div class="row"><div class="av">${a.host==='player'?avatar(P.gender):(host?host.em:pur.ic||'🤝')}</div><div><h2>${esc(a.name)}</h2><div class="muted sm">${pur.ic} ${esc(pur.n)} · ${fmt(a.amt)} every ${a.freq} days · ${a.members.length}/${a.size} · ${a.vis==='public'?'Public':'Private'}</div></div></div>`;
  h+=`<div class="people-seg ajo-tabs" style="margin:12px 0;flex-wrap:wrap">${tabs.map(([k,l])=>`<button data-a="ajoTab" data-v="${k}" class="${tab===k?'on':''}">${k==='games'?'🎮 ':''}${l}</button>`).join('')}</div>`;
 
  if(tab==='chat'){
@@ -1754,7 +1782,7 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
 
  const pending=(a.joinReqs||[]).filter(r=>r.st==='pending');
  if(a.host==='player'&&pending.length){
-  h+=`<section class="card"><b>Join requests</b>${pending.map(r=>`<div class="inv-card" style="margin:8px 0"><b>${r.from==='player'?'A neighbour':esc(nm(r.from))}</b><div class="muted sm">Day ${r.day}</div>
+  h+=`<section class="card"><b>Join requests</b>${pending.map(r=>`<div class="inv-card" style="margin:8px 0"><b>${r.from==='player'?'A neighbour':esc(nm(r.from))}</b><div class="muted sm">Day ${r.day}</div>${r.reason?`<div class="sm" style="margin-top:6px;line-height:1.35">Reason: <b>${esc(r.reason)}</b></div>`:''}
    <div class="row" style="gap:8px;margin-top:8px"><button class="btn sm green" data-a="ajoAnsReq" data-id="${a.id}" data-r="${r.id}" data-y="1">Accept</button>
    <button class="btn sm ghost" data-a="ajoAnsReq" data-id="${a.id}" data-r="${r.id}" data-y="0">Decline</button></div></div>`).join('')}</section>`;
  }
@@ -1816,6 +1844,9 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
     <div class="money-row"><span class="label">Pot for you</span><span class="val gold">${fmt(pend.amt)}</span></div>
     ${pend.fee?`<div class="money-row"><span class="label">Platform fee taken</span><span class="val">${fmt(pend.fee)}</span></div>`:''}
     ${pend.ded?`<div class="money-row"><span class="label">Credits deducted</span><span class="val">${fmt(pend.ded)}</span></div>`:''}
+    <label class="l">Tell the circle how you will use this pot</label>
+    <div class="field"><input type="text" data-f="ajoUseReason" maxlength="200" placeholder="e.g. Paying carpenter for wedding furniture" value="${esc(UI.gi.ajoUseReason||'')}"></div>
+    <div class="muted tiny">Everyone in the line will see this reason in activity and chat.</div>
     <button class="btn green" style="width:100%;margin-top:12px" data-a="ajoClaim" data-id="${a.id}">Claim payout ${fmt(pend.amt)}</button>
    </section>`;
   }
@@ -2372,7 +2403,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     UI.tab='life';UI.authMode=null;UI.regStep=1;commit();
     try{if(typeof api!=='undefined'&&api.online&&G) api.pushState(G)}catch(e){}
   }break;
-  case 'tab':UI.tab=d.v;UI.modal=null;render();break;
+  case 'tab':UI.tab=(d.v==='groups'?'ajo':d.v);UI.modal=null;render();break;
   case 'townMode':UI.townMode=d.v==='city'?'live':d.v;render();break;
   case 'homeEdit':{
     const h=G.p.home||{};
@@ -2595,17 +2626,22 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'ajoChatOpen':UI.modal={t:'ajoChat',id:d.id};render();break;
   case 'ajoChatBack':UI.ajoTab='home';UI.modal={t:'ajo',id:d.id};render();break;
   case 'ajoNew':UI.modal={t:'ajoNew'};render();break;
-  case 'anset':UI.ajoNew[d.k]=+d.v;if(d.k==='size')delete UI.gi.ajoSize;if(d.k==='amt')delete UI.gi.ajoAmt;if(d.k==='freq')delete UI.gi.ajoFreq;render();break;
+  case 'anset':UI.ajoNew[d.k]=(d.k==='purpose'?d.v:+d.v);if(d.k==='size')delete UI.gi.ajoSize;if(d.k==='amt')delete UI.gi.ajoAmt;if(d.k==='freq')delete UI.gi.ajoFreq;render();break;
   case 'ajoCreate':case 'ajoMake':{const nameEl=document.getElementById('f-ajo');const f=UI.ajoNew;if(nameEl&&nameEl.value)f.name=nameEl.value;
     const sizeEl=document.getElementById('f-ajo-size'),amtEl=document.getElementById('f-ajo-amt'),freqEl=document.getElementById('f-ajo-freq');
     const size=sizeEl&&sizeEl.value!==''?+sizeEl.value:(UI.gi.ajoSize!==undefined?+UI.gi.ajoSize:f.size);
     const amt=amtEl&&amtEl.value!==''?+amtEl.value:(UI.gi.ajoAmt!==undefined?+UI.gi.ajoAmt:f.amt);
     const freq=freqEl&&freqEl.value!==''?+freqEl.value:(UI.gi.ajoFreq!==undefined?+UI.gi.ajoFreq:f.freq);
     f.size=size;f.amt=amt;f.freq=freq;
-    const id=createAjo((f.name||'Kano Hustlers').trim(),size,amt,freq);
-    if(id){UI.ajoTab='home';UI.modal={t:'ajo',id};['ajoSize','ajoAmt','ajoFreq'].forEach(k=>delete UI.gi[k])}
+    const id=createAjo((f.name||'Kano Hustlers').trim(),size,amt,freq,{purpose:f.purpose||'general',reason:UI.gi.ajoReason||''});
+    if(id){UI.ajoTab='home';UI.modal={t:'ajo',id};['ajoSize','ajoAmt','ajoFreq','ajoReason'].forEach(k=>delete UI.gi[k])}
     commit();break}
-  case 'ajoRequest':run(requestJoinAjo,d.id);break;
+  case 'ajoRequest':UI.modal={t:'ajoJoin',id:d.id};UI.gi.ajoJoinReason='';render();break;
+  case 'ajoRequestSend':{
+    const reason=UI.gi.ajoJoinReason||'';
+    if(requestJoinAjo(d.id,reason)){delete UI.gi.ajoJoinReason;UI.modal={t:'ajo',id:d.id};UI.ajoTab='home'}
+    commit();break}
+  case 'ajoCat':UI.acat=d.v||'';render();break;
   case 'ajoAnsReq':run(answerJoinReq,d.id,d.r,d.y==='1');break;
   case 'ajoChatSend':{const t=(document.getElementById('ajo-chat-in')||{}).value||'';run(ajoChatSend,d.id,t);break}
   case 'ajoAct':run(ajoQuickAct,d.id,d.k);break;
@@ -2647,7 +2683,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const amt=el&&el.value!==''?+el.value:(UI.topUpAmt||0);
     if(topUp(amt)){UI.modal=null;commit()} else {flush();render()}
   }break;
-  case 'ajoClaim':run(claimAjoPayout,d.id);break;
+  case 'ajoClaim':if(claimAjoPayout(d.id,UI.gi.ajoUseReason||'')){delete UI.gi.ajoUseReason}commit();break;
 
   case 'pay':run(payAjo,d.id);break;
   case 'debt':run(payDebt,+d.id);break;
