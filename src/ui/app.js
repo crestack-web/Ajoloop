@@ -20,6 +20,38 @@ const CIRCLE_GAMES_UI=[
 ];
 function circleGamesCatalog(){return (typeof CIRCLE_GAMES!=='undefined'&&CIRCLE_GAMES.length)?CIRCLE_GAMES:(window.CIRCLE_GAMES||CIRCLE_GAMES_UI)}
 
+
+/* —— Onboarding intro audio —— */
+const INTRO_AUDIO_SRC='/build-your-circle.mp3';
+let _introAudio=null;
+function getIntroMuted(){
+  try{return localStorage.getItem('ajoloop_intro_muted')==='1'}catch(e){return false}
+}
+function setIntroMuted(m){
+  try{localStorage.setItem('ajoloop_intro_muted',m?'1':'0')}catch(e){}
+  UI.introMuted=!!m;
+  if(_introAudio) _introAudio.muted=!!m;
+}
+function stopIntroAudio(){
+  try{
+    if(_introAudio){_introAudio.pause();_introAudio.currentTime=0}
+  }catch(e){}
+}
+function playIntroAudio(){
+  if(typeof G!=='undefined'&&G&&G.p) return; // only for pre-login onboarding
+  try{
+    if(!_introAudio){
+      _introAudio=new Audio(INTRO_AUDIO_SRC);
+      _introAudio.loop=false;
+      _introAudio.preload='auto';
+      _introAudio.volume=0.7;
+    }
+    _introAudio.muted=!!(UI.introMuted!=null?UI.introMuted:getIntroMuted());
+    const p=_introAudio.play();
+    if(p&&p.catch) p.catch(()=>{/* autoplay blocked until user taps */});
+  }catch(e){}
+}
+
 const UI={tab:'life',modal:null,form:{name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''},regStep:1,authMode:null,ajoNew:{name:'Kano Hustlers',size:5,amt:5000,freq:7},more:'ledger',prog:0,confirmReset:false,townMode:'map',peopleFilter:'all',ajoTab:'home',ajoChat:'',avForm:null,avCat:'skin',mapPin:null,homeForm:{area:'Fagge',label:'',style:'compound'},bizForm:{name:'',cat:'Provisions',area:'Fagge',label:'',bio:''},spotForm:{name:'',area:'Fagge',label:'',ic:'📍',note:'',loc:'market',img:'',lat:null,lng:null,address:''},chatWith:null,chatText:'',gi:{msg:'',pollOpen:false,pollQ:'',pollOpts:['','','']},gc:{av:'🏘️',cat:'Friends & Family',tags:[],vis:'public',disc:false,join:'open',memInvite:'members',maxMembers:30},ge:{kind:'meetup',loc:'restaurant',off:1,type:'talk',target:10,dur:7},gs:null,gp:{size:5,amt:5000,freq:7},gl:{ttl:7,max:10},gt:'home',gcat:'',gconf:null,gsel:[],treatForm:{biz:null,product:null,friend:null,note:'',mode:'request'}};
 const col=v=>v>=65?'#22c177':v>=35?'#ffc928':'#ff5a6b';
 const colH=v=>v<=35?'#22c177':v<=65?'#ffc928':'#ff5a6b';
@@ -226,7 +258,13 @@ function commit(){
 }
 
 function render(){
- if(!G){app.innerHTML=createView();return}
+ if(!G){
+  if(UI.introMuted==null) UI.introMuted=getIntroMuted();
+  app.innerHTML=createView();
+  requestAnimationFrame(()=>{playIntroAudio()});
+  return
+ }
+ stopIntroAudio();
  // Full-page chat (WhatsApp-style) — no bottom nav clutter
  if(UI.modal&&UI.modal.t==='ajoChat'){
   app.innerHTML=ajoChatPage(ajoOf(UI.modal.id));
@@ -262,6 +300,7 @@ function createView(){
     const online=typeof api!=='undefined'&&api.online;
     return `<div class="title auth-simple">
 <img class="logo-hero" src="/logo.png" alt="AjoLoop" width="240" height="auto">
+${`<button type="button" class="intro-mute" data-a="introMute" aria-label="${UI.introMuted?'Unmute intro':'Mute intro'}">${UI.introMuted?'🔇 Intro muted':'🔊 Intro playing'}</button>`}
 <h1>Welcome back</h1>
 <p class="muted">Meet people · share experiences · build trust · support your circle.</p>
 ${online?`<div class="pill ok" style="margin:0 auto 10px;display:inline-block">Online</div>`:`<div class="pill wait" style="margin:0 auto 10px;display:inline-block">Offline demo</div>`}
@@ -341,6 +380,8 @@ ${online?`<div class="card flat" style="margin-top:14px;text-align:left">
       </div>`;
   }
   return `<div class="title auth-reg">
+${`<button type="button" class="intro-mute" data-a="introMute" aria-label="${UI.introMuted?'Unmute intro':'Mute intro'}">${UI.introMuted?'🔇 Intro muted':'🔊 Intro playing'}</button>`}
+
 <img class="logo-hero" src="/logo.png" alt="AjoLoop" width="200" height="auto">
 <div class="reg-dots">${dots}</div>
 <div class="card flat auth-card">${body}</div>
@@ -2156,7 +2197,13 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'avSave':setAvatar(UI.avForm);UI.modal=null;fx('Look saved','good');commit();break;
   case 'avSaveCreate':UI.avForm=UI.avForm||defaultAvatar(UI.form.gender);UI.modal=null;render();break;
   case 'finishSetup':markOnboarded();UI.modal=null;commit();break;
-  case 'authRegister':UI.authMode='register';UI.regStep=1;render();break;
+  case 'introMute':{
+    const next=!((UI.introMuted!=null)?UI.introMuted:getIntroMuted());
+    setIntroMuted(next);
+    if(!next) playIntroAudio();
+    render();
+  }break;
+  case 'authRegister':UI.authMode='register';UI.regStep=1;playIntroAudio();render();break;
   case 'authLogin':UI.authMode=null;render();break;
   case 'loginContinue':{
     (async()=>{
