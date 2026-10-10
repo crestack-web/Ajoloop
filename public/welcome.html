@@ -1,22 +1,36 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}
-/* logo readable on dark and light */
-.logo img{
-  width:44px;height:44px;object-fit:contain;border-radius:12px;
-  background:#fff;padding:4px;
-  box-shadow:0 0 0 1px var(--line), 0 4px 14px rgba(0,0,0,.18);
+/* Light-mode wordmark — clear on every theme */
+.logo{
+  gap:0;
+  font-size:0; /* hide duplicate text; wordmark has the name */
+  line-height:0;
 }
-.logo{gap:12px;font-size:22px}
-:root:not([data-theme="light"]) .logo img,
-:root[data-theme="dark"] .logo img{
+.logo-wordmark{
+  display:block;
+  height:clamp(36px,6vw,48px);
+  width:auto;
+  max-width:min(220px,55vw);
+  object-fit:contain;
+  object-position:left center;
   background:#fff;
-  box-shadow:0 0 0 1px rgba(255,255,255,.25), 0 6px 18px rgba(0,0,0,.45);
+  border-radius:12px;
+  padding:8px 14px;
+  box-shadow:0 0 0 1px var(--line), 0 4px 16px rgba(0,0,0,.12);
 }
-:root[data-theme="light"] .logo img,
+/* On dark theme, keep white plate so navy+gold stays sharp */
+:root:not([data-theme="light"]) .logo-wordmark{
+  background:#fff;
+  box-shadow:0 0 0 1px rgba(255,255,255,.2), 0 6px 20px rgba(0,0,0,.35);
+}
 @media (prefers-color-scheme:light){
-  :root:not([data-theme="dark"]) .logo img{
+  :root:not([data-theme="dark"]) .logo-wordmark{
     background:#fff;
-    box-shadow:0 0 0 1px var(--line), 0 4px 12px rgba(29,22,80,.12);
+    box-shadow:0 0 0 1px var(--line), 0 4px 14px rgba(29,22,80,.1);
   }
+}
+:root[data-theme="light"] .logo-wordmark{
+  background:#fff;
+  box-shadow:0 0 0 1px var(--line), 0 4px 14px rgba(29,22,80,.1);
 }
 
 /* community photos */
@@ -166,8 +180,7 @@ section{padding-block:clamp(40px,7vw,88px);border-top:1px solid var(--line)}
 <div class="wrap">
   <header class="bar">
     <div class="logo">
-      <img src="/logo.png" alt="AjoLoop" width="44" height="44">
-      Ajo Loop
+      <img class="logo-wordmark" src="/logo-light.jpg" alt="AjoLoop" width="220" height="48">
     </div>
     <a href="/" class="tag" style="text-decoration:none">Open the app →</a>
   </header>
