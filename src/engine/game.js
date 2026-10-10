@@ -281,6 +281,162 @@ function ajoQuickAct(id,kind){
   fx('Posted in circle','warm');
   return true;
 }
+
+/* ---- Circle games (play with other members in the loop) ---- */
+const CIRCLE_GAMES=[
+  {id:'lucky',ic:'🎯',n:'Lucky Number',d:'Everyone picks 1–10. Closest to the secret number wins.'},
+  {id:'rps',ic:'✊',n:'Rock · Paper · Scissors',d:'Best of three against the circle — simultaneous throw.'},
+  {id:'who',ic:'🕵️',n:"Who's Who?",d:'Guess which member matches the clue.'},
+  {id:'emoji',ic:'😎',n:'Emoji Match',d:'Pick the emoji that fits the prompt before others.'},
+  {id:'scramble',ic:'🔤',n:'Word Scramble',d:'Unscramble a Kano / circle word together.'}
+];
+function circleGameList(){return CIRCLE_GAMES}
+function ajoGameActive(a){return a&&a.game&&a.game.status==='playing'?a.game:null}
+function startCircleGame(ajoId,type){
+  const a=ajoOf(ajoId);if(!a)return no('Circle not found.');
+  if(!a.members.includes('player'))return no('Join the circle to play.');
+  if(a.members.length<2)return no('Need at least 2 members to play.');
+  if(ajoGameActive(a))return no('Finish the current game first.');
+  const def=CIRCLE_GAMES.find(g=>g.id===type);if(!def)return no('Unknown game.');
+  const g={id:'cg_'+Date.now().toString(36),type,by:'player',status:'playing',day:G.day,players:a.members.slice(),scores:{},picks:{},winner:null,data:{}};
+  if(type==='lucky'){
+    g.data.target=1+Math.floor(Math.random()*10);
+    g.data.phase='pick'; // player picks, then resolve
+  } else if(type==='rps'){
+    g.data.round=1;g.data.max=3;g.data.wins=0;g.data.losses=0;g.data.ties=0;
+  } else if(type==='who'){
+    const others=a.members.filter(m=>m!=='player');
+    const target=pick(others)||others[0];
+    const n=npc(target);
+    const clues=[];
+    if(n){
+      if(n.occ)clues.push('Works as: '+n.occ);
+      if(n.bio)clues.push(n.bio.split('.')[0]+'.');
+      if(n.tags&&n.tags[0])clues.push('Known for being '+n.tags[0]);
+      if(n.spots&&n.spots[0]&&LOCS[n.spots[0]])clues.push('Often at '+LOCS[n.spots[0]].n);
+    }
+    g.data.target=target;
+    g.data.clue=pick(clues)||'A member of this circle';
+    g.data.options=shuffle([target,...shuffle(others.filter(x=>x!==target)).slice(0,3)].slice(0,4));
+  } else if(type==='emoji'){
+    const prompts=[
+      {q:'Celebration!',a:'🎉',opts:['🎉','😴','🌧️','📦']},
+      {q:'Market day hustle',a:'🛒',opts:['🛒','🛏️','🌊','🚀']},
+      {q:'Keep the promise',a:'🤝',opts:['🤝','🐍','🔥','🧊']},
+      {q:'Food is ready',a:'🍛',opts:['🍛','📎','🚲','🌙']},
+      {q:'Trust in the circle',a:'💚',opts:['💚','💣','📻','🧊']}
+    ];
+    const p=pick(prompts);
+    g.data.prompt=p.q;g.data.answer=p.a;g.data.opts=shuffle(p.opts.slice());
+  } else if(type==='scramble'){
+    const words=['TRUST','KANO','CIRCLE','POT','STONE','AJO','MARKET','HUSTLE','PROMISE','NEIGHBOUR'];
+    const w=pick(words);
+    g.data.word=w;
+    g.data.scrambled=shuffle(w.split('')).join('');
+    // ensure not same
+    if(g.data.scrambled===w) g.data.scrambled=w.split('').reverse().join('');
+  }
+  a.game=g;
+  if(!a.games)a.games=[];
+  ajoAct(a,'game',G.p.name+' started '+def.n);
+  if(!a.chat)a.chat=[];
+  a.chat.push({by:'player',t:'🎮 Let\'s play '+def.n+'!',day:G.day,hour:G.hour});
+  fx(def.ic+' '+def.n+' started','warm');
+  return true;
+}
+function playCircleGame(ajoId,choice){
+  const a=ajoOf(ajoId);if(!a||!a.game||a.game.status!=='playing')return no('No active game.');
+  if(!a.members.includes('player'))return no('Members only.');
+  const g=a.game;
+  const finish=(win,msg)=>{
+    g.status='done';g.winner=win?'player':null;g.result=msg;
+    if(win){
+      G.p.happiness=clamp(G.p.happiness+6,0,100);
+      G.p.rep=clamp(G.p.rep+0.5,0,100);
+      G.p.social=clamp((G.p.social||10)+1,0,100);
+      a.members.filter(m=>m!=='player').forEach(m=>{const n=npc(m);if(n)n.rel=clamp(n.rel+2,0,100)});
+      note(a.name+': '+msg,'good');
+      fx('You won! 🏆','good');
+    } else {
+      G.p.happiness=clamp(G.p.happiness+2,0,100);
+      note(a.name+': '+msg,'ajo');
+      fx(msg,'warm');
+    }
+    if(!a.games)a.games=[];
+    a.games.unshift({type:g.type,day:G.day,win:!!win,result:msg});
+    if(a.games.length>20)a.games=a.games.slice(0,20);
+    ajoAct(a,'game',msg);
+    if(!a.chat)a.chat=[];
+    a.chat.push({by:'system',t:'🎮 '+msg,day:G.day,hour:G.hour});
+  };
+  if(g.type==='lucky'){
+    const pickN=clamp(parseInt(choice)||0,1,10);
+    g.picks.player=pickN;
+    // NPCs pick
+    a.members.filter(m=>m!=='player').forEach(m=>{g.picks[m]=1+Math.floor(Math.random()*10)});
+    const target=g.data.target;
+    let best=null,bestDist=99;
+    Object.keys(g.picks).forEach(m=>{
+      const d=Math.abs(g.picks[m]-target);
+      if(d<bestDist){bestDist=d;best=m}
+      else if(d===bestDist&&m==='player') best=m; // tie-break favor player slightly is ok? better report ties
+    });
+    // check ties
+    const winners=Object.keys(g.picks).filter(m=>Math.abs(g.picks[m]-target)===bestDist);
+    const win=winners.includes('player');
+    const detail='Secret was '+target+'. You picked '+pickN+'. '+(win?(winners.length>1?'Shared win!':'You were closest!'):nm(best)+' was closest.');
+    finish(win,detail);
+    return true;
+  }
+  if(g.type==='rps'){
+    const map={rock:'✊',paper:'✋',scissors:'✌️'};
+    const you=choice;
+    if(!map[you])return no('Pick rock, paper, or scissors.');
+    const npcPick=pick(['rock','paper','scissors']);
+    const beat={rock:'scissors',paper:'rock',scissors:'paper'};
+    let roundWin=null;
+    if(you===npcPick){g.data.ties++;roundWin='tie'}
+    else if(beat[you]===npcPick){g.data.wins++;roundWin='win'}
+    else {g.data.losses++;roundWin='lose'}
+    g.data.last={you,npc:npcPick,roundWin};
+    g.data.round++;
+    if(g.data.wins>=2||g.data.losses>=2||g.data.round>3){
+      const win=g.data.wins>g.data.losses;
+      finish(win, win
+        ?('RPS win '+g.data.wins+'-'+g.data.losses+'! Circle cheered.')
+        :(g.data.wins===g.data.losses?'RPS draw '+g.data.wins+'-'+g.data.losses+'.':('Circle edged you '+g.data.losses+'-'+g.data.wins+'.')));
+    } else {
+      fx(map[you]+' vs '+map[npcPick]+' — '+(roundWin==='win'?'You take the round!':roundWin==='tie'?'Tie': 'They take the round'),roundWin==='win'?'good':'warm');
+    }
+    return true;
+  }
+  if(g.type==='who'){
+    const win=choice===g.data.target;
+    finish(win, win?('Correct — it was '+nm(g.data.target)+'!'):('It was '+nm(g.data.target)+'. Nice try.'));
+    return true;
+  }
+  if(g.type==='emoji'){
+    const win=choice===g.data.answer;
+    finish(win, win?('Matched '+g.data.answer+' — sharp!'):('The circle went with '+g.data.answer+'.'));
+    return true;
+  }
+  if(g.type==='scramble'){
+    const guess=String(choice||'').trim().toUpperCase().replace(/[^A-Z]/g,'');
+    const win=guess===g.data.word;
+    finish(win, win?('Unscrambled '+g.data.word+'!'):('The word was '+g.data.word+'.'));
+    return true;
+  }
+  return no('Unknown game state.');
+}
+function skipCircleGame(ajoId){
+  const a=ajoOf(ajoId);if(!a||!a.game)return false;
+  a.game.status='done';a.game.result='Game closed.';
+  ajoAct(a,'game','Game closed without a finish.');
+  fx('Game closed','warm');
+  return true;
+}
+
+
 function setAjoVis(id,vis){
   const a=ajoOf(id);if(!a||a.host!=='player')return no('Only organizer can change this.');
   a.vis=vis==='private'?'private':'public';
