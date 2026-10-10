@@ -410,6 +410,14 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
  const next=steps.find(s=>!s.ok);
  const showSetup=!G.p.onboarded||(next&&!G.p.onboarded);
  return `
+ <section class="card gift-strip-card">
+  <div class="row sp"><b>🎁 Community gifts</b><span class="stars-pill sm">⭐ ${(G.p.stars|0)}</span></div>
+  <div class="muted sm" style="margin:4px 0 8px">Free gym, salon & spa sessions — AjoLoop covers partner spots.</div>
+  <div class="row" style="gap:8px">
+    <button class="btn sm" style="flex:1" data-a="giftReadyOpen">Open gifts</button>
+    <button class="btn sm ghost" style="flex:1" data-a="giftWheelOpen">🎡 Spin</button>
+  </div>
+ </section>
  <section class="card journey-card">
   <b>Your path on AjoLoop</b>
   <div class="muted sm" style="margin:6px 0 10px;line-height:1.45">The game is building a life with people you can trust — not a virtual world.</div>
@@ -1210,12 +1218,81 @@ This offline build stores data on this device until the backend is connected.
 <section class="card"><b>Reset</b><div class="muted sm" style="margin:6px 0 10px">Deletes progress on this device.</div><button class="btn ${UI.confirmReset?'red':'ghost'}" data-a="reset">${UI.confirmReset?'Tap again to erase everything':'Start over'}</button></section>`}
 
 /* ---- sheets ---- */
+
+function giftsHubSheet(){
+  ensureGifts();
+  const stars=G.p.stars|0;
+  const slots=G.p.giftSlots||[];
+  const filled=slots.filter(Boolean).length;
+  const wellness=typeof wellnessNearby==='function'?wellnessNearby():(G.bizs||[]).filter(b=>b.cat==='Wellness'||b.wellness);
+  const claimBtns=slots.map((s,i)=>{
+    if(!s) return `<div class="gift-slot empty"><span class="gs-n">${i+1}</span><span class="gs-l">Empty</span></div>`;
+    return `<button type="button" class="gift-slot filled" data-a="giftClaim" data-i="${i}">
+      <span class="gs-ic">${s.ic}</span><span class="gs-t">${esc(s.n)}</span>
+      <span class="gs-v">${s.value?('₦'+s.value.toLocaleString()+' covered'):'Claim'}</span>
+    </button>`;
+  }).join('');
+  return `<div class="gift-hub">
+  <div class="gift-hero"><div class="big">🎁</div><h2>Community gifts</h2>
+  <p class="muted sm">Earn stars by meeting people and showing up. Spin for free wellness perks — AjoLoop covers partner gym, salon, spa & yoga sessions.</p>
+  <div class="stars-pill">⭐ ${stars} community stars</div>
+  </div>
+  <div class="gift-progress"><b>${filled}/6 free gifts</b><div class="muted tiny">Fill slots from the wheel, then claim when you are ready.</div>
+  <div class="gift-slots">${claimBtns}</div></div>
+  <button class="btn" style="width:100%;margin-top:12px" data-a="giftWheelOpen">🎡 Spin the community wheel</button>
+  <div class="section-label" style="margin-top:16px">Nearby wellness</div>
+  ${wellness.length?wellness.map(b=>`<button type="button" class="g-card" data-a="bizOpen" data-id="${b.id}" style="width:100%;margin:0 0 8px">
+    <div class="g-av">${b.ic||'🧘'}</div>
+    <div class="meta"><b>${esc(b.name)}</b><div class="l">${esc(b.area)} · ${esc(b.cat)}${b.label?' · '+esc(b.label):''}</div></div>
+  </button>`).join(''):'<div class="muted sm">Wellness partners will appear as you explore.</div>'}
+  <div class="tiny muted" style="margin-top:12px">Gifts are partner-covered experiences inside AjoLoop — not Temu merchandise. Demo covers the cost in-app.</div>
+  </div>`;
+}
+function giftWheelSheet(){
+  ensureGifts();
+  const spinsLeft=Math.max(0,3-(G.p.spinsToday||0));
+  const spinning=UI.giftSpinning;
+  return `<div class="gift-wheel-wrap">
+  <button class="x" data-a="giftsOpen" aria-label="Back" style="position:absolute;right:12px;top:12px">✕</button>
+  <h2 class="center">Spin for FREE community gifts</h2>
+  <p class="muted sm center">With active participation · ${spinsLeft} spin${spinsLeft===1?'':'s'} left today</p>
+  <div class="wheel-stage">
+    <div class="wheel-pointer">▼</div>
+    <div class="wheel ${spinning?'spinning':''}" id="ajo-wheel">
+      <div class="w-slice s0"><span>FREE</span></div>
+      <div class="w-slice s1"><span>5%</span></div>
+      <div class="w-slice s2"><span>Salon</span></div>
+      <div class="w-slice s3"><span>10%</span></div>
+      <div class="w-slice s4"><span>Spa</span></div>
+      <div class="w-slice s5"><span>20%</span></div>
+      <div class="w-slice s6"><span>Stars</span></div>
+      <div class="w-slice s7"><span>Yoga</span></div>
+      <button class="wheel-hub" data-a="giftSpin" ${spinning?'disabled':''}>SPIN</button>
+    </div>
+  </div>
+  <button class="btn" style="width:100%;margin-top:16px" data-a="giftSpin" ${spinning?'disabled':''}>Spin (${spinsLeft} left)</button>
+  <p class="tiny muted center" style="margin-top:10px">First spin free each day. Later spins cost 25 ⭐. Win gym, salon, spa or yoga — AjoLoop covers the partner session.</p>
+  ${UI.giftResult?`<div class="gift-result card">${esc(UI.giftResult)}</div>`:''}
+  </div>`;
+}
+function giftReadySheet(){
+  return `<div class="gift-ready">
+  <div class="ready-text">ARE YOU<br>READY?</div>
+  <p class="muted sm center" style="margin-top:16px">Spin for free wellness gifts at partner gyms, salons and spas near you. AjoLoop covers selected sessions when you claim.</p>
+  <button class="btn" style="width:100%;margin-top:18px" data-a="giftReadyGo">Let&apos;s go</button>
+  <button class="btn ghost" style="width:100%;margin-top:8px" data-a="close">Maybe later</button>
+  </div>`;
+}
+
 function sheetHtml(){let h='';
  if(G.ev)return wrap(eventSheet(),true);
  const m=UI.modal;if(!m)return '';
  if(m.t==='npc')h=npcSheet(npc(m.id));if(m.t==='ajo')h=ajoSheet(ajoOf(m.id));if(m.t==='avatar')h=avatarSheet(!!m.create);if(m.t==='storeAvatar')h=storeAvatarSheet(!!m.create);if(m.t==='ajoNew')h=ajoNewSheet();if(m.t==='notes')h=notesSheet();if(m.t==='jobs')h=jobsSheet();if(m.t==='grp')h=grpSheet(m.id);if(m.t==='gnew')h=gnewSheet();if(m.t==='gcode')h=gcodeSheet();if(m.t==='ginv')h=ginvSheet(m.id);if(m.t==='gajo')h=gajoSheet(m.id);
  if(m.t==='home')h=homeSheet();if(m.t==='work')h=workSheet();if(m.t==='bizManage')h=bizManageSheet();if(m.t==='biz')h=bizDetailSheet(bizById(m.id));if(m.t==='chat')h=chatSheet(m.id);if(m.t==='treat')h=treatRequestSheet();if(m.t==='treats')h=treatsInboxSheet();
  if(m.t==='spotAdd')h=spotAddSheet();if(m.t==='spot')h=spotDetailSheet(m.id);
+ if(m.t==='gifts')h=giftsHubSheet();
+ if(m.t==='giftWheel')h=giftWheelSheet();
+ if(m.t==='giftReady')h=giftReadySheet();
  return wrap(h)}
 function wrap(h,lock){return `<div class="back" ${lock?'':'data-a="closeBack"'}><div class="sheet" id="sheet">${lock?'':'<button class="x" data-a="close" aria-label="Close">✕</button>'}${h}</div></div>`}
 
@@ -2476,6 +2553,27 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     UI.modal={t:'grp',id:d.id};UI.gt='home';UI.gi.replyTo=null;UI.gs=null;UI.gconf=null;
     try{if(typeof visitGroup==='function')visitGroup(d.id)}catch(err){}
     commit();break;
+  
+  case 'giftsOpen':UI.modal={t:'gifts'};UI.giftResult=null;UI.giftSpinning=false;render();break;
+  case 'giftWheelOpen':UI.modal={t:'giftWheel'};UI.giftResult=null;UI.giftSpinning=false;render();break;
+  case 'giftReadyOpen':
+    if(G.p.giftIntro){UI.modal={t:'gifts'};render();break}
+    UI.modal={t:'giftReady'};render();break;
+  case 'giftReadyGo':G.p.giftIntro=true;UI.modal={t:'giftWheel'};commit();break;
+  case 'giftSpin':{
+    if(UI.giftSpinning)break;
+    UI.giftSpinning=true;UI.giftResult=null;render();
+    setTimeout(()=>{
+      const res=spinCommunityWheel();
+      UI.giftSpinning=false;
+      if(res&&res.msg){UI.giftResult=res.msg;fx(res.msg,'good')}
+      commit();
+    },1800);
+  }break;
+  case 'giftClaim':{
+    if(claimGiftSlot(+d.i)){UI.modal={t:'gifts'};commit()} else {flush();render()}
+  }break;
+
   default:if(a&&a.indexOf('g_')===0){try{gClick(a,d)}catch(err){fx('Could not open that.','warn');flush()}}
     else if(a){console.warn('Unhandled action',a)}
  }});
