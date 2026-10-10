@@ -297,13 +297,11 @@ function createView(){
   // Returning user — simple social-style continue
   if(acc&&acc.username&&UI.authMode!=='register'){
     const face=acc.avatar?renderAvatar(acc.avatar,88):renderAvatar(defaultAvatar(acc.gender||'Male'),88);
-    const online=typeof api!=='undefined'&&api.online;
     return `<div class="title auth-simple">
 <img class="logo-hero" src="/logo.png" alt="AjoLoop" width="240" height="auto">
 ${`<button type="button" class="intro-mute" data-a="introMute" aria-label="${UI.introMuted?'Unmute intro':'Mute intro'}">${UI.introMuted?'🔇 Intro muted':'🔊 Intro playing'}</button>`}
 <h1>Welcome back</h1>
 <p class="muted">Meet people · share experiences · build trust · support your circle.</p>
-${online?`<div class="pill ok" style="margin:0 auto 10px;display:inline-block">Online</div>`:`<div class="pill wait" style="margin:0 auto 10px;display:inline-block">Offline demo</div>`}
 <div class="card flat auth-card">
   <div class="av-preview">${face}</div>
   <div class="auth-user">@${esc(acc.username)}</div>
@@ -311,13 +309,15 @@ ${online?`<div class="pill ok" style="margin:0 auto 10px;display:inline-block">O
   <button class="btn" data-a="loginContinue" style="margin-top:16px">Continue</button>
   <button class="btn ghost sm" data-a="authRegister" style="margin-top:10px;display:block;width:100%">Create a new account</button>
 </div>
-${online?`<div class="card flat" style="margin-top:14px;text-align:left">
-  <div class="muted sm" style="margin-bottom:8px">Or sign in with email</div>
-  <label class="l">Email</label><div class="field"><input type="email" id="f-email" autocomplete="email" placeholder="you@email.com"></div>
-  <label class="l">Password</label><div class="field"><input type="password" id="f-password" autocomplete="current-password" placeholder="••••••••"></div>
-  <button class="btn" data-a="onlineLogin" style="margin-top:10px;width:100%">Sign in online</button>
-</div>`:''}
-<p class="tiny center muted">${online?'Progress syncs to your account when online.':'Local demo — add Supabase keys to go online (docs/BACKEND.md).'}</p></div>`;
+<div class="card flat auth-card" style="margin-top:14px">
+  <div class="muted sm" style="margin-bottom:4px;text-align:center">Or sign in with email</div>
+  <label class="l">Email</label>
+  <div class="field"><input type="email" id="f-email" autocomplete="email" placeholder="you@email.com"></div>
+  <label class="l">Password</label>
+  <div class="field"><input type="password" id="f-password" autocomplete="current-password" placeholder="••••••••"></div>
+  <button class="btn" data-a="onlineLogin" style="margin-top:14px;width:100%">Sign in</button>
+</div>
+</div>`;
   }
   // First-time / register wizard
   const f=UI.form;const step=UI.regStep||1;
@@ -341,12 +341,12 @@ ${online?`<div class="card flat" style="margin-top:14px;text-align:left">
       <div class="field"><input type="email" id="f-email" value="${esc(f.email||'')}" autocomplete="email" placeholder="you@email.com"></div>
       <label class="l">Password</label>
       <div class="field"><input type="password" id="f-password" autocomplete="new-password" placeholder="At least 6 characters"></div>
-      <div class="muted tiny" style="margin-bottom:8px">Required for online accounts so your progress syncs.</div>`:''}
+      <div class="muted tiny" style="margin-bottom:8px">Used to sign in and sync your progress.</div>`:''}
       <label class="l">Age</label>
       <div class="field"><input type="number" id="f-age" min="18" max="60" value="${f.age||24}"></div>
       <label class="l">I am</label>
       <div class="opts">${['Male','Female','Other'].map(g=>`<button data-a="gender" data-v="${g}" class="${f.gender===g?'on':''}">${g}</button>`).join('')}</div>
-      <button class="btn" data-a="${(typeof api!=='undefined'&&api.online)?'onlineRegister':'regNext'}" style="margin-top:16px">${(typeof api!=='undefined'&&api.online)?'Create online account & continue':'Continue'}</button>`;;
+      <button class="btn" data-a="${(typeof api!=='undefined'&&api.online)?'onlineRegister':'regNext'}" style="margin-top:16px">${(typeof api!=='undefined'&&api.online)?'Create account & continue':'Continue'}</button>`;;
   } else if(step===2){
     body=`<h2 class="reg-h">What are you into?</h2>
       <p class="muted sm reg-sub">Pick a few interests so we can match you with people and groups.</p>

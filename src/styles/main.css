@@ -112,7 +112,7 @@ nav .dot{position:absolute;top:4px;right:18%;background:var(--hib);width:9px;hei
 /* misc */
 .seg{display:flex;gap:6px;margin:12px;overflow:auto}.seg button{background:var(--card);border-radius:99px;padding:8px 14px;font-weight:800;font-size:13.5px;white-space:nowrap}.seg button.on{background:var(--danfo);color:#241a00}
 .opts{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px}.opts button{background:var(--card2);border-radius:13px;padding:9px 13px;font-weight:800;font-size:14px}.opts button.on{background:var(--danfo);color:#241a00}
-input[type=text],input[type=number],input:not([type]),textarea{
+input[type=text],input[type=number],input[type=email],input[type=password],input:not([type]),textarea{
   display:block;width:100%;max-width:100%;min-width:0;
   box-sizing:border-box;-webkit-appearance:none;appearance:none;
   background:#120d36;border:2px solid var(--line);border-radius:16px;
@@ -122,7 +122,7 @@ input[type=text],input[type=number],input:not([type]),textarea{
 textarea{min-height:110px;resize:vertical;padding-top:14px}
 input[type=number]{-moz-appearance:textfield}
 input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-input:focus,textarea:focus,input[type=text]:focus,input[type=number]:focus{
+input:focus,textarea:focus,input[type=text]:focus,input[type=number]:focus,input[type=email]:focus,input[type=password]:focus{
   outline:none;border-color:var(--sky,#5b8cff);background:#18124a;
   box-shadow:0 0 0 3px rgba(91,140,255,.2);
 }
