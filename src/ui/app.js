@@ -239,7 +239,7 @@ function createView(){
     return `<div class="title auth-simple">
 <img class="logo-hero" src="/logo.png" alt="AjoLoop" width="240" height="auto">
 <h1>Welcome back</h1>
-<p class="muted">Continue where you left off — one tap, like any social app.</p>
+<p class="muted">Meet people · share experiences · build trust · support your circle.</p>
 <div class="card flat auth-card">
   <div class="av-preview">${face}</div>
   <div class="auth-user">@${esc(acc.username)}</div>
@@ -330,7 +330,7 @@ function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length;
 
 function navHtml(){const dueAjo=G.ajos.some(a=>a.status==='active'&&a.members.includes('player')&&!cyc(a,'player')&&!(a.cycle===0&&a.host==='player')&&G.day>=dueDay(a)-1);
  const gInv=G.groups.some(g=>!g.dead&&g.inv.some(i=>i.to==='player'&&invState(i)==='pending'));
- const t=[['life','🏠','Home'],['town','🗺️','Map'],['people','💬','People'],['groups','🏘️','Groups'],['ajo','🤝','Ajo'],['more','☰','More']];
+ const t=[['life','🏠','Home'],['town','📍','Places'],['people','💬','People'],['groups','🏘️','Groups'],['ajo','🤝','Ajo'],['more','☰','More']];
  return `<nav aria-label="Main">${t.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${UI.tab===k?'on':''}" aria-current="${UI.tab===k?'page':'false'}"><span aria-hidden="true">${i}</span>${l}${(k==='ajo'&&dueAjo)||(k==='groups'&&gInv)?'<i class="dot" aria-label="Needs attention"></i>':''}</button>`).join('')}</nav>`}
 
 function gauge(v,c,ic){return `<div class="gauge" style="--c:${c};--v:${v}"><div>${Math.round(v)}</div></div>`}
@@ -374,6 +374,17 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
  const next=steps.find(s=>!s.ok);
  const showSetup=!G.p.onboarded||(next&&!G.p.onboarded);
  return `
+ <section class="card journey-card">
+  <b>Your path on AjoLoop</b>
+  <div class="muted sm" style="margin:6px 0 10px;line-height:1.45">The game is building a life with people you can trust — not a virtual world.</div>
+  <div class="journey-steps">
+   <button class="journey-step" data-a="tab" data-v="people"><span class="js-n">1</span><span class="js-t">Meet</span><span class="js-d">People & friends</span></button>
+   <button class="journey-step" data-a="tab" data-v="town"><span class="js-n">2</span><span class="js-t">Experience</span><span class="js-d">Places & businesses</span></button>
+   <button class="journey-step" data-a="tab" data-v="groups"><span class="js-n">3</span><span class="js-t">Belong</span><span class="js-d">Groups & hangouts</span></button>
+   <button class="journey-step" data-a="tab" data-v="ajo"><span class="js-n">4</span><span class="js-t">Support</span><span class="js-d">Ajo when ready</span></button>
+  </div>
+  <div class="tiny muted" style="margin-top:8px">Financial circles stay voluntary. Never required to unlock social features.</div>
+ </section>
  ${showSetup||next?`<section class="card"><div class="row sp"><b>Next steps</b><span class="tiny muted">${steps.filter(s=>s.ok).length}/${steps.length}</span></div>
   <div class="muted sm" style="margin:4px 0 8px">Set up your place in the community. No demo mode — this is the real product flow.</div>
   ${steps.map(s=>`<div class="check-row ${s.ok?'ok':''}"><span>${s.ok?'✅':'○'} ${esc(s.t)}</span>
@@ -1069,7 +1080,20 @@ function journeyV(){const s=G.snap.concat([{day:G.day,nw:netWorth(),trust:Math.r
  return `<section class="card"><b>📈 Your life so far</b>${spark(s.map(x=>x.nw),'#ffc928','Net worth (₦)')}${spark(s.map(x=>x.trust),'#22c177','Trust')}${spark(s.map(x=>x.rep),'#5cc8ff','Reputation')}</section>
  <section class="card"><b>🏁 Milestones</b>${ms.length?ms.map(m=>`<div class="tx"><span>${esc(m.txt)}</span><span class="muted tiny">Day ${m.day}</span></div>`).join(''):'<div class="muted sm">Your story starts now.</div>'}</section>`}
 function shopV(){const b=G.biz;return b?`<section class="card"><b>🥤 Mini Shop</b><div class="row sp" style="margin-top:8px"><span class="muted">Stock</span><b>${b.stock} drinks</b></div><div class="row sp"><span class="muted">Sold</span><b>${b.sold}</b></div><div class="row sp"><span class="muted">Revenue</span><b>${fmt(b.rev)}</b></div><div class="row sp"><span class="muted">Profit</span><b class="pos">${fmt(b.profit)}</b></div><div class="muted tiny" style="margin-top:8px">Buy at ~${fmt(UNIT_COST)}, sell at ${fmt(UNIT_PRICE)}. Friends send customers.</div></section><section class="card"><b>Shop activity</b>${b.sold||G.btx.length?G.btx.slice(0,15).map(t=>`<div class="tx"><span>${esc(t.txt)}</span><span class="${t.amt>0?'pos':'neg'}">${t.amt>0?'+':'−'}${fmt(t.amt)}</span></div>`).join(''):''}</section>`:`<section class="card"><b>No shop yet</b><div class="muted sm" style="margin-top:6px">Open the Mini Shop at the Market for ${fmt(SHOP_COST)}.</div></section>`}
-function settingsV(){return `<section class="card"><b>About Ajoloop</b><div class="muted sm" style="margin:6px 0">Build trust and community. Ajo circles use traditional rules (organizer first pot, stones for the rest). Offline build stores data on this device until the backend is connected.</div></section>
+function settingsV(){return `<section class="card"><b>About AjoLoop</b><div class="muted sm" style="margin:6px 0;line-height:1.5">
+Meet people. Share real experiences at local places. Build communities you can rely on. When a circle is ready, Ajo is a voluntary way to save together — not the starting point.
+<br><br>
+Trust grows from showing up, keeping word, and feedback after real interactions — not a single score that claims to know your character.
+<br><br>
+This offline build stores data on this device until the backend is connected.
+</div></section>
+<section class="card"><b>The path</b>
+<div class="muted sm" style="margin-top:6px;line-height:1.55">
+<b>1. Meet</b> — interests, people nearby, friend requests<br>
+<b>2. Experience</b> — local businesses, spots, hangouts<br>
+<b>3. Belong</b> — groups, chat, shared activities<br>
+<b>4. Support</b> — Ajo only when your community chooses it
+</div></section>
 <section class="card"><b>Time</b><div class="muted sm" style="margin:6px 0 10px">Advance the day to run Ajo contribution cycles.</div>
  <button class="btn ghost" data-a="sleep">⏭ Next day</button>
 </section>
@@ -1099,7 +1123,7 @@ function npcSheet(n){const here_=npcLoc(n)===G.p.loc,p=G.p;const know=n.rel>=50;
  <div class="tiny muted" style="margin-top:8px">Raised by talking, shared meals, help, and kept promises. Hurt by missed Ajo or broken word.</div></div>`
  :`<div class="card empty" style="margin-top:12px"><div class="big">🤝</div>You have not met yet. Say hello when you are in the same place.</div>`}
  <div class="card" style="background:var(--card)"><div class="tiny muted" style="font-weight:800">CAN YOU TRUST THEM?</div><div style="margin-top:4px;font-weight:700">${reads}</div>
- <div class="tiny muted" style="margin-top:6px">Their reliability is a character trait in the simulation — not a real-money credit score.</div></div>
+ <div class="tiny muted" style="margin-top:6px">This is limited evidence from interactions here — not a real-money credit score or a judgment of character.</div></div>
  ${n.said?`<div class="card" style="background:var(--card2)">“${esc(n.said)}”</div>`:''}
  <div class="profile-actions">
  ${(()=>{const st=friendStatus(n.id);
