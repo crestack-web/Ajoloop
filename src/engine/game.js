@@ -93,7 +93,7 @@ const SEED=()=>[
  {id:'a1',name:'Kasuwa Kings',host:'musa',size:5,amt:5000,freq:7,purpose:'business',members:['musa','aisha','yusuf','fatima']},
  {id:'a2',name:"Alhaja's Circle",host:'halima',size:4,amt:10000,freq:7,purpose:'wedding',members:['halima','ibrahim','zainab']},
  {id:'a3',name:'Teachers & Traders',host:'maryam',size:4,amt:2000,freq:3,purpose:'education',members:['maryam','hauwa','garba']}
-].map(a=>({...a,status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[],purpose:a.purpose||'general',memberReasons:{},pendingPayout:null}));
+].map(a=>({...a,status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[],purpose:a.purpose||'general',memberReasons:{},pendingPayout:null,roundPot:null}));
 
 let G=null; const FX=[];
 const fx=(t,k='say')=>FX.push({t,k});
@@ -527,7 +527,7 @@ function createAjo(name,size,amt,freq,opts){if(!atAjo())return false;if(blocked(
  if(freq<1)return no('Frequency must be at least 1 day.');
  const purpose=AJO_PURPOSES.some(p=>p.id===opts.purpose)?opts.purpose:'general';
  const hostReason=String(opts.reason||'').trim().slice(0,200);
- const a={id:'p'+G.nid++,name:name||'Kano Hustlers',host:'player',size,amt,freq,purpose,members:['player'],status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[],memberReasons:{},pendingPayout:null};
+ const a={id:'p'+G.nid++,name:name||'Kano Hustlers',host:'player',size,amt,freq,purpose,members:['player'],status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[],memberReasons:{},pendingPayout:null,roundPot:null};
  if(hostReason)a.memberReasons.player=hostReason;
  G.ajos.unshift(a);miles('ajohost','Started your own Ajo');
  const pur=ajoPurpose(purpose);
@@ -570,11 +570,53 @@ function rollStones(id){
  const rest=a.members.filter(m=>m!==a.host);
  a.order=[a.host,...shuffle(rest)];
  a.rolled=true;
+ a.rollDay=G.day;
+ ajoAct(a,'stones','Stones shuffled — payout order is locked. Organizer is round 1, then the stone order.');
  note(a.name+' stone roll done. Payout order is set. Organizer first, then the stones.','ajo');
  fx('Stones rolled!','good');
  return true;
 }
 function stoneOf(a,m){const id=a.stones&&a.stones[m];return id?STONES.find(s=>s.id===id):null}
+
+function potTarget(a){
+  if(!a)return 0;
+  const c=a.cycle|0;
+  const n=a.members.length;
+  const trad=a.mode==='traditional'||a.feePct!=null;
+  // Round 1: organizer receives and does not contribute
+  if(trad&&c===0) return Math.max(0,a.amt*(n-1));
+  return a.amt*n;
+}
+function potCollected(a){
+  if(!a)return 0;
+  const c=a.cycle|0;
+  return (a.contribs||[]).filter(x=>x.cycle===c&&(x.st==='paid'||x.st==='host_skip'))
+    .reduce((s,x)=>s+(x.st==='paid'?a.amt:0),0);
+}
+function potPaidCount(a){
+  if(!a)return 0;
+  const c=a.cycle|0;
+  return (a.contribs||[]).filter(x=>x.cycle===c&&x.st==='paid').length;
+}
+function potExpectedPayers(a){
+  if(!a)return 0;
+  const c=a.cycle|0;
+  const trad=a.mode==='traditional'||a.feePct!=null;
+  if(trad&&c===0) return Math.max(0,a.members.length-1);
+  return a.members.length;
+}
+function ensureRoundPot(a){
+  if(!a)return;
+  const c=a.cycle|0;
+  if(!a.roundPot||a.roundPot.cycle!==c){
+    a.roundPot={cycle:c,collected:potCollected(a),target:potTarget(a)};
+  } else {
+    a.roundPot.collected=potCollected(a);
+    a.roundPot.target=potTarget(a);
+  }
+  return a.roundPot;
+}
+
 
 function voteScore(v,reason){const base=v.rel*.45+G.p.trust*.3+G.p.rep*.1+({emergency:18,business:G.biz?14:6,plain:-8}[reason])+(v.tags.includes('generous')?8:0)-(v.tags.includes('opportunistic')&&v.rel<60?5:0)-G.p.missed*6;return base}
 function odds(a,reason){const vs=a.members.filter(m=>m!=='player').map(npc);const yes=vs.filter(v=>voteScore(v,reason)>=52).length/vs.length;return yes>=.75?'Good':yes>=.5?'Fair':'Slim'}
@@ -600,7 +642,7 @@ function startAjo(id){const a=ajoOf(id);if(!a.members.includes('player'))return 
  fx(a.name+' begins tomorrow!','warm');return true}
 function ontime(a){addTrust(3,'Kept an Ajo contribution');G.p.reliab=clamp(G.p.reliab+1);a.members.forEach(m=>{if(m!=='player')rel(m,1,'You kept your Ajo promise')});miles('contrib','Made your first Ajo contribution')}
 function payAjo(id){const a=ajoOf(id);if(!a.members.includes('player'))return no('You are not a member of this Ajo.');if(a.status!=='active')return no('This Ajo is not running.');if(cyc(a,'player'))return no('Already paid this cycle.');if(G.day<dueDay(a)-2)return no('Too early — contributions open 2 days before the due date (Day '+dueDay(a)+').');
- if(!spend(a.amt,'Ajo contribution — '+a.name,'ajo'))return false;a.contribs.push({cycle:a.cycle,m:'player',st:'paid',day:G.day});ontime(a);return true}
+ if(!spend(a.amt,'Ajo contribution — '+a.name,'ajo'))return false;a.contribs.push({cycle:a.cycle,m:'player',st:'paid',day:G.day});ontime(a);ensureRoundPot(a);ajoAct(a,'pay',G.p.name+' paid into the pot ('+fmt(a.roundPot.collected)+' / '+fmt(a.roundPot.target)+').');fx('Pot +'+fmt(a.amt),'gain');return true}
 function runCycle(a){const c=a.cycle,rec=a.order[c],P=G.p;let pot=0,short=[],ded=0;
  const trad=a.mode==='traditional'||a.feePct!=null;
  G.debts.filter(d=>d.ajo===a.id&&!d.paid&&d.m!=='player').forEach(d=>{if(Math.random()<.8){d.paid=true;pot+=d.amt;note(nm(d.m)+' cleared an earlier shortfall of '+fmt(d.amt)+'.','ajo')}});
@@ -632,7 +674,7 @@ function runCycle(a){const c=a.cycle,rec=a.order[c],P=G.p;let pot=0,short=[],ded
   fx('Pot ready — claim '+fmt(pay),'warm');
  }
  else{const pay=Math.max(0,pot-fee);note(npc(rec).n+' received the '+a.name+' pot ('+fmt(pay)+(fee?'; fee '+fmt(fee):'')+').','ajo');a.payouts.push({cycle:c,to:rec,amt:pay,fee,day:G.day})}
- a.cycle++;if(a.cycle>=a.size){a.status='done';if(a.members.includes('player')){addTrust(5,'Completed an Ajo circle');addRep(5,'Completed an Ajo circle');miles('ajodone','Completed a full Ajo circle');note(a.name+' is complete. Everyone got paid. That is trust.','good')}}}
+ a.cycle++;a.roundPot=null;if(a.cycle>=a.size){a.status='done';if(a.members.includes('player')){addTrust(5,'Completed an Ajo circle');addRep(5,'Completed an Ajo circle');miles('ajodone','Completed a full Ajo circle');note(a.name+' is complete. Everyone got paid. That is trust.','good')}}}
 function missAjo(a,c,rec){const P=G.p,t0=Math.round(P.trust),r0=Math.round(P.rep);a.contribs.push({cycle:c,m:'player',st:'missed',day:G.day});G.debts.push({id:G.nid++,ajo:a.id,cycle:c,m:'player',to:rec,amt:a.amt,day:G.day,paid:false});
  P.missed++;P.blockedUntil=G.day+AJO_BLOCK;P.happiness=clamp(P.happiness-8);addTrust(-20,'Missed an Ajo contribution');addRep(-7,'Missed an Ajo contribution');
  a.members.filter(m=>m!=='player').forEach(m=>rel(m,-10,'Missed Ajo payment'));G.npcs.filter(n=>n.met&&!a.members.includes(n.id)&&n.rel>25).forEach(n=>{n.rel=clamp(n.rel-2);n.hist.unshift({day:G.day,d:-2,why:'Heard you missed an Ajo payment'})});
@@ -1974,7 +2016,7 @@ function ensureSetup(){
   if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
   if(G.p.onboarded==null)G.p.onboarded=false;
 }
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.advances)a.advances=[];if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[];if(!a.purpose)a.purpose='general';if(!a.memberReasons)a.memberReasons={};});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};if(!G.p.username)G.p.username=(G.p.name||'').replace(/\s+/g,'').slice(0,20);if(!G.p.interests)G.p.interests=G.p.ints||[];if(!G.p.businessStatus)G.p.businessStatus='none';if(G.p.stars==null)G.p.stars=0;if(!G.p.giftSlots)G.p.giftSlots=[null,null,null,null,null,null];if(!G.p.giftsClaimed)G.p.giftsClaimed=[];(G.bizs||[]).forEach(b=>{
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.advances)a.advances=[];if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[];if(!a.purpose)a.purpose='general';if(!a.memberReasons)a.memberReasons={};if(a.roundPot==null)a.roundPot=null;});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};if(!G.p.username)G.p.username=(G.p.name||'').replace(/\s+/g,'').slice(0,20);if(!G.p.interests)G.p.interests=G.p.ints||[];if(!G.p.businessStatus)G.p.businessStatus='none';if(G.p.stars==null)G.p.stars=0;if(!G.p.giftSlots)G.p.giftSlots=[null,null,null,null,null,null];if(!G.p.giftsClaimed)G.p.giftsClaimed=[];(G.bizs||[]).forEach(b=>{
   if(!b.avatar||b.avatar.kind!=='building')b.avatar=defaultStoreAvatar(b.cat||'Other');
   if(!b.loc){const areaLoc={Fagge:'market',Gwale:'restaurant',Nasarawa:'social','Kano Municipal':'work',Tarauni:'market',Dala:'social',Kumbotso:'market',Ungogo:'park'};b.loc=areaLoc[b.area]||'market'}
 });ensureSetup()}

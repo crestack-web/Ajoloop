@@ -1408,6 +1408,62 @@ function npcSheet(n){const here_=npcLoc(n)===G.p.loc,p=G.p;const know=n.rel>=50;
  ${n.hist.length?`<div class="section-label">Between you two</div>${n.hist.slice(0,6).map(h=>`<div class="tx sm"><span>${esc(h.why)} <span class="muted tiny">Day ${h.day}</span></span><span class="${h.d>0?'pos':'neg'}">${h.d>0?'+':''}${h.d}</span></div>`).join('')}`:''}`}
 
 
+
+function ajoPotCard(a){
+  if(!a||(a.status!=='active'&&a.status!=='open'&&a.status!=='stones'))return '';
+  ensureRoundPot(a);
+  const rp=a.roundPot||{collected:0,target:potTarget(a)};
+  const target=rp.target||potTarget(a)||1;
+  const collected=rp.collected|0;
+  const pct=Math.min(100,Math.round(collected/target*100));
+  const paid=potPaidCount(a), need=potExpectedPayers(a);
+  const rec=a.status==='active'&&a.order&&a.order[a.cycle]!=null?nm(a.order[a.cycle]):'—';
+  const full=collected>=target&&target>0;
+  return `<section class="card ajo-pot-card">
+    <div class="row sp"><b>💰 Circle pot</b><span class="pill ${full?'ok':'wait'}">${full?'Ready to pay out':'Filling'}</span></div>
+    <div class="ajo-pot-visual">
+      <div class="ajo-pot-jar">
+        <div class="ajo-pot-fill" style="height:${pct}%"></div>
+        <div class="ajo-pot-amt">${fmt(collected)}</div>
+      </div>
+      <div class="ajo-pot-meta">
+        <div class="row sp sm"><span class="muted">This round</span><b>${fmt(collected)} / ${fmt(target)}</b></div>
+        <div class="ajo-pot-bar"><i style="width:${pct}%"></i></div>
+        <div class="row sp sm" style="margin-top:8px"><span class="muted">Contributions</span><b>${paid} / ${need}</b></div>
+        ${a.status==='active'?`<div class="row sp sm"><span class="muted">Receives pot</span><b>${esc(rec)}</b></div>`:''}
+        <div class="tiny muted" style="margin-top:8px">Every payment adds to the pot. When everyone has paid, the pot pays out in stone order.</div>
+      </div>
+    </div>
+  </section>`;
+}
+function ajoStoneOrderCard(a,animating){
+  if(!a)return '';
+  if(animating){
+    const pool=a.members.filter(m=>m!==a.host).map(m=>{
+      const st=stoneOf(a,m);
+      return {m,ic:st?st.ic:'🪨',n:st?st.n:'Stone'};
+    });
+    // scramble display order for animation frames
+    const scrambled=[...pool].sort(()=>Math.random()-0.5);
+    return `<section class="card stone-roll-card">
+      <b>🎲 Shuffling stones…</b>
+      <div class="muted sm" style="margin:6px 0 10px">Everyone watches — fair order is being drawn.</div>
+      <div class="stone-shuffle">${scrambled.map((x,i)=>`<div class="stone-chip shuffle" style="animation-delay:${i*0.08}s"><span class="sic">${x.ic}</span><span class="sn">${esc(nm(x.m))}</span></div>`).join('')}</div>
+      <div class="tiny muted" style="margin-top:10px">Organizer is always round 1. Other positions follow the shuffle.</div>
+    </section>`;
+  }
+  if(!a.rolled||!a.order||!a.order.length)return '';
+  return `<section class="card">
+    <b>🪨 Payout order</b>
+    <div class="muted sm" style="margin:6px 0 10px">Locked after the stone shuffle. Round 1 → organizer.</div>
+    <div class="stone-order-list">${a.order.map((m,i)=>{
+      const st=stoneOf(a,m);
+      const now=a.status==='active'&&a.cycle===i;
+      return `<div class="stone-order-row ${now?'on':''}"><span class="so-rank">${i+1}</span><span class="so-ic">${st?st.ic:(i===0?'👑':'🪨')}</span><span class="so-name">${esc(nm(m))}${m===a.host?' · organizer':''}</span>${now?'<span class="pill ok">Now</span>':''}</div>`;
+    }).join('')}</div>
+  </section>`;
+}
+
 function ajoJoinSheet(a){
   if(!a)return '<div class="muted">Circle not found</div>';
   const pur=ajoPurpose(a.purpose);
@@ -1817,24 +1873,39 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
  </section>`}
 
  if(st==='stones'){
-  h+=`<section class="card"><b>🪨 Stones</b><div class="muted sm" style="margin:6px 0 10px">Pick a free stone. Organizer is always paid first.</div>`;
-  if(a.members.includes('player')&&!a.stones.player){
+  const animating=UI.stoneAnim&&UI.stoneAnim.id===a.id;
+  h+=ajoPotCard(a);
+  h+=`<section class="card"><b>🪨 Stones</b><div class="muted sm" style="margin:6px 0 10px">When the circle is full, everyone picks a stone. The organizer rolls them so the payout order is fair and visible.</div>`;
+  if(a.members.includes('player')&&!a.stones.player&&!a.rolled){
    h+=`<div class="stone-grid">${freeStones(a).map(s=>`<button class="stone-btn" data-a="pickStone" data-id="${a.id}" data-s="${s.id}"><span class="sic">${s.ic}</span><span class="sn">${s.n}</span></button>`).join('')}</div>`;
   } else if(a.stones.player){
    const mine=stoneOf(a,'player');h+=`<div class="muted sm">Your stone: <b>${mine?mine.ic+' '+mine.n:''}</b></div>`;
   }
-  if(a.rolled){
-   h+=`<div class="section-label">Payout order</div>${a.order.map((m,i)=>`<div class="row sp sm" style="margin-top:6px"><span>${i+1}. ${nm(m)}${m===a.host?' (organizer)':''} ${stoneOf(a,m)?stoneOf(a,m).ic:''}</span>${i===0?'<span class="badge-ajo">Round 1</span>':''}</div>`).join('')}`;
-   if(a.members.includes('player'))h+=`<button class="btn" style="margin-top:12px" data-a="ajoStart" data-id="${a.id}" >Start circle (begins tomorrow)</button>`;
-  } else if(stonesReady(a)){
-   h+=`<button class="btn" style="margin-top:12px" data-a="rollStones" data-id="${a.id}">🎲 Roll the stones</button>`;
-  } else h+=`<div class="muted sm" style="margin-top:8px">Waiting for stones…</div>`;
+  // Who has picked
+  h+=`<div class="tiny muted" style="margin-top:8px">${a.members.filter(m=>m!==a.host).map(m=>{
+    const stn=stoneOf(a,m);return esc(nm(m))+': '+(stn?stn.ic+' '+stn.n:'waiting…');
+  }).join(' · ')}</div>`;
   h+=`</section>`;
+  if(animating){
+   h+=ajoStoneOrderCard(a,true);
+  } else if(a.rolled){
+   h+=ajoStoneOrderCard(a,false);
+   if(a.members.includes('player'))h+=`<button class="btn" style="margin-top:12px" data-a="ajoStart" data-id="${a.id}">Start circle (begins tomorrow)</button>`;
+  } else if(stonesReady(a)){
+   const canRoll=a.host==='player'||a.members.includes('player');
+   h+=`<button class="btn" style="margin-top:12px" data-a="rollStones" data-id="${a.id}" ${canRoll?'':'disabled'}>🎲 Shuffle & roll the stones</button>
+   <div class="tiny muted" style="margin-top:6px">Organizer rolls. Everyone sees the shuffle, then the locked order.</div>`;
+  } else {
+   h+=`<div class="muted sm" style="margin-top:10px">Waiting for everyone to pick a stone…</div>`;
+  }
  }
 
  if(st==='active'){
   const d=dueDay(a),rec=a.order[a.cycle],paid=!!cyc(a,'player');
   const pend=a.pendingPayout&&!a.pendingPayout.claimed?a.pendingPayout:null;
+  ensureRoundPot(a);
+  h+=ajoPotCard(a);
+  h+=ajoStoneOrderCard(a,false);
   h+=`
   <section class="card"><b>Round ${a.cycle+1} of ${a.size}</b>
    <div class="row sp" style="margin-top:8px"><span class="muted sm">Due</span><b>Day ${d}</b></div>
@@ -2698,7 +2769,24 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     if(fn){fn(d.id);commit()} else render();
   }break;
   case 'pickStone':run(pickStone,d.id,d.s);break;
-  case 'rollStones':run(rollStones,d.id);break;
+  case 'rollStones':{
+    const a=ajoOf(d.id);
+    if(!a){fx('Circle not found','warn');break}
+    if(!stonesReady(a)){fx('Everyone still needs a stone','warn');break}
+    if(a.rolled){fx('Already rolled','warn');break}
+    // Visual shuffle so every participant sees the draw
+    UI.stoneAnim={id:d.id,t:Date.now()};
+    render();
+    let frames=0;
+    const tick=()=>{
+      frames++;
+      if(frames<12){render();setTimeout(tick,120);return}
+      UI.stoneAnim=null;
+      if(rollStones(d.id)){fx('Order locked — organizer first','good');commit()}
+      else {flush();render()}
+    };
+    setTimeout(tick,150);
+  }break;
   case 'join':run(joinAjo,d.id);break;
   case 'inv':run(invite,d.id,d.n);break;
   case 'req':run(reqPriority,d.id,d.r);break;
