@@ -199,8 +199,31 @@ function gFace(g,sz){
 }
 
 
-async function boot(){const s=await Store.load();if(s&&s.p){G=s;migrate()}deepLink();render();setInterval(()=>{if(!G||G.ev||UI.modal)return;UI.prog++;const hb=document.getElementById('hb');if(hb)hb.style.width=(UI.prog/60*100)+'%';if(UI.prog>=60){UI.prog=0;tick(1);commit()}},1000)}
-function commit(){Store.save();render()}
+async function boot(){
+  try{if(typeof api!=='undefined'&&api.init) await api.init()}catch(e){console.warn('api.init',e)}
+  let s=await Store.load();
+  try{
+    if(typeof api!=='undefined'&&api.online){
+      const session=await api.getSession();
+      if(session){
+        const remote=await api.pullState();
+        if(remote&&remote.p){s=remote}
+      }
+    }
+  }catch(e){console.warn('cloud pull',e)}
+  if(s&&s.p){G=s;migrate()}
+  deepLink();render();
+  setInterval(()=>{if(!G||G.ev||UI.modal)return;UI.prog++;const hb=document.getElementById('hb');if(hb)hb.style.width=(UI.prog/60*100)+'%';if(UI.prog>=60){UI.prog=0;tick(1);commit()}},1000)
+}
+function commit(){
+  Store.save();
+  try{
+    if(typeof api!=='undefined'&&api.online&&typeof G!=='undefined'&&G){
+      api.schedulePush(G);
+    }
+  }catch(e){}
+  render();
+}
 
 function render(){
  if(!G){app.innerHTML=createView();return}
@@ -236,10 +259,12 @@ function createView(){
   // Returning user — simple social-style continue
   if(acc&&acc.username&&UI.authMode!=='register'){
     const face=acc.avatar?renderAvatar(acc.avatar,88):renderAvatar(defaultAvatar(acc.gender||'Male'),88);
+    const online=typeof api!=='undefined'&&api.online;
     return `<div class="title auth-simple">
 <img class="logo-hero" src="/logo.png" alt="AjoLoop" width="240" height="auto">
 <h1>Welcome back</h1>
 <p class="muted">Meet people · share experiences · build trust · support your circle.</p>
+${online?`<div class="pill ok" style="margin:0 auto 10px;display:inline-block">Online</div>`:`<div class="pill wait" style="margin:0 auto 10px;display:inline-block">Offline demo</div>`}
 <div class="card flat auth-card">
   <div class="av-preview">${face}</div>
   <div class="auth-user">@${esc(acc.username)}</div>
@@ -247,7 +272,13 @@ function createView(){
   <button class="btn" data-a="loginContinue" style="margin-top:16px">Continue</button>
   <button class="btn ghost sm" data-a="authRegister" style="margin-top:10px;display:block;width:100%">Create a new account</button>
 </div>
-<p class="tiny center muted">Your data stays on this device until cloud login is connected.</p></div>`;
+${online?`<div class="card flat" style="margin-top:14px;text-align:left">
+  <div class="muted sm" style="margin-bottom:8px">Or sign in with email</div>
+  <label class="l">Email</label><div class="field"><input type="email" id="f-email" autocomplete="email" placeholder="you@email.com"></div>
+  <label class="l">Password</label><div class="field"><input type="password" id="f-password" autocomplete="current-password" placeholder="••••••••"></div>
+  <button class="btn" data-a="onlineLogin" style="margin-top:10px;width:100%">Sign in online</button>
+</div>`:''}
+<p class="tiny center muted">${online?'Progress syncs to your account when online.':'Local demo — add Supabase keys to go online (docs/BACKEND.md).'}</p></div>`;
   }
   // First-time / register wizard
   const f=UI.form;const step=UI.regStep||1;
@@ -267,11 +298,16 @@ function createView(){
       <div class="muted tiny">Letters, numbers, underscore — no spaces.</div>
       <label class="l">Display name</label>
       <div class="field"><input type="text" id="f-name" maxlength="20" placeholder="e.g. Abubakar" value="${esc(f.name||'')}" autocomplete="nickname"></div>
+      ${(typeof api!=='undefined'&&api.online)?`<label class="l">Email</label>
+      <div class="field"><input type="email" id="f-email" value="${esc(f.email||'')}" autocomplete="email" placeholder="you@email.com"></div>
+      <label class="l">Password</label>
+      <div class="field"><input type="password" id="f-password" autocomplete="new-password" placeholder="At least 6 characters"></div>
+      <div class="muted tiny" style="margin-bottom:8px">Required for online accounts so your progress syncs.</div>`:''}
       <label class="l">Age</label>
       <div class="field"><input type="number" id="f-age" min="18" max="60" value="${f.age||24}"></div>
       <label class="l">I am</label>
       <div class="opts">${['Male','Female','Other'].map(g=>`<button data-a="gender" data-v="${g}" class="${f.gender===g?'on':''}">${g}</button>`).join('')}</div>
-      <button class="btn" data-a="regNext" style="margin-top:16px">Continue</button>`;
+      <button class="btn" data-a="${(typeof api!=='undefined'&&api.online)?'onlineRegister':'regNext'}" style="margin-top:16px">${(typeof api!=='undefined'&&api.online)?'Create online account & continue':'Continue'}</button>`;;
   } else if(step===2){
     body=`<h2 class="reg-h">What are you into?</h2>
       <p class="muted sm reg-sub">Pick a few interests so we can match you with people and groups.</p>
@@ -1141,7 +1177,11 @@ function journeyV(){const s=G.snap.concat([{day:G.day,nw:netWorth(),trust:Math.r
  return `<section class="card"><b>📈 Your life so far</b>${spark(s.map(x=>x.nw),'#ffc928','Net worth (₦)')}${spark(s.map(x=>x.trust),'#22c177','Trust')}${spark(s.map(x=>x.rep),'#5cc8ff','Reputation')}</section>
  <section class="card"><b>🏁 Milestones</b>${ms.length?ms.map(m=>`<div class="tx"><span>${esc(m.txt)}</span><span class="muted tiny">Day ${m.day}</span></div>`).join(''):'<div class="muted sm">Your story starts now.</div>'}</section>`}
 function shopV(){const b=G.biz;return b?`<section class="card"><b>🥤 Mini Shop</b><div class="row sp" style="margin-top:8px"><span class="muted">Stock</span><b>${b.stock} drinks</b></div><div class="row sp"><span class="muted">Sold</span><b>${b.sold}</b></div><div class="row sp"><span class="muted">Revenue</span><b>${fmt(b.rev)}</b></div><div class="row sp"><span class="muted">Profit</span><b class="pos">${fmt(b.profit)}</b></div><div class="muted tiny" style="margin-top:8px">Buy at ~${fmt(UNIT_COST)}, sell at ${fmt(UNIT_PRICE)}. Friends send customers.</div></section><section class="card"><b>Shop activity</b>${b.sold||G.btx.length?G.btx.slice(0,15).map(t=>`<div class="tx"><span>${esc(t.txt)}</span><span class="${t.amt>0?'pos':'neg'}">${t.amt>0?'+':'−'}${fmt(t.amt)}</span></div>`).join(''):''}</section>`:`<section class="card"><b>No shop yet</b><div class="muted sm" style="margin-top:6px">Open the Mini Shop at the Market for ${fmt(SHOP_COST)}.</div></section>`}
-function settingsV(){return `<section class="card"><b>About AjoLoop</b><div class="muted sm" style="margin:6px 0;line-height:1.5">
+function settingsV(){return `<section class="card"><b>Connection</b>
+<div class="muted sm" style="margin:6px 0">${typeof api!=='undefined'&&api.online?'🟢 Online — progress syncs to your account.':'⚪ Offline demo — local only on this device.'}</div>
+${typeof api!=='undefined'&&api.online&&api.userId?`<button class="btn ghost sm" data-a="signOut">Sign out</button>`:''}
+</section>
+<section class="card"><b>About AjoLoop</b><div class="muted sm" style="margin:6px 0;line-height:1.5">
 Meet people. Share real experiences at local places. Build communities you can rely on. When a circle is ready, Ajo is a voluntary way to save together — not the starting point.
 <br><br>
 Trust grows from showing up, keeping word, and feedback after real interactions — not a single score that claims to know your character.
@@ -2029,8 +2069,16 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'authRegister':UI.authMode='register';UI.regStep=1;render();break;
   case 'authLogin':UI.authMode=null;render();break;
   case 'loginContinue':{
-    // Resume saved game if present; otherwise start fresh from account profile
     (async()=>{
+      try{
+        if(typeof api!=='undefined'&&api.online){
+          const session=await api.getSession();
+          if(session){
+            const remote=await api.pullState();
+            if(remote&&remote.p){G=remote;migrate();UI.tab='life';UI.authMode=null;commit();return}
+          }
+        }
+      }catch(e){console.warn(e)}
       const s=await Store.load();
       const acc=Account.load();
       if(s&&s.p){G=s;migrate();UI.tab='life';UI.authMode=null;render();return}
@@ -2039,6 +2087,52 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
         if(acc.avatar) setAvatar(acc.avatar);
         UI.tab='life';UI.authMode=null;commit();
       } else {UI.authMode='register';render()}
+    })();
+  }break;
+  case 'onlineLogin':{
+    (async()=>{
+      const email=(document.getElementById('f-email')||{}).value||'';
+      const password=(document.getElementById('f-password')||{}).value||'';
+      if(!email||!password){fx('Enter email and password.','warn');flush();return}
+      fx('Signing in…','warm');flush();
+      const res=await api.signIn({email,password});
+      if(res.error){fx(res.error,'warn');flush();return}
+      const remote=await api.pullState();
+      if(remote&&remote.p){G=remote;migrate()}
+      else {
+        const acc=Account.load();
+        const s=await Store.load();
+        if(s&&s.p){G=s;migrate()}
+        else if(acc){newGame(acc.name||acc.username,acc.age||24,acc.gender||'Male',{username:acc.username,interests:acc.interests||[],businessStatus:acc.businessStatus||'none'})}
+      }
+      UI.tab='life';UI.authMode=null;commit();
+      fx('Signed in','good');
+    })();
+  }break;
+  case 'onlineRegister':{
+    (async()=>{
+      const email=((document.getElementById('f-email')||{}).value||UI.form.email||'').trim();
+      const password=(document.getElementById('f-password')||{}).value||'';
+      const username=((document.getElementById('f-username')||{}).value||UI.form.username||'').trim().replace(/^@/,'').toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,20);
+      const name=((document.getElementById('f-name')||{}).value||UI.form.name||username).trim();
+      const ageEl=document.getElementById('f-age');
+      if(ageEl&&ageEl.value) UI.form.age=ageEl.value;
+      UI.form.username=username;UI.form.name=name;UI.form.email=email;
+      if(username.length<3){fx('Username needs at least 3 characters.','warn');flush();return}
+      if(typeof api==='undefined'||!api.online){fx('Online mode is not configured.','warn');flush();return}
+      fx('Creating account…','warm');flush();
+      const res=await api.signUp({email,password,username,displayName:name});
+      if(res.error){fx(res.error,'warn');flush();return}
+      if(res.session) fx('Account created — finish your profile.','good');
+      else fx('Check your email to confirm, then sign in.','warm');
+      UI.regStep=2;render();
+    })();
+  }break;
+  case 'signOut':{
+    (async()=>{
+      try{if(api&&api.online) await api.signOut()}catch(e){}
+      G=null;UI.authMode=null;UI.tab='life';render();
+      fx('Signed out','warm');
     })();
   }break;
   case 'regBack':UI.regStep=Math.max(1,(UI.regStep||1)-1);render();break;
@@ -2089,6 +2183,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
       avatar:G.p.avatar,created:Date.now()
     });
     UI.tab='life';UI.authMode=null;UI.regStep=1;commit();
+    try{if(typeof api!=='undefined'&&api.online&&G) api.pushState(G)}catch(e){}
   }break;
   case 'tab':UI.tab=d.v;UI.modal=null;render();break;
   case 'townMode':UI.townMode=d.v==='city'?'live':d.v;render();break;
