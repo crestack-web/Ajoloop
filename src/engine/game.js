@@ -163,6 +163,33 @@ function work(){const p=G.p,j=JOBS.find(x=>x.id===p.job);if(!j)return no('Pick a
  if(p.trust<65)addTrust(1,'Showed up for work');gProgress('work');tick(8);return true}
 function deposit(a){if(a>G.p.cash)a=G.p.cash;if(a<=0)return no('No cash to save.');ledger(-a,'Saved at Arewa Bank','savings');G.p.savings+=a;return true}
 function withdraw(a){if(a>G.p.savings)a=G.p.savings;if(a<=0)return no('Nothing saved yet.');G.p.savings-=a;ledger(a,'Withdrew from savings','savings');return true}
+function topUp(amount){
+  amount=Math.floor(+amount||0);
+  if(amount<100)return no('Minimum top-up is ₦100.');
+  if(amount>500000)return no('Maximum top-up per time is ₦500,000.');
+  earn(amount,'Wallet top-up','topup');
+  note('Top-up of '+fmt(amount)+' added to your balance.','good');
+  fx('Top-up '+fmt(amount),'gain');
+  return true;
+}
+function claimAjoPayout(id){
+  const a=ajoOf(id);
+  if(!a)return no('Circle not found.');
+  if(!a.members.includes('player'))return no('You are not in this circle.');
+  const p=a.pendingPayout;
+  if(!p||p.claimed)return no('No pot waiting for you to claim.');
+  const pay=Math.max(0,Math.floor(p.amt||0));
+  earn(pay,'AJO PAYOUT — '+a.name+(p.cycle!=null?(' · round '+(p.cycle+1)):''),'ajo');
+  fx('AJO PAYOUT|'+fmt(pay),'payout');
+  addRep(2,'Claimed an Ajo pot');
+  miles('payout','Received your first Ajo payout');
+  note('You claimed the pot from '+a.name+': '+fmt(pay)+'.'+(p.fee?(' Fee was '+fmt(p.fee)+'.'):'')+(p.ded?(' Credits deducted '+fmt(p.ded)+'.'):''),'good');
+  a.payouts=a.payouts||[];
+  a.payouts.push({cycle:p.cycle,to:'player',amt:pay,fee:p.fee||0,ded:p.ded||0,day:G.day,claimed:true});
+  p.claimed=true;
+  a.pendingPayout=null;
+  return true;
+}
 
 /* ---- mini shop ---- */
 function bizStart(){if(G.biz)return false;if(G.p.loc!=='market')return no('Open your shop at the Market.');if(!spend(SHOP_COST,'Mini Shop startup (stall, permit, first 10 drinks)','business'))return false;G.biz={name:'Mini Shop',stock:10,avg:UNIT_COST,sold:0,rev:0,profit:0,since:G.day};G.btx.unshift({day:G.day,txt:'Opened Mini Shop',amt:-SHOP_COST});miles('shop','Opened the Mini Shop');note('Mini Shop is open! Stock it, sell it, build your name.','good');return true}
@@ -554,12 +581,9 @@ function runCycle(a){const c=a.cycle,rec=a.order[c],P=G.p;let pot=0,short=[],ded
   ded=adv.reduce((s,x)=>s+x.amt,0);
   adv.forEach(x=>{x.settled=true;x.settleDay=G.day});
   const pay=Math.max(0,pot-ded-fee);
-  earn(pay,'AJO PAYOUT — '+a.name,'ajo');
-  fx('AJO PAYOUT|'+fmt(pay),'payout');
-  addRep(2,'Completed an Ajo cycle');
-  miles('payout','Received your first Ajo payout');
-  note('AJO PAYOUT: '+fmt(pay)+' from '+a.name+'.'+(ded?' Circle credit '+fmt(ded)+' deducted.':'')+(fee?' Fee '+fmt(fee)+'.':'')+(short.length?' Short because '+short.join(', ')+' missed.':''),'good');
-  a.payouts.push({cycle:c,to:rec,amt:pay,fee,ded,day:G.day})
+  a.pendingPayout={cycle:c,amt:pay,fee,ded,pot,day:G.day,claimed:false};
+  note('Your pot from '+a.name+' is ready: '+fmt(pay)+'. Open the circle and claim payout.'+(fee?' (Fee '+fmt(fee)+')':'')+(ded?' Credits '+fmt(ded)+' deducted.':'')+(short.length?' Short: '+short.join(', ')+'.':''),'good');
+  fx('Pot ready — claim '+fmt(pay),'warm');
  }
  else{const pay=Math.max(0,pot-fee);note(npc(rec).n+' received the '+a.name+' pot ('+fmt(pay)+(fee?'; fee '+fmt(fee):'')+').','ajo');a.payouts.push({cycle:c,to:rec,amt:pay,fee,day:G.day})}
  a.cycle++;if(a.cycle>=a.size){a.status='done';if(a.members.includes('player')){addTrust(5,'Completed an Ajo circle');addRep(5,'Completed an Ajo circle');miles('ajodone','Completed a full Ajo circle');note(a.name+' is complete. Everyone got paid. That is trust.','good')}}}
