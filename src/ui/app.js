@@ -1954,7 +1954,12 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
 
  if(a.host==='player'&&st==='open'){
   h+=`<div class="row" style="gap:8px;margin:10px 0"><button class="btn sm ${a.vis==='public'?'':'ghost'}" data-a="ajoVis" data-id="${a.id}" data-v="public">🌐 Public</button>
-   <button class="btn sm ${a.vis==='private'?'':'ghost'}" data-a="ajoVis" data-id="${a.id}" data-v="private">🔒 Private</button></div>`;
+   <button class="btn sm ${a.vis==='private'?'':'ghost'}" data-a="ajoVis" data-id="${a.id}" data-v="private">🔒 Private</button>
+   ${a.host==='player'?`<button class="btn sm" data-a="ajoShareOpen" data-id="${a.id}">🔗 Invite code</button>`:''}</div>`;
+  if(a.host==='player'){
+    const ac=(a.codes||[]).filter(c=>!c.rev&&c.exp>=G.day);
+    if(ac.length) h+=`<div class="tiny muted" style="margin-bottom:8px">Active invites: ${ac.map(c=>esc(c.code)).join(', ')}</div>`;
+  }
  }
 
  const pending=(a.joinReqs||[]).filter(r=>r.st==='pending');
