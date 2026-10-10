@@ -1177,9 +1177,18 @@ function journeyV(){const s=G.snap.concat([{day:G.day,nw:netWorth(),trust:Math.r
  return `<section class="card"><b>📈 Your life so far</b>${spark(s.map(x=>x.nw),'#ffc928','Net worth (₦)')}${spark(s.map(x=>x.trust),'#22c177','Trust')}${spark(s.map(x=>x.rep),'#5cc8ff','Reputation')}</section>
  <section class="card"><b>🏁 Milestones</b>${ms.length?ms.map(m=>`<div class="tx"><span>${esc(m.txt)}</span><span class="muted tiny">Day ${m.day}</span></div>`).join(''):'<div class="muted sm">Your story starts now.</div>'}</section>`}
 function shopV(){const b=G.biz;return b?`<section class="card"><b>🥤 Mini Shop</b><div class="row sp" style="margin-top:8px"><span class="muted">Stock</span><b>${b.stock} drinks</b></div><div class="row sp"><span class="muted">Sold</span><b>${b.sold}</b></div><div class="row sp"><span class="muted">Revenue</span><b>${fmt(b.rev)}</b></div><div class="row sp"><span class="muted">Profit</span><b class="pos">${fmt(b.profit)}</b></div><div class="muted tiny" style="margin-top:8px">Buy at ~${fmt(UNIT_COST)}, sell at ${fmt(UNIT_PRICE)}. Friends send customers.</div></section><section class="card"><b>Shop activity</b>${b.sold||G.btx.length?G.btx.slice(0,15).map(t=>`<div class="tx"><span>${esc(t.txt)}</span><span class="${t.amt>0?'pos':'neg'}">${t.amt>0?'+':'−'}${fmt(t.amt)}</span></div>`).join(''):''}</section>`:`<section class="card"><b>No shop yet</b><div class="muted sm" style="margin-top:6px">Open the Mini Shop at the Market for ${fmt(SHOP_COST)}.</div></section>`}
-function settingsV(){return `<section class="card"><b>Connection</b>
-<div class="muted sm" style="margin:6px 0">${typeof api!=='undefined'&&api.online?'🟢 Online — progress syncs to your account.':'⚪ Offline demo — local only on this device.'}</div>
-${typeof api!=='undefined'&&api.online&&api.userId?`<button class="btn ghost sm" data-a="signOut">Sign out</button>`:''}
+function settingsV(){
+  const online=typeof api!=='undefined'&&api.online;
+  const signedIn=online&&api.userId;
+  const acc=typeof Account!=='undefined'?Account.load():null;
+  const uname=(G&&G.p&&G.p.username)||(acc&&acc.username)||'';
+  return `<section class="card"><b>Account</b>
+<div class="muted sm" style="margin:6px 0 10px">${uname?'Signed in as <b>@'+esc(uname)+'</b>':'Playing on this device'}${online?(signedIn?' · 🟢 Online':' · 🟢 Online ready'):' · ⚪ Offline demo'}</div>
+<button class="btn" data-a="logout" style="width:100%">Log out</button>
+<div class="tiny muted" style="margin-top:8px">Saves your progress${online?' to the cloud':''}, then returns to the welcome screen. You can sign back in anytime.</div>
+</section>
+<section class="card"><b>Connection</b>
+<div class="muted sm" style="margin:6px 0">${online?'🟢 Online — progress syncs to your account.':'⚪ Offline demo — local only on this device.'}</div>
 </section>
 <section class="card"><b>About AjoLoop</b><div class="muted sm" style="margin:6px 0;line-height:1.5">
 Meet people. Share real experiences at local places. Build communities you can rely on. When a circle is ready, Ajo is a voluntary way to save together — not the starting point.
@@ -2128,11 +2137,19 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
       UI.regStep=2;render();
     })();
   }break;
+  case 'logout':
   case 'signOut':{
     (async()=>{
-      try{if(api&&api.online) await api.signOut()}catch(e){}
-      G=null;UI.authMode=null;UI.tab='life';render();
-      fx('Signed out','warm');
+      try{
+        // Save before leaving
+        if(G){await Store.save(); if(typeof api!=='undefined'&&api.online) await api.pushState(G)}
+      }catch(e){}
+      try{if(typeof api!=='undefined'&&api.online) await api.signOut()}catch(e){}
+      G=null;
+      UI.modal=null;UI.authMode=null;UI.tab='life';UI.regStep=1;
+      UI.more='settings';
+      render();
+      fx('Logged out. Your progress is saved.','warm');
     })();
   }break;
   case 'regBack':UI.regStep=Math.max(1,(UI.regStep||1)-1);render();break;
