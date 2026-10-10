@@ -259,8 +259,6 @@ export const api = {
       .limit(limit);
     return data || [];
   },
-};
-
 
   /** Real NGN wallet balance from Supabase */
   async getWalletBalance() {
@@ -319,5 +317,6 @@ export const api = {
     }
     return w;
   },
+};
 
 export default api;
