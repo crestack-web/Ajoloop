@@ -238,12 +238,18 @@ async function boot(){
     if(typeof api!=='undefined'&&api.online){
       const session=await api.getSession();
       if(session){
+        await api.hydrateCloud();
         const remote=await api.pullState();
         if(remote&&remote.p){s=remote}
       }
     }
   }catch(e){console.warn('cloud pull',e)}
   if(s&&s.p){G=s;migrate()}
+  try{
+    if(typeof api!=='undefined'&&api.online&&api.userId&&G){
+      await api.hydrateCloud();
+    }
+  }catch(e){console.warn('post-boot hydrate',e)}
   deepLink();render();
   setInterval(()=>{if(!G||G.ev||UI.modal)return;UI.prog++;const hb=document.getElementById('hb');if(hb)hb.style.width=(UI.prog/60*100)+'%';if(UI.prog>=60){UI.prog=0;tick(1);commit()}},1000)
 }
@@ -2586,7 +2592,12 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
       }
       if(G&&G.p&&!G.p.onboarded) markOnboarded();
       UI.tab='life';UI.authMode=null;UI.modal=null;commit();
-      try{if(typeof api!=='undefined'&&api.online) await api.syncWalletToGame()}catch(e){}
+      try{
+        if(typeof api!=='undefined'&&api.online){
+          await api.hydrateCloud();
+          await api.syncWalletToGame();
+        }
+      }catch(e){}
       commit();
       fx('Signed in','good');
     })();

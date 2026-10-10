@@ -261,6 +261,76 @@ export const api = {
   },
 
   /** Real NGN wallet balance from Supabase */
+
+  /**
+   * Ensure profile + wallet rows exist and pull KYC/bank into game state.
+   * Call after login / boot when online.
+   */
+  async hydrateCloud() {
+    if (!supabase || !_session?.user) return null;
+    const uid = _session.user.id;
+    const meta = _session.user.user_metadata || {};
+    const username = (meta.username || (_session.user.email || '').split('@')[0] || 'user').toString().slice(0, 20);
+    const display = meta.display_name || meta.username || username;
+
+    // Profile + wallet bootstrap (RLS allows own insert)
+    try {
+      await supabase.from('profiles').upsert({
+        id: uid,
+        username: username.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20) || ('u' + uid.slice(0, 8)),
+        display_name: display,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+    } catch (e) {
+      console.warn('profile ensure', e);
+    }
+    try {
+      await supabase.from('wallets').upsert({ user_id: uid, balance: 0 }, { onConflict: 'user_id', ignoreDuplicates: true });
+    } catch (e) {
+      console.warn('wallet ensure', e);
+    }
+    try {
+      await supabase.from('game_states').upsert({ user_id: uid, state: {} }, { onConflict: 'user_id', ignoreDuplicates: true });
+    } catch (e) {
+      console.warn('game_states ensure', e);
+    }
+
+    // Mirror KYC / bank into G when present
+    try {
+      const info = await this.loadKycAndBank();
+      if (info && typeof G !== 'undefined' && G?.p) {
+        if (info.kyc) {
+          G.p.kyc = {
+            status: info.kyc.status || 'unverified',
+            ninLast4: info.kyc.nin_last4 || '',
+            fullName: info.kyc.full_name || '',
+            submittedAt: info.kyc.submitted_at || null,
+          };
+        }
+        const def = (info.banks || []).find(b => b.is_default) || (info.banks || [])[0];
+        if (def) {
+          G.p.bank = {
+            bankCode: def.bank_code,
+            bankName: def.bank_name,
+            accountNumber: def.account_number,
+            accountName: def.account_name,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('kyc/bank hydrate', e);
+    }
+
+    // Wallet balance → game cash
+    try {
+      await this.syncWalletToGame();
+    } catch (e) {
+      console.warn('wallet hydrate', e);
+    }
+
+    return { ok: true };
+  },
+
   async getWalletBalance() {
     if (!supabase || !_session?.user) return { balance: 0, currency: 'NGN' };
     const { data } = await supabase
