@@ -1338,18 +1338,20 @@ function giftReadySheet(){
 function topUpSheet(){
   const bal=G.p.cash|0;
   const amts=[1000,2000,5000,10000,20000,50000];
+  const online=typeof api!=='undefined'&&api.online;
   return `<h2>Top up balance</h2>
-  <div class="muted sm" style="margin:4px 0 12px">Add funds so you can pay Ajo contributions and join activities. Demo top-ups credit this device instantly.</div>
+  <div class="muted sm" style="margin:4px 0 12px">Add real NGN with card or bank transfer (Bachs). Funds credit your Ajoloop wallet after payment succeeds.</div>
   <div class="card" style="text-align:center;margin-bottom:12px">
     <div class="tiny muted">Current balance</div>
     <div class="cash" style="font-size:28px;margin-top:4px">${fmt(bal)}</div>
   </div>
+  ${!online?`<div class="warnbox">Sign in with an online account to top up. Payments need Supabase + Bachs.</div>`:''}
   <label class="l">Quick amounts</label>
   <div class="opts">${amts.map(a=>`<button data-a="topUpAmt" data-v="${a}" class="${+(UI.topUpAmt||0)===a?'on':''}">${fmt(a)}</button>`).join('')}</div>
   <label class="l">Custom amount (₦)</label>
   <div class="field"><input type="number" id="f-topup" min="100" max="500000" step="100" placeholder="e.g. 7500" value="${UI.topUpAmt||''}"></div>
-  <button class="btn" style="width:100%;margin-top:14px" data-a="topUpGo">Top up now</button>
-  <div class="tiny muted" style="margin-top:10px">Online payments (card, transfer, USSD) will plug in here when the payment partner is connected. For now this is demo credit.</div>`;
+  <button class="btn" style="width:100%;margin-top:14px" data-a="topUpGo" ${online?'':'disabled'}>Pay with Bachs</button>
+  <div class="tiny muted" style="margin-top:10px">You will be redirected to secure checkout. After paying, return here — your balance updates automatically.</div>`;
 }
 
 function sheetHtml(){let h='';
@@ -2681,7 +2683,20 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'topUpGo':{
     const el=document.getElementById('f-topup');
     const amt=el&&el.value!==''?+el.value:(UI.topUpAmt||0);
-    if(topUp(amt)){UI.modal=null;commit()} else {flush();render()}
+    (async()=>{
+      try{
+        if(typeof api==='undefined'||!api.online){fx('Sign in online to top up','warn');flush();render();return}
+        fx('Opening secure checkout…','warm');
+        const res=await api.createTopUpCheckout(amt);
+        if(res.error){fx(res.error,'warn');flush();render();return}
+        if(res.checkout_url){
+          UI.modal=null;render();
+          location.href=res.checkout_url;
+          return;
+        }
+        fx('Could not start payment','warn');flush();render();
+      }catch(err){fx(String(err.message||err),'warn');flush();render()}
+    })();
   }break;
   case 'ajoClaim':if(claimAjoPayout(d.id,UI.gi.ajoUseReason||'')){delete UI.gi.ajoUseReason}commit();break;
 
@@ -2728,6 +2743,30 @@ export async function startApp() {
       throw new Error('Game engine failed to load (Store/boot missing).');
     }
     await boot();
+    // Sync real wallet + handle Bachs return
+    try {
+      if (typeof api !== 'undefined' && api.online) {
+        await api.syncWalletToGame();
+        const q = new URLSearchParams(location.search || '');
+        if (q.get('payment') === 'success') {
+          fx('Payment received — refreshing balance…', 'good');
+          // Webhook may lag a moment; poll briefly
+          for (let i = 0; i < 5; i++) {
+            await new Promise(r => setTimeout(r, 800));
+            await api.syncWalletToGame();
+            if (G && G.p) break;
+          }
+          commit();
+          history.replaceState({}, '', location.pathname || '/');
+        } else if (q.get('payment') === 'cancelled') {
+          fx('Payment cancelled', 'warn');
+          history.replaceState({}, '', location.pathname || '/');
+          render();
+        } else {
+          render();
+        }
+      }
+    } catch (e) { console.warn('wallet sync', e); }
   } catch (err) {
     console.error(err);
     const el = document.getElementById('app');

@@ -178,10 +178,16 @@ function work(){const p=G.p,j=JOBS.find(x=>x.id===p.job);if(!j)return no('Pick a
 function deposit(a){if(a>G.p.cash)a=G.p.cash;if(a<=0)return no('No cash to save.');ledger(-a,'Saved at Arewa Bank','savings');G.p.savings+=a;return true}
 function withdraw(a){if(a>G.p.savings)a=G.p.savings;if(a<=0)return no('Nothing saved yet.');G.p.savings-=a;ledger(a,'Withdrew from savings','savings');return true}
 function topUp(amount){
+  // Real top-ups go through Bachs (api.createTopUpCheckout). This helper is no longer a mock credit.
   amount=Math.floor(+amount||0);
   if(amount<100)return no('Minimum top-up is ₦100.');
   if(amount>500000)return no('Maximum top-up per time is ₦500,000.');
-  earn(amount,'Wallet top-up','topup');
+  return no('Use Top up to pay with card or bank transfer. Demo credits are disabled.');
+}
+function applyWalletCredit(amount,ref){
+  amount=Math.floor(+amount||0);
+  if(amount<=0)return false;
+  earn(amount,'Wallet top-up'+(ref?(' · '+ref):''),'topup');
   note('Top-up of '+fmt(amount)+' added to your balance.','good');
   fx('Top-up '+fmt(amount),'gain');
   return true;

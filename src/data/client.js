@@ -11,9 +11,10 @@
 import { supabase, hasSupabase } from './supabase.js';
 
 const envMode = (import.meta.env?.VITE_API_MODE || '').toLowerCase();
-const mode = envMode === 'remote' && hasSupabase
-  ? 'remote'
-  : (hasSupabase && envMode !== 'local' ? 'remote' : 'local');
+// Prefer real backend whenever Supabase is configured (unless explicitly local)
+const mode = envMode === 'local'
+  ? 'local'
+  : (hasSupabase ? 'remote' : 'local');
 
 let _session = null;
 let _saveTimer = null;
@@ -259,5 +260,64 @@ export const api = {
     return data || [];
   },
 };
+
+
+  /** Real NGN wallet balance from Supabase */
+  async getWalletBalance() {
+    if (!supabase || !_session?.user) return { balance: 0, currency: 'NGN' };
+    const { data } = await supabase
+      .from('wallets')
+      .select('balance,currency,updated_at')
+      .eq('user_id', _session.user.id)
+      .maybeSingle();
+    return {
+      balance: Number(data?.balance || 0),
+      currency: data?.currency || 'NGN',
+      updated_at: data?.updated_at || null,
+    };
+  },
+
+  /**
+   * Start Bachs checkout for wallet top-up.
+   * Returns { checkout_url } — redirect the browser there.
+   */
+  async createTopUpCheckout(amount) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required for payments' };
+    amount = Math.floor(Number(amount) || 0);
+    if (amount < 100) return { error: 'Minimum top-up is ₦100' };
+    if (amount > 500000) return { error: 'Maximum top-up is ₦500,000' };
+    try {
+      const res = await fetch('/api/payments/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          amount,
+          origin: typeof location !== 'undefined' ? location.origin : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || `Payment failed (${res.status})` };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error starting payment' };
+    }
+  },
+
+  /** Apply real wallet balance into the in-game cash display */
+  async syncWalletToGame() {
+    if (typeof G === 'undefined' || !G?.p) return null;
+    const w = await this.getWalletBalance();
+    if (w && Number.isFinite(w.balance)) {
+      G.p.cash = Math.floor(w.balance);
+      G.p.walletCurrency = w.currency || 'NGN';
+      G.p.walletSyncedAt = Date.now();
+    }
+    return w;
+  },
 
 export default api;

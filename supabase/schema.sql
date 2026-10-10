@@ -141,3 +141,100 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Wallets & Bachs payment intents (real NGN balance)
+create table if not exists public.wallets (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  balance numeric(14,2) not null default 0 check (balance >= 0),
+  currency text not null default 'NGN',
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.wallet_ledger (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  amount numeric(14,2) not null,
+  balance_after numeric(14,2) not null,
+  kind text not null,
+  reference text,
+  meta jsonb default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists wallet_ledger_user_idx on public.wallet_ledger (user_id, created_at desc);
+
+create table if not exists public.payment_intents (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  amount numeric(14,2) not null check (amount > 0),
+  currency text not null default 'NGN',
+  status text not null default 'pending' check (status in ('pending','completed','failed','cancelled')),
+  bachs_checkout_id text,
+  bachs_payment_id text,
+  reference text unique,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create index if not exists payment_intents_user_idx on public.payment_intents (user_id, created_at desc);
+create index if not exists payment_intents_checkout_idx on public.payment_intents (bachs_checkout_id);
+
+alter table public.wallets enable row level security;
+alter table public.wallet_ledger enable row level security;
+alter table public.payment_intents enable row level security;
+
+create policy "Own wallet select"
+  on public.wallets for select to authenticated using (auth.uid() = user_id);
+create policy "Own ledger select"
+  on public.wallet_ledger for select to authenticated using (auth.uid() = user_id);
+create policy "Own payment intents select"
+  on public.payment_intents for select to authenticated using (auth.uid() = user_id);
+
+-- Wallet bootstrap on signup
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, username, display_name)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'username', 'user_' || substr(new.id::text, 1, 8)),
+    coalesce(new.raw_user_meta_data->>'display_name', coalesce(new.raw_user_meta_data->>'username', 'Player'))
+  )
+  on conflict (id) do nothing;
+  insert into public.game_states (user_id, state) values (new.id, '{}'::jsonb)
+  on conflict (user_id) do nothing;
+  insert into public.wallets (user_id, balance) values (new.id, 0)
+  on conflict (user_id) do nothing;
+  return new;
+end;
+$$;
+
+-- Credit wallet (service role / security definer only)
+create or replace function public.credit_wallet(
+  p_user_id uuid,
+  p_amount numeric,
+  p_kind text,
+  p_reference text default null,
+  p_meta jsonb default '{}'::jsonb
+) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare
+  new_bal numeric;
+begin
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'amount must be positive';
+  end if;
+  insert into public.wallets (user_id, balance, updated_at)
+  values (p_user_id, p_amount, now())
+  on conflict (user_id) do update
+    set balance = public.wallets.balance + excluded.balance,
+        updated_at = now()
+  returning balance into new_bal;
+  insert into public.wallet_ledger (user_id, amount, balance_after, kind, reference, meta)
+  values (p_user_id, p_amount, new_bal, p_kind, p_reference, p_meta);
+  return new_bal;
+end;
+$$;
+
+revoke all on function public.credit_wallet from public;
+grant execute on function public.credit_wallet to service_role;
