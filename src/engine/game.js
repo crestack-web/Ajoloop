@@ -704,13 +704,34 @@ function gguard(gid,u,act,msg){if(G.susp.includes(u)){no('This account is suspen
  if(!gcan(g,u,act)){no(msg||(g.mem[u]?'You do not have permission to do that in this group.':'That group is not available.'));return null}
  g.mem[u].last=G.day;return g}
 
+
+function normalizeWaLink(s){
+  s=String(s||'').trim();
+  if(!s)return '';
+  // Accept chat.whatsapp.com invite links (with or without https)
+  let u=s;
+  if(!/^https?:\/\//i.test(u))u='https://'+u.replace(/^\/\//,'');
+  try{
+    const url=new URL(u);
+    const host=(url.hostname||'').toLowerCase().replace(/^www\./,'');
+    if(host==='chat.whatsapp.com'){
+      const code=(url.pathname||'').replace(/^\//,'').split('/')[0];
+      if(code&&/^[A-Za-z0-9_-]{10,}$/.test(code))return 'https://chat.whatsapp.com/'+code;
+    }
+    // wa.me group-style links are rare; allow https wa.me paths that look like invites
+    if(host==='wa.me'||host==='api.whatsapp.com'){
+      if(url.pathname&&url.pathname.length>2)return url.origin+url.pathname+(url.search||'');
+    }
+  }catch(err){}
+  return null; // invalid
+}
 function mkGroup(o,owner){const vis=o.vis==='private'?'private':'public';let join=o.join;
  if(vis==='public'&&join!=='approval')join='open';if(vis==='private'&&join!=='approval')join='invite';
  const maxM=clamp(parseInt(o.maxMembers)||30,3,G_MAX);
  const g={id:o.id||'g'+G.nid++,name:o.name,av:G_AVS.includes(o.av)?o.av:'🏘️',desc:String(o.desc||''),cat:G_CATS.includes(o.cat)?o.cat:'Friends & Family',
   tags:(o.tags||[]).filter(t=>G_CATS.includes(t)).slice(0,3),area:G_AREAS.includes(o.area)?o.area:null,vis,disc:vis==='private'&&!!o.disc,join,
   memInvite:o.memInvite==='admins'?'admins':'members',roster:o.roster==='admins'?'admins':'members',rules:(o.rules||[]).map(r=>String(r||'').trim()).filter(Boolean).slice(0,6),
-  maxMembers:maxM,
+  maxMembers:maxM,waLink:normalizeWaLink(o.waLink)||'',
   owner,mem:{},req:[],inv:[],ban:[],posts:[],evs:[],reps:[],ajoP:[],created:G.day,last:G.day,fi:false,dead:false};
  g.mem[owner]={role:'owner',joined:G.day,last:G.day,show:false};return g}
 function gCap(g){return clamp(parseInt(g&&g.maxMembers)||G_MAX,3,G_MAX)}
@@ -733,6 +754,7 @@ function clearGroupPhoto(gid,u='player'){
 }
 function createGroup(o,u='player'){if(G.susp.includes(u))return no('This account is suspended.');const name=String(o.name||'').trim().replace(/\s+/g,' ');
  if(name.length<3||name.length>30)return no('Give your group a name (3 to 30 characters).');
+ if(o.waLink&&String(o.waLink).trim()&&normalizeWaLink(o.waLink)===null)return no('Paste a valid WhatsApp group invite link (chat.whatsapp.com/…).');
  if(G.groups.some(g=>!g.dead&&g.name.toLowerCase()===name.toLowerCase()&&(g.vis==='public'||g.disc)))return no('A group with that name already exists. Pick another.');
  if(G.groups.filter(g=>!g.dead&&g.owner===u).length>=5)return no('You can own up to 5 groups.');
  if(!grate(u,'gcreate',3,'You created several groups today. Try again tomorrow.'))return false;
@@ -899,6 +921,7 @@ function editGroup(gid,u,p){const g=gguard(gid,u,'editInfo','Only administrators
  if('vis' in p)g.vis=p.vis==='private'?'private':'public';
  if('disc' in p)g.disc=!!p.disc;
  if('join' in p)g.join=p.join==='approval'?'approval':(p.join==='invite'?'invite':'open');
+ if('waLink' in p){const w=normalizeWaLink(p.waLink);if(p.waLink&&String(p.waLink).trim()&&w===null)return no('Paste a valid WhatsApp group invite link (chat.whatsapp.com/…).');g.waLink=w||'';}
  if(g.vis==='public'){g.disc=false;if(g.join==='invite')g.join='approval'}else{if(g.join==='open')g.join='approval';Object.values(g.mem).forEach(m=>{m.show=false})}
  return true}
 
@@ -948,7 +971,7 @@ function ajosFor(g,v){if(!g||!g.mem[v])return [];return G.ajos.filter(a=>a.group
 function glimpse(g){return {id:g.id,name:g.name,av:g.av,photo:g.photo||null,desc:g.desc,cat:g.cat,tags:g.tags.slice(),vis:g.vis,disc:g.disc,join:g.join,area:g.area,count:gcount(g)}}
 const upcoming=g=>g.evs.filter(e=>!e.done&&!e.fail&&G.day<=e.dl).map(e=>({id:e.id,title:e.title,kind:e.kind,loc:e.loc,day:e.day,type:e.type,target:e.target,dl:e.dl,going:e.going.length}));
 function viewGroup(gid,v='player'){const g=grp(gid);if(!g||g.ban.includes(v))return null;const b=glimpse(g);
- if(g.mem[v])return {...b,member:true,role:g.mem[v].role,rules:g.rules.slice(),announcements:g.posts.filter(p=>p.kind==='announce'&&!p.hid).slice(-3).reverse().map(p=>({...p})),events:upcoming(g),ajos:ajosFor(g,v)};
+ if(g.mem[v])return {...b,member:true,role:g.mem[v].role,waLink:g.waLink||'',rules:g.rules.slice(),announcements:g.posts.filter(p=>p.kind==='announce'&&!p.hid).slice(-3).reverse().map(p=>({...p})),events:upcoming(g),ajos:ajosFor(g,v)};
  if(g.vis==='public')return {...b,member:false,rules:g.rules.slice(),announcements:g.posts.filter(p=>p.kind==='announce'&&!p.hid).slice(-3).reverse().map(p=>({...p})),events:upcoming(g)};
  if(g.disc||g.inv.some(i=>i.to===v&&invState(i)==='pending'))return {...b,member:false,gated:true};
  return null}

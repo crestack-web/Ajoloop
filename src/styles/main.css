@@ -644,3 +644,7 @@ button.g-card .g-av,button.g-card .meta,button.g-card img{pointer-events:none}
 }
 .intro-mute:active{transform:scale(.97)}
 .title.auth-simple .intro-mute,.title.auth-reg .intro-mute{display:flex;width:fit-content}
+
+/* External action links styled as buttons */
+a.btn{display:block;text-decoration:none;box-sizing:border-box}
+a.btn.green{color:#04281a}

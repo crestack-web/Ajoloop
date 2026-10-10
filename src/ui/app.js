@@ -1965,7 +1965,10 @@ function gNon(v,g){const di=g.inv.find(i=>i.to==='player'&&invState(i)==='pendin
 
 function gHome(g,v){const me=rk(g,'player'),canInv=gcan(g,'player','invite')&&!(me<2&&g.memInvite==='admins'),props=g.ajoP.filter(p=>p.st==='proposed'),m=g.mem.player,hand=gcan(g,'player','editInfo');
  const succ=g.owner==='player'?nextOwner(g,'player'):null;
+ const wa=v.waLink||g.waLink||'';
  return `<div class="muted sm">${esc(v.desc)||'No description yet.'}</div>
+ ${wa?`<a class="btn green" style="margin-top:12px;display:block;text-decoration:none" href="${esc(wa)}" target="_blank" rel="noopener noreferrer">💬 Join WhatsApp group</a>
+ <div class="muted tiny" style="margin-top:6px">Opens the organizer’s WhatsApp group invite in a new tab.</div>`:''}
  ${canInv?`<button class="btn" style="margin-top:12px" data-a="g_inv" data-id="${g.id}">＋ Invite friends</button>`:''}
  <button class="btn" style="margin-top:8px" data-a="grpChatOpen" data-id="${g.id}">💬 Open group chat</button>
  ${v.rules.length?`<section class="card"><b>📜 Rules</b>${v.rules.map((r,i)=>`<div class="sm" style="margin-top:6px">${i+1}. ${esc(r)}</div>`).join('')}</section>`:''}
@@ -2028,6 +2031,9 @@ function gManage(g,v){const me=rk(g,'player'),adm=me>=3,own=me===4,reps=g.reps.f
  <label class="l">Main interest</label>${GO('gs','cat',G_CATS,S.cat)}<label class="l">How people join</label>${GO('gs','join',pub?['open','approval']:['invite','approval'],pub?(S.join==='approval'?'approval':'open'):(S.join==='approval'?'approval':'invite'),v=>JOINL[v])}
  <label class="l">Who can invite</label>${GO('gs','memInvite',['members','admins'],S.memInvite,v=>v==='members'?'Any member':'Only admins')}<label class="l">Who sees the member list</label>${GO('gs','roster',['members','admins'],S.roster,v=>v==='members'?'All members':'Only admins')}
  ${own?`<label class="l">Visibility (owner only)</label>${GO('gs','vis',['public','private'],S.vis,v=>v==='public'?'🌍 Public':'🔒 Private')}<div class="muted tiny">${S.vis==='public'?'Announcements and the description become visible to everyone. Chat and members stay private.':'Hidden from search and from profiles.'}</div>${S.vis==='private'?`<label class="l">Findable in search?</label>${GO('gs','disc',[false,true],S.disc,v=>v?'Yes, invite-discoverable':'No, hidden')}`:''}`:''}
+ <label class="l">WhatsApp group link</label>
+ <div class="field"><input type="url" data-f="swa" value="${esc((UI.gi.swa!==undefined?UI.gi.swa:(g.waLink||'')))}" placeholder="https://chat.whatsapp.com/…" autocomplete="off"></div>
+ <div class="muted tiny">Members will see a “Join WhatsApp group” button. Only admins can change this.</div>
  <button class="btn" style="margin-top:12px" data-a="g_save">Save changes</button></section>`;
  if(own){const admins=Object.keys(g.mem).filter(m=>g.mem[m].role==='admin'),tx=UI.gs&&UI.gs.tx;
   h+=`<section class="card"><b>👑 Owner</b><label class="l">Transfer ownership to an admin</label>${admins.length?GO('gs','tx',admins,tx,id=>esc(nm(id))):'<div class="muted sm">Make someone an admin first (People tab).</div>'}${GT('tconf','Type "'+g.name+'" to confirm',30)}<button class="btn ghost sm" style="margin-top:8px" data-a="g_transfer">Transfer ownership</button>
@@ -2041,6 +2047,9 @@ function gnewSheet(){const f=UI.gc,pub=f.vis==='public',jn=pub?(f.join==='approv
  <div class="field-row"><input type="number" data-f="gmax" min="3" max="60" step="1" value="${UI.gi.gmax!==undefined?esc(String(UI.gi.gmax)):(f.maxMembers||30)}" placeholder="30"><span class="field-hint">3–60 people</span></div>
  <div class="muted tiny" style="margin-bottom:4px">You can change this later in group Settings.</div>
  <label class="l">Picture</label>${GO('gc','av',G_AVS,f.av,v=>v)}<label class="l">About</label>${GT('desc','What is this group for?',240)}
+ <label class="l">WhatsApp group link (optional)</label>
+ <div class="field"><input type="url" data-f="wa" value="${esc(UI.gi.wa||'')}" placeholder="https://chat.whatsapp.com/…" autocomplete="off"></div>
+ <div class="muted tiny">If you already have a WhatsApp group, paste the invite link so members can join it.</div>
  <label class="l">Main interest</label>${GO('gc','cat',G_CATS,f.cat)}<label class="l">More interests (up to 3)</label><div class="opts">${G_CATS.filter(c=>c!==f.cat).map(c=>`<button data-a="g_ctag" data-v="${c}" class="${(f.tags||[]).includes(c)?'on':''}">${c}</button>`).join('')}</div>
  <label class="l">Who can find it?</label>${GO('gc','vis',['public','private'],f.vis,v=>v==='public'?'🌍 Public':'🔒 Private')}<div class="muted tiny">${pub?'Anyone can find it and read the description and announcements. Chat and members stay for members only.':'Hidden from search. People need an invitation. Chat, members and activities are for members only.'}</div>
  ${pub?'':`<label class="l">Let people find it in search?</label>${GO('gc','disc',[false,true],f.disc,v=>v?'Yes, invite-discoverable':'No, hidden')}`}
@@ -2096,7 +2105,7 @@ function gClick(a,d){const M=UI.modal||{};
   case 'g_area':G.p.area=d.v||null;G.p.shareArea=!!d.v;commit();break;
   case 'g_new':UI.modal={t:'gnew'};render();break;
   case 'g_ctag':{const t=UI.gc.tags=UI.gc.tags||[],i=t.indexOf(d.v);if(i>=0)t.splice(i,1);else if(t.length<3)t.push(d.v);render();break}
-  case 'g_make':{const f=UI.gc,i=UI.gi,id=createGroup({...f,name:i.name,desc:i.desc,rules:[i.rule1,i.rule2],maxMembers:parseInt(i.gmax)||f.maxMembers||30});if(id){['name','desc','rule1','rule2','gmax'].forEach(k=>delete UI.gi[k]);UI.gc.tags=[];UI.modal={t:'grp',id};UI.gt='home';UI.tab='groups'}commit();break}
+  case 'g_make':{const f=UI.gc,i=UI.gi,id=createGroup({...f,name:i.name,desc:i.desc,rules:[i.rule1,i.rule2],maxMembers:parseInt(i.gmax)||f.maxMembers||30,waLink:i.wa||''});if(id){['name','desc','rule1','rule2','gmax','wa'].forEach(k=>delete UI.gi[k]);UI.gc.tags=[];UI.modal={t:'grp',id};UI.gt='home';UI.tab='groups'}commit();break}
   case 'g_code':UI.modal={t:'gcode'};render();break;
   case 'g_redeem':{const id=redeemCode(UI.gi.code);if(id){UI.gi.code='';UI.modal={t:'grp',id};UI.gt='home'}commit();break}
   case 'g_join':run(joinGroup,d.id);break;
@@ -2152,8 +2161,9 @@ function gClick(a,d){const M=UI.modal||{};
   case 'g_save':{const g=grp(M.id);if(!g)break;const S={...g,...(UI.gs||{})},gi=UI.gi,rules=[0,1,2].map(i=>gi['sr'+i]!==undefined?gi['sr'+i]:(g.rules[i]||''));
    const patch={desc:gi.sdesc!==undefined?gi.sdesc:g.desc,rules,av:S.av,cat:S.cat,memInvite:S.memInvite,join:S.join,roster:S.roster};
    if(gi.smax!==undefined)patch.maxMembers=parseInt(gi.smax);
+   if(gi.swa!==undefined)patch.waLink=gi.swa;
    if(rk(g,'player')===4){patch.vis=S.vis;patch.disc=S.disc}
-   if(editGroup(M.id,'player',patch)){UI.gs=null;['sdesc','sr0','sr1','sr2','smax'].forEach(k=>delete gi[k]);fx('Saved.','warm')}commit();break}
+   if(editGroup(M.id,'player',patch)){UI.gs=null;['sdesc','sr0','sr1','sr2','smax','swa'].forEach(k=>delete gi[k]);fx('Saved.','warm')}commit();break}
   case 'g_transfer':{if(transferOwnership(M.id,'player',UI.gs&&UI.gs.tx,UI.gi.tconf)){UI.gs=null;UI.gi.tconf=''}commit();break}
   case 'g_delete':{if(deleteGroup(M.id,'player',UI.gi.dconf)){UI.modal=null;UI.gi.dconf=''}commit();break}
   case 'g_inv':UI.modal={t:'ginv',id:d.id||M.id};UI.gsel=[];render();break;
