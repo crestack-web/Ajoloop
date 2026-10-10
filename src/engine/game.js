@@ -176,7 +176,7 @@ function bizTend(){const b=G.biz,p=G.p;if(!b)return no('Start the Mini Shop firs
 
 /* ---- people ---- */
 function talk(id){const n=npc(id);if(npcLoc(n)!==G.p.loc)return no(n.n+' just left.');if(!canTime(1))return no(LATE);
- const first=!n.met;if(first){n.met=true;fx('You met '+n.n+' — '+n.occ+'.','warm');miles('met','Met your first neighbour: '+n.n)}
+ const first=!n.met;if(first){n.met=true;fx('You met '+n.n+' — '+n.occ+'.','warm');miles('met','Met your first neighbour: '+n.n);try{earnStars(12,'Met '+n.n)}catch(e){}}
  if(n.tk.d!==G.day)n.tk={d:G.day,c:0};const gain=first?3:[2,1,0,0][Math.min(3,n.tk.c)];n.tk.c++;n.lastSeen=G.day;
  n.said=pick(LINES[pick(n.tags)]);G.p.social=clamp(G.p.social+.4);G.p.happiness=clamp(G.p.happiness+2);
  if(gain)rel(id,gain,'Talked'+(first?' (first meeting)':''));else fx(n.n+' has said all they want to say for now.');gProgress('talk');tick(1);return true}
@@ -1118,7 +1118,7 @@ function relLabelPeople(n){
   return 'Neighbour';
 }
 
-const BIZ_CATS=['Provisions','Food & Kitchen','Fashion','Phones & Tech','Services','Transport','Beauty','Other'];
+const BIZ_CATS=['Provisions','Food & Kitchen','Fashion','Phones & Tech','Services','Transport','Beauty','Wellness','Other'];
 const WORK_CATS=['Trader','Food & Kitchen','Fashion','Phones & Tech','Services','Transport','Beauty','Farmer','Teacher','Student','Civil service','Driver','Artisan','Other'];
 
 const HOME_STYLES=[{id:'compound',n:'Family compound',ic:'🏠'},{id:'flat',n:'Self-contain / flat',ic:'🏢'},{id:'room',n:'Single room',ic:'🛏️'},{id:'estate',n:'Estate house',ic:'🏡'}];
@@ -1152,7 +1152,15 @@ function initPlaces(){
       {id:'bz_ibrahim',owner:'ibrahim',name:'Ibrahim Desk Services',cat:'Services',area:'Kano Municipal',label:'Bank strip offices',loc:'bank',ic:'📋',bio:'Forms, photocopies, small business help.',open:true,
         img:'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=600&q=80'},
       {id:'bz_hauwa',owner:'hauwa',name:'Hauwa Fresh Fruit',cat:'Provisions',area:'Fagge',label:'Kasuwa edge',loc:'market',ic:'🍊',bio:'Seasonal fruit, early morning stock.',open:true,
-        img:'https://images.unsplash.com/photo-1619566636858-adf3ef4644b9?w=600&q=80'}
+        img:'https://images.unsplash.com/photo-1619566636858-adf3ef4644b9?w=600&q=80'},
+      {id:'bz_fitkano',owner:'garba',name:'FitKano Gym',cat:'Wellness',area:'Kano Municipal',label:'Near bank strip',loc:'work',ic:'🏋️',bio:'Day passes, group classes, weights. Neighbours train together.',open:true,wellness:true,
+        img:'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=80'},
+      {id:'bz_ruksalon',owner:'rukayya',name:"Rukayya's Salon",cat:'Wellness',area:'Nasarawa',label:'Beside Suya Junction',loc:'social',ic:'💇',bio:'Braids, cuts, and glow-ups. Perfect before hangouts.',open:true,wellness:true,
+        img:'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600&q=80'},
+      {id:'bz_calmspa',owner:'zainab',name:'Calm Waters Spa',cat:'Wellness',area:'Tarauni',label:'Quiet residential lane',loc:'social',ic:'🧖',bio:'Massage, steam, and rest. AjoLoop covers select sessions for active members.',open:true,wellness:true,
+        img:'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=600&q=80'},
+      {id:'bz_yogapark',owner:'maryam',name:'Sunrise Yoga Park',cat:'Wellness',area:'Ungogo',label:'Open park edge',loc:'park',ic:'🧘',bio:'Morning stretch groups. Free intro for first-timers in the circle.',open:true,wellness:true,
+        img:'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&q=80'}
     ];
     seeds.forEach(b=>{
       if(G.bizs.some(x=>x.id===b.id)) return;
@@ -1566,6 +1574,7 @@ function bizProducts(b){
     'Phones & Tech':[{id:'p1',n:'Airtime / data',price:1000},{id:'p2',n:'Screen fix',price:8000}],
     'Transport':[{id:'p1',n:'Short hop',price:500},{id:'p2',n:'Cross-town ride',price:1500}],
     'Beauty':[{id:'p1',n:'Quick style',price:2000},{id:'p2',n:'Full look',price:5000}],
+    'Wellness':[{id:'p1',n:'Day pass / session',price:3000},{id:'p2',n:'Partner package',price:6000},{id:'p3',n:'Intro class',price:1500}],
     'Services':[{id:'p1',n:'Small service',price:1500},{id:'p2',n:'Document help',price:3000}],
     'Other':[{id:'p1',n:'Popular item',price:2000}]
   };
@@ -1872,7 +1881,7 @@ function ensureSetup(){
   if(!G.p.home)G.p.home={area:'',label:'',style:'compound',done:false};
   if(G.p.onboarded==null)G.p.onboarded=false;
 }
-function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.advances)a.advances=[];if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};if(!G.p.username)G.p.username=(G.p.name||'').replace(/\s+/g,'').slice(0,20);if(!G.p.interests)G.p.interests=G.p.ints||[];if(!G.p.businessStatus)G.p.businessStatus='none';(G.bizs||[]).forEach(b=>{
+function migrate(){if(!G.groups){initGroups();G.npcs.forEach(groupInviteCheck)}(G.groups||[]).forEach(g=>{if(g.maxMembers==null)g.maxMembers=30});if(!G.blk)G.blk=[];if(!G.susp)G.susp=[];if(!G.gev)G.gev=[];if(!G.rl)G.rl={};if(!G.cf)G.cf={};if(!G.p.ints)G.p.ints=[];initPlaces();if(!G.p.area&&G.p.home&&G.p.home.area)G.p.area=G.p.home.area;G.ajos.forEach(a=>{if(!a.advances)a.advances=[];if(!a.stones)a.stones={};if(a.feePct==null)a.feePct=AJO_FEE_PCT;if(!a.mode)a.mode='traditional';if(a.feeTaken==null)a.feeTaken=0;if(!a.vis)a.vis='public';if(!a.joinReqs)a.joinReqs=[];if(!a.chat)a.chat=[];if(!a.activity)a.activity=[]});if(G.demo==null)G.demo=false;if(G.p.onboarded==null)G.p.onboarded=!!(G.p.home&&G.p.home.done);if(!G.p.avatar)G.p.avatar=defaultAvatar(G.p.gender);G.npcs.forEach(n=>{if(!n.avatar)n.avatar=npcAvatarFor(n)});if(!G.p.work)G.p.work={cat:'',title:'',set:false};if(!G.p.username)G.p.username=(G.p.name||'').replace(/\s+/g,'').slice(0,20);if(!G.p.interests)G.p.interests=G.p.ints||[];if(!G.p.businessStatus)G.p.businessStatus='none';if(G.p.stars==null)G.p.stars=0;if(!G.p.giftSlots)G.p.giftSlots=[null,null,null,null,null,null];if(!G.p.giftsClaimed)G.p.giftsClaimed=[];(G.bizs||[]).forEach(b=>{
   if(!b.avatar||b.avatar.kind!=='building')b.avatar=defaultStoreAvatar(b.cat||'Other');
   if(!b.loc){const areaLoc={Fagge:'market',Gwale:'restaurant',Nasarawa:'social','Kano Municipal':'work',Tarauni:'market',Dala:'social',Kumbotso:'market',Ungogo:'park'};b.loc=areaLoc[b.area]||'market'}
 });ensureSetup()}
@@ -1896,4 +1905,106 @@ const Account={
 const Store={async load(){try{if(window.storage){const r=await window.storage.get(KEY,false);if(r&&r.value)return JSON.parse(r.value)}}catch(e){}try{const v=localStorage.getItem(KEY);if(v)return JSON.parse(v)}catch(e){}return Store.mem?JSON.parse(Store.mem):null},
  async save(){if(!G)return;const s=JSON.stringify(G);Store.mem=s;try{if(window.storage){await window.storage.set(KEY,s,false);return}}catch(e){}try{localStorage.setItem(KEY,s)}catch(e){}},
  async clear(){Store.mem=null;try{if(window.storage)await window.storage.delete(KEY,false)}catch(e){}try{localStorage.removeItem(KEY)}catch(e){}}};
+
+/* ---- Community gifts (AjoLoop-covered wellness perks) ---- */
+const GIFT_CATALOG=[
+  {id:'gym_day',ic:'🏋️',n:'Gym day pass',d:'Full day at FitKano Gym — AjoLoop covers it.',value:3000,bizId:'bz_fitkano',kind:'wellness'},
+  {id:'salon_glow',ic:'💇',n:'Salon glow-up',d:'Style session at Rukayya\'s Salon on us.',value:4000,bizId:'bz_ruksalon',kind:'wellness'},
+  {id:'spa_hour',ic:'🧖',n:'Spa hour',d:'Calm Waters Spa — one hour rest package.',value:5000,bizId:'bz_calmspa',kind:'wellness'},
+  {id:'yoga_intro',ic:'🧘',n:'Yoga intro',d:'Sunrise Yoga Park class for you + a friend.',value:2000,bizId:'bz_yogapark',kind:'wellness'},
+  {id:'stars_boost',ic:'⭐',n:'+80 community stars',d:'Extra stars toward your next free gift.',value:0,bizId:null,kind:'stars',stars:80},
+  {id:'trust_nudge',ic:'🤝',n:'Trust nudge',d:'+3 Trust for showing up for yourself.',value:0,bizId:null,kind:'trust',trust:3},
+  {id:'meal_treat',ic:'🍲',n:'Neighbourhood meal',d:'AjoLoop covers a plate at a partner kitchen.',value:1500,bizId:'bz_fatima',kind:'food'},
+  {id:'cash_token',ic:'₦',n:'₦1,000 demo credit',d:'Small top-up to your demo wallet.',value:1000,bizId:null,kind:'cash',cash:1000}
+];
+const WHEEL_SLICES=[
+  {label:'FREE',gift:'gym_day',w:12},
+  {label:'5% OFF',gift:null,w:18},
+  {label:'Salon',gift:'salon_glow',w:10},
+  {label:'10% OFF',gift:null,w:18},
+  {label:'Spa',gift:'spa_hour',w:8},
+  {label:'20% OFF',gift:null,w:14},
+  {label:'Stars',gift:'stars_boost',w:12},
+  {label:'Yoga',gift:'yoga_intro',w:8}
+];
+function ensureGifts(){
+  if(!G||!G.p)return;
+  if(G.p.stars==null)G.p.stars=0;
+  if(!G.p.giftSlots)G.p.giftSlots=[null,null,null,null,null,null];
+  if(!G.p.giftsClaimed)G.p.giftsClaimed=[];
+  if(G.p.spinDay!==G.day){G.p.spinDay=G.day;G.p.spinsToday=0}
+}
+function earnStars(n,why){
+  ensureGifts();
+  n=Math.max(0,Math.floor(n||0));
+  if(!n)return;
+  G.p.stars+=n;
+  fx('+'+n+' ⭐ community stars'+(why?(' · '+why):''),'good');
+}
+function giftById(id){return GIFT_CATALOG.find(g=>g.id===id)}
+function openGiftSlots(){return (G.p.giftSlots||[]).filter(x=>!x).length}
+function placeGiftInSlot(giftId){
+  ensureGifts();
+  const g=giftById(giftId);if(!g)return false;
+  const slots=G.p.giftSlots;
+  const i=slots.findIndex(x=>!x);
+  if(i<0)return no('All 6 gift slots are full — claim one first.');
+  slots[i]={id:g.id,ic:g.ic,n:g.n,d:g.d,value:g.value,bizId:g.bizId,kind:g.kind,stars:g.stars,trust:g.trust,cash:g.cash,wonDay:G.day};
+  note('Gift unlocked: '+g.n+' — AjoLoop can cover this at a partner spot.','good');
+  return true;
+}
+function claimGiftSlot(idx){
+  ensureGifts();
+  const slot=G.p.giftSlots[idx];
+  if(!slot)return no('That gift slot is empty.');
+  // Apply effect — AjoLoop covers cost (no player cash)
+  if(slot.kind==='cash'&&slot.cash){
+    earn(slot.cash,'AjoLoop gift credit','gift');
+  } else if(slot.kind==='stars'&&slot.stars){
+    G.p.stars+=slot.stars;
+  } else if(slot.kind==='trust'&&slot.trust){
+    addTrust(slot.trust,'Claimed community gift');
+  } else if(slot.bizId){
+    const b=bizById(slot.bizId);
+    if(b){b.visits=(b.visits||0)+1;G.p.mood=clamp((G.p.mood||50)+6);G.p.energy=clamp((G.p.energy||50)+4)}
+    fx('AjoLoop covered '+slot.n+(b?(' at '+b.name):''),'good');
+    note('You claimed '+slot.n+'. Partner spot was covered by AjoLoop — show this in the app.','ajo');
+  } else {
+    fx('Gift claimed: '+slot.n,'good');
+  }
+  G.p.giftsClaimed.unshift({...slot,claimedDay:G.day});
+  if(G.p.giftsClaimed.length>20)G.p.giftsClaimed.length=20;
+  G.p.giftSlots[idx]=null;
+  earnStars(15,'Claimed a community gift');
+  miles('gift','Claimed your first AjoLoop gift');
+  return true;
+}
+function spinCommunityWheel(){
+  ensureGifts();
+  if(G.p.spinsToday>=3)return no('Come back tomorrow for more spins (3 per day).');
+  // Need a little activity: 20 stars or first spin free
+  const free=G.p.spinsToday===0;
+  if(!free&&G.p.stars<25)return no('Need 25 ⭐ community stars to spin again. Meet people, visit places, or join a group.');
+  if(!free){G.p.stars-=25}
+  G.p.spinsToday++;
+  // Weighted pick
+  const total=WHEEL_SLICES.reduce((s,x)=>s+x.w,0);
+  let r=Math.random()*total,pick=WHEEL_SLICES[0];
+  for(const s of WHEEL_SLICES){r-=s.w;if(r<=0){pick=s;break}}
+  let result={slice:pick.label,giftId:pick.gift,msg:''};
+  if(pick.gift){
+    if(placeGiftInSlot(pick.gift)) result.msg='You won: '+giftById(pick.gift).n;
+    else result.msg='Won '+pick.label+' but slots are full.';
+  } else {
+    // small consolation stars
+    earnStars(10,'Wheel bonus');
+    result.msg=pick.label+' — keep building community for bigger gifts.';
+  }
+  return result;
+}
+function wellnessNearby(){
+  const area=(G.p.home&&G.p.home.area)||G.p.area;
+  return (G.bizs||[]).filter(b=>!b.closed&&(b.wellness||b.cat==='Wellness')&&(!area||b.area===area||true));
+}
+
 //#ENGINE-END
