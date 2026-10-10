@@ -1711,7 +1711,7 @@ function addSpot({name,area,label,ic,note,loc,img,lat,lng,address}){
     latN=c.lat+(Math.random()-.5)*0.008;
     lngN=c.lng+(Math.random()-.5)*0.008;
   }
-  const s={id,name,area,label:(label||'').trim().slice(0,48),ic:ic||'📍',note:(note||'').trim().slice(0,120),by:'player',created:G.day,public:true,loc:locKey,img:(img||'').trim().slice(0,300)||null,lat:latN,lng:lngN,address:(address||'').trim().slice(0,80)||null};
+  const s={id,name,area,label:(label||'').trim().slice(0,48),ic:ic||'📍',note:(note||'').trim().slice(0,120),by:'player',created:G.day,public:true,loc:locKey,img:(()=>{const t=String(img||'').trim();if(!t)return null;if(t.startsWith('data:'))return t.slice(0,600000);return t.slice(0,500)})(),lat:latN,lng:lngN,address:(address||'').trim().slice(0,80)||null};
   G.spots.push(s);
   note('Spot added: '+s.name+' in '+s.area+(s.address?(' · '+s.address):'')+'. Friends can find it on the live map.','ajo');
   fx('Spot listed on the map','good');
