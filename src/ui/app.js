@@ -1366,7 +1366,7 @@ function dmChatPage(uid){
 function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
  const P=G.p,host=a.host==='player'?null:npc(a.host),st=a.status;
  const tab=UI.ajoTab||'home';
- const tabs=[['home','Circle'],['chat','Chat'],['activity','Activity']];
+ const tabs=[['home','Circle'],['chat','Chat'],['games','🎮 Games'],['activity','Activity']];
  let h=`<div class="row"><div class="av">${a.host==='player'?avatar(P.gender):(host?host.em:'🤝')}</div><div><h2>${esc(a.name)}</h2><div class="muted sm">${fmt(a.amt)} every ${a.freq} days · ${a.members.length}/${a.size} · ${a.vis==='public'?'Public':'Private'}</div></div></div>`;
  h+=`<div class="people-seg" style="margin:12px 0">${tabs.map(([k,l])=>`<button data-a="ajoTab" data-v="${k}" class="${tab===k?'on':''}">${l}</button>`).join('')}</div>`;
 
@@ -1385,6 +1385,60 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
     </div>`;
   } else {
    h+=`<div class="muted sm">Join this circle to chat with members.</div>`;
+  }
+  return h;
+ }
+
+ if(tab==='games'){
+  if(!a.members.includes('player')){
+   h+=`<div class="card empty">Join this circle to play games with members.</div>`;
+   return h;
+  }
+  const active=a.game&&a.game.status==='playing'?a.game:null;
+  if(active){
+   const def=(typeof CIRCLE_GAMES!=='undefined'?CIRCLE_GAMES:[]).find(x=>x.id===active.type)||{n:active.type,ic:'🎮'};
+   h+=`<div class="card" style="background:var(--card)"><b>${def.ic||'🎮'} ${esc(def.n||active.type)}</b>
+    <div class="muted sm" style="margin-top:4px">Playing with ${active.players.length} members</div></div>`;
+   if(active.type==='lucky'){
+    h+=`<div class="muted sm" style="margin:10px 0">Pick a number from 1 to 10. Closest to the secret wins.</div>
+     <div class="opts">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-a="ajoGamePlay" data-id="${a.id}" data-v="${n}">${n}</button>`).join('')}</div>`;
+   } else if(active.type==='rps'){
+    const d=active.data||{};
+    h+=`<div class="muted sm" style="margin:10px 0">Round ${Math.min(d.round||1,3)} of 3 · You ${d.wins||0} – ${d.losses||0} Circle${d.last?` · last: ${d.last.you} vs ${d.last.npc}`:''}</div>
+     <div class="opts">
+      <button class="btn" data-a="ajoGamePlay" data-id="${a.id}" data-v="rock">✊ Rock</button>
+      <button class="btn" data-a="ajoGamePlay" data-id="${a.id}" data-v="paper">✋ Paper</button>
+      <button class="btn" data-a="ajoGamePlay" data-id="${a.id}" data-v="scissors">✌️ Scissors</button>
+     </div>`;
+   } else if(active.type==='who'){
+    h+=`<div class="card" style="margin:10px 0"><div class="muted tiny">Clue</div><b>${esc(active.data.clue||'')}</b></div>
+     <div class="opts" style="flex-direction:column;align-items:stretch">${(active.data.options||[]).map(id=>`<button data-a="ajoGamePlay" data-id="${a.id}" data-v="${id}" style="text-align:left">${esc(nm(id))}</button>`).join('')}</div>`;
+   } else if(active.type==='emoji'){
+    h+=`<div class="card" style="margin:10px 0;text-align:center"><div class="muted sm">${esc(active.data.prompt||'')}</div>
+     <div class="opts" style="justify-content:center;margin-top:10px">${(active.data.opts||[]).map(e=>`<button style="font-size:28px;padding:12px 16px" data-a="ajoGamePlay" data-id="${a.id}" data-v="${e}">${e}</button>`).join('')}</div></div>`;
+   } else if(active.type==='scramble'){
+    h+=`<div class="card" style="margin:10px 0;text-align:center"><div class="muted sm">Unscramble</div>
+     <div style="font-size:28px;font-weight:900;letter-spacing:.12em;margin:8px 0">${esc(active.data.scrambled||'')}</div>
+     <div class="field"><input type="text" id="ajo-scramble" maxlength="16" placeholder="Your guess" style="text-transform:uppercase"></div>
+     <button class="btn" style="margin-top:10px" data-a="ajoGameScramble" data-id="${a.id}">Submit</button></div>`;
+   }
+   h+=`<button class="btn ghost sm" style="margin-top:12px" data-a="ajoGameSkip" data-id="${a.id}">End game</button>`;
+   return h;
+  }
+  // result of last finished game
+  if(a.game&&a.game.status==='done'&&a.game.result){
+   h+=`<div class="card" style="margin-bottom:10px"><b>Last result</b><div class="sm" style="margin-top:4px">${esc(a.game.result)}</div></div>`;
+  }
+  h+=`<div class="muted sm" style="margin-bottom:10px">Play light games with other people in this loop. Wins boost mood and a little reputation.</div>`;
+  const list=typeof CIRCLE_GAMES!=='undefined'?CIRCLE_GAMES:[];
+  h+=list.map(g=>`<button class="g-card" style="width:100%;margin:0 0 8px;text-align:left" data-a="ajoGameStart" data-id="${a.id}" data-v="${g.id}">
+    <div class="g-av" style="font-size:28px">${g.ic}</div>
+    <div class="meta"><b>${esc(g.n)}</b><div class="l">${esc(g.d)}</div></div>
+   </button>`).join('');
+  const hist=(a.games||[]).slice(0,6);
+  if(hist.length){
+   h+=`<div class="section-label">Recent plays</div>`;
+   h+=hist.map(x=>`<div class="muted sm px" style="margin-bottom:4px">${x.win?'🏆':'·'} ${esc(x.result||x.type)} · Day ${x.day}</div>`).join('');
   }
   return h;
  }
