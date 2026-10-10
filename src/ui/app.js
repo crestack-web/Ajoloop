@@ -1474,7 +1474,7 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
   }
   h+=`<div class="muted sm" style="margin-bottom:10px">Play light games with other people in this loop. Wins boost mood and a little reputation.</div>`;
   const list=circleGamesCatalog();
-  h+=list.map(g=>`<button class="g-card" style="width:100%;margin:0 0 8px;text-align:left" data-a="ajoGameStart" data-id="${a.id}" data-v="${g.id}">
+  h+=list.map(g=>`<button type="button" class="g-card game-card" style="width:100%;margin:0 0 8px;text-align:left;cursor:pointer" data-a="ajoGameStart" data-id="${a.id}" data-v="${g.id}">
     <div class="g-av" style="font-size:28px">${g.ic}</div>
     <div class="meta"><b>${esc(g.n)}</b><div class="l">${esc(g.d)}</div></div>
    </button>`).join('');
@@ -1647,7 +1647,7 @@ const CHL={work:'work shifts',talk:'conversations',shop:'shop sessions'};
 const avOf=id=>id==='player'?avatar(G.p.gender):(npc(id)?npc(id).em:'🧑🏾');
 
 function gcardRow(x,extra){
- return `<button class="g-card" data-a="g_open" data-id="${x.id}"><div class="g-av ${x.photo?'has-photo':''}">${x.photo?`<img src="${x.photo}" alt="">`:x.av}</div><div class="meta"><b>${esc(x.name)}</b><div class="l">${esc(x.cat)} · ${x.count} member${x.count===1?'':'s'}${x.area?' · '+esc(x.area):''}${extra?' · '+extra:''}</div></div>${x.vis==='public'?'<span class="pill ok">Public</span>':'<span class="pill wait">Private</span>'}</button>`;
+ return `<button type="button" class="g-card" data-a="g_open" data-id="${x.id}"><div class="g-av ${x.photo?'has-photo':''}">${x.photo?`<img src="${x.photo}" alt="">`:x.av}</div><div class="meta"><b>${esc(x.name)}</b><div class="l">${esc(x.cat)} · ${x.count} member${x.count===1?'':'s'}${x.area?' · '+esc(x.area):''}${extra?' · '+extra:''}</div></div>${x.vis==='public'?'<span class="pill ok">Public</span>':'<span class="pill wait">Private</span>'}</button>`;
 }
 
 function groupsView(){const mine=G.groups.filter(g=>!g.dead&&g.mem.player);
@@ -2199,6 +2199,27 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'ajoAct':run(ajoQuickAct,d.id,d.k);break;
   case 'ajoVis':run(setAjoVis,d.id,d.v);break;
   case 'ajoTab':if(d.v==='chat'&&UI.modal&&UI.modal.id){UI.modal={t:'ajoChat',id:UI.modal.id};render();break}UI.ajoTab=d.v;render();break;
+  case 'ajoGameStart':{
+    UI.ajoTab='games';
+    const fn=window.startCircleGame||(typeof startCircleGame==='function'?startCircleGame:null);
+    if(!fn){fx('Games not loaded — hard-refresh the app.','warn');flush();break}
+    if(fn(d.id,d.v)) commit(); else {flush();render()}
+  }break;
+  case 'ajoGamePlay':{
+    const fn=window.playCircleGame||(typeof playCircleGame==='function'?playCircleGame:null);
+    if(!fn){fx('Games not loaded — hard-refresh.','warn');flush();break}
+    if(fn(d.id,d.v)) commit(); else {flush();render()}
+  }break;
+  case 'ajoGameScramble':{
+    const v=(document.getElementById('ajo-scramble')||{}).value||'';
+    const fn=window.playCircleGame||(typeof playCircleGame==='function'?playCircleGame:null);
+    if(!fn){fx('Games not loaded — hard-refresh.','warn');flush();break}
+    if(fn(d.id,v)) commit(); else {flush();render()}
+  }break;
+  case 'ajoGameSkip':{
+    const fn=window.skipCircleGame||(typeof skipCircleGame==='function'?skipCircleGame:null);
+    if(fn){fn(d.id);commit()} else render();
+  }break;
   case 'pickStone':run(pickStone,d.id,d.s);break;
   case 'rollStones':run(rollStones,d.id);break;
   case 'join':run(joinAjo,d.id);break;
@@ -2209,7 +2230,12 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'pay':run(payAjo,d.id);break;
   case 'debt':run(payDebt,+d.id);break;
   case 'reset':if(!UI.confirmReset){UI.confirmReset=true;render()}else{Store.clear();Account.clear();G=null;UI.confirmReset=false;UI.modal=null;UI.tab='life';UI.authMode=null;UI.regStep=1;UI.form={name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''};render()}break;
-  default:if(a.indexOf('g_')===0)gClick(a,d);
+  case 'g_open':
+    UI.modal={t:'grp',id:d.id};UI.gt='home';UI.gi.replyTo=null;UI.gs=null;UI.gconf=null;
+    try{if(typeof visitGroup==='function')visitGroup(d.id)}catch(err){}
+    commit();break;
+  default:if(a&&a.indexOf('g_')===0){try{gClick(a,d)}catch(err){fx('Could not open that.','warn');flush()}}
+    else if(a){console.warn('Unhandled action',a)}
  }});
 addEventListener('hashchange',()=>{deepLink();render()});
 
