@@ -85,7 +85,7 @@ let G=null; const FX=[];
 const fx=(t,k='say')=>FX.push({t,k});
 const no=m=>{fx(m,'warn');return false};
 const npc=id=>G.npcs.find(x=>x.id===id);
-const nm=id=>id==='player'?'You':npc(id).n;
+const nm=id=>id==='player'?'You':id==='_circle'?'The circle':(npc(id)?npc(id).n:'Someone');
 const ajoOf=id=>G.ajos.find(a=>a.id===id);
 const metNpcs=m=>G.npcs.filter(n=>n.met&&n.rel>=m);
 const period=()=>G.hour<12?0:G.hour<17?1:2;
@@ -295,17 +295,23 @@ function ajoGameActive(a){return a&&a.game&&a.game.status==='playing'?a.game:nul
 window.startCircleGame=function startCircleGame(ajoId,type){
   const a=ajoOf(ajoId);if(!a)return no('Circle not found.');
   if(!a.members.includes('player'))return no('Join the circle to play.');
-  if(a.members.length<2)return no('Invite at least one more member into this circle, then play together.');
   if(ajoGameActive(a))return no('Finish the current game first.');
-  const def=CIRCLE_GAMES.find(g=>g.id===type);if(!def)return no('Unknown game.');
-  const g={id:'cg_'+Date.now().toString(36),type,by:'player',status:'playing',day:G.day,players:a.members.slice(),scores:{},picks:{},winner:null,data:{}};
+  const def=(window.CIRCLE_GAMES||CIRCLE_GAMES).find(g=>g.id===type);if(!def)return no('Unknown game.');
+  const players=a.members.slice();
+  if(players.length<2) players.push('_circle');
+  const g={id:'cg_'+Date.now().toString(36),type,by:'player',status:'playing',day:G.day,players,scores:{},picks:{},winner:null,data:{}};
   if(type==='lucky'){
     g.data.target=1+Math.floor(Math.random()*10);
     g.data.phase='pick'; // player picks, then resolve
   } else if(type==='rps'){
     g.data.round=1;g.data.max=3;g.data.wins=0;g.data.losses=0;g.data.ties=0;
   } else if(type==='who'){
-    const others=a.members.filter(m=>m!=='player');
+    let others=a.members.filter(m=>m!=='player');
+    // If alone, use met NPCs or seed names as pretend members for the quiz
+    if(!others.length){
+      others=G.npcs.filter(n=>n.met).map(n=>n.id).slice(0,4);
+      if(!others.length) others=G.npcs.slice(0,4).map(n=>n.id);
+    }
     const target=pick(others)||others[0];
     const n=npc(target);
     const clues=[];
@@ -373,7 +379,7 @@ window.playCircleGame=function playCircleGame(ajoId,choice){
     const pickN=clamp(parseInt(choice)||0,1,10);
     g.picks.player=pickN;
     // NPCs pick
-    a.members.filter(m=>m!=='player').forEach(m=>{g.picks[m]=1+Math.floor(Math.random()*10)});
+    (g.players||a.members).filter(m=>m!=='player').forEach(m=>{g.picks[m]=1+Math.floor(Math.random()*10)});
     const target=g.data.target;
     let best=null,bestDist=99;
     Object.keys(g.picks).forEach(m=>{
