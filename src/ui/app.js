@@ -528,6 +528,32 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
   ${biz?`<div class="row" style="margin-top:8px;gap:10px;align-items:center">${biz?renderBizFace(biz,48):''}<div class="muted sm">${esc(biz.name)} · ${esc(biz.area)} · trust ${Math.round(biz.trust||0)}</div></div>`
   :`<div class="muted sm" style="margin-top:6px">Optional public shop with address and storefront.</div>`}
  </section>
+ <div class="section-label">Where I am today</div>
+ ${(()=>{
+   const dp=typeof myDailyPlace==='function'?myDailyPlace():null;
+   const visitsIn=typeof pendingVisitIn==='function'?pendingVisitIn():[];
+   let h='';
+   if(visitsIn.length){
+     h+=visitsIn.map(r=>{
+       const n=npc(r.from);const L=LOCS[r.loc]||{};
+       return `<div class="card"><div class="row sp"><div><b>📍 Visit request</b><div class="muted sm">${esc(n?n.n:'Someone')} wants to join you at ${L.ic||''} ${esc(L.n||r.loc)}</div>${r.msg?`<div class="tiny muted" style="margin-top:4px">${esc(r.msg)}</div>`:''}</div></div>
+        <div class="row" style="gap:8px;margin-top:10px">
+         <button class="btn sm green" data-a="visitAns" data-id="${r.id}" data-y="1">Approve</button>
+         <button class="btn sm ghost" data-a="visitAns" data-id="${r.id}" data-y="0">Decline</button>
+        </div></div>`;
+     }).join('');
+   }
+   if(dp){
+     const L=LOCS[dp.loc]||{};
+     h+=`<div class="card"><div class="row sp"><div><b>${L.ic||'📍'} ${esc(L.n||dp.loc)}</b><div class="muted sm">Shared with friends · they can request to visit</div>${dp.note?`<div class="tiny" style="margin-top:4px">${esc(dp.note)}</div>`:''}</div>
+      <button class="btn sm ghost" data-a="dailyPlaceClear">Clear</button></div>
+      <button class="btn sm" style="margin-top:10px" data-a="dailyPlaceOpen">Change place</button></div>`;
+   } else {
+     h+=`<div class="card"><div class="muted sm">Set where you are today. Friends nearby can see it on your profile and request to visit — only if you approve.</div>
+      <button class="btn" style="margin-top:10px" data-a="dailyPlaceOpen">Set today's place</button></div>`;
+   }
+   return h;
+ })()}
 
  <div class="section-label">Near you ${p.nearbyOptIn?'':'· off'}</div>
  ${!p.nearbyOptIn?`<div class="card"><div class="muted sm">Turn on nearby to see people and businesses in your area. Approximate only.</div>
@@ -1341,6 +1367,24 @@ function giftReadySheet(){
 }
 
 
+
+function dailyPlaceSheet(){
+  const places=Object.keys(LOCS).filter(k=>k!=='ajo'&&k!=='home');
+  const dp=typeof myDailyPlace==='function'?myDailyPlace():null;
+  const cur=UI.dailyPlaceForm||{loc:(dp&&dp.loc)||G.p.loc||'market',note:(dp&&dp.note)||''};
+  UI.dailyPlaceForm=cur;
+  return `<h2>Where I am today</h2>
+  <div class="muted sm" style="margin:4px 0 12px">Friends can see this on your profile and request to visit. You approve or decline each request.</div>
+  <label class="l">Place</label>
+  <div class="opts" style="flex-wrap:wrap">${places.map(k=>{
+    const L=LOCS[k];
+    return `<button data-a="dailyPlaceLoc" data-v="${k}" class="${cur.loc===k?'on':''}">${L.ic} ${esc(L.n)}</button>`;
+  }).join('')}</div>
+  <label class="l">Note (optional)</label>
+  <div class="field"><input type="text" data-f="dailyPlaceNote" maxlength="120" placeholder="e.g. At Mama Put until evening" value="${esc(cur.note||UI.gi.dailyPlaceNote||'')}"></div>
+  <button class="btn" style="width:100%;margin-top:14px" data-a="dailyPlaceSave">Share with friends</button>
+  ${dp?`<button class="btn ghost" style="width:100%;margin-top:8px" data-a="dailyPlaceClear">Stop sharing today</button>`:''}`;
+}
 function topUpSheet(){
   const bal=G.p.cash|0;
   const amts=[1000,2000,5000,10000,20000,50000];
@@ -1369,7 +1413,7 @@ function sheetHtml(){let h='';
  if(m.t==='gifts')h=giftsHubSheet();
  if(m.t==='giftWheel')h=giftWheelSheet();
  if(m.t==='giftReady')h=giftReadySheet();
- if(m.t==='topup')h=topUpSheet();
+ if(m.t==='topup')h=topUpSheet();if(m.t==='dailyPlace')h=dailyPlaceSheet();
  return wrap(h)}
 function wrap(h,lock){return `<div class="back" ${lock?'':'data-a="closeBack"'}><div class="sheet" id="sheet">${lock?'':'<button class="x" data-a="close" aria-label="Close">✕</button>'}${h}</div></div>`}
 
@@ -1389,6 +1433,23 @@ function npcSheet(n){const here_=npcLoc(n)===G.p.loc,p=G.p;const know=n.rel>=50;
  <div class="card" style="background:var(--card)"><div class="tiny muted" style="font-weight:800">CAN YOU TRUST THEM?</div><div style="margin-top:4px;font-weight:700">${reads}</div>
  <div class="tiny muted" style="margin-top:6px">This is limited evidence from interactions here — not a real-money credit score or a judgment of character.</div></div>
  ${n.said?`<div class="card" style="background:var(--card2)">“${esc(n.said)}”</div>`:''}
+ ${(()=>{
+   if(!n.met) return '';
+   const close=isFriend(n.id)||n.rel>=60;
+   if(!close) return `<div class="card"><div class="muted sm">Become friends to see where they are today and request a visit.</div></div>`;
+   const dp=typeof npcDailyPlace==='function'?npcDailyPlace(n):null;
+   if(!dp) return `<div class="card"><div class="muted sm">No shared place today.</div></div>`;
+   const L=LOCS[dp.loc]||{};
+   const pending=(G.visitReqs||[]).some(r=>r.from==='player'&&r.to===n.id&&r.st==='pending'&&r.day===G.day);
+   const accepted=typeof acceptedVisitToday==='function'&&acceptedVisitToday(n.id);
+   return `<div class="card"><b>📍 Today</b><div class="muted sm" style="margin-top:4px">${L.ic||''} ${esc(L.n||dp.loc)}${dp.note?(' · '+esc(dp.note)):''}</div>
+    ${accepted?`<div class="pill ok" style="margin-top:8px">Visit approved — you can go</div>
+      <button class="btn sm" style="margin-top:8px" data-a="goto" data-to="${dp.loc}">Go there</button>`
+     :pending?`<span class="pill wait" style="margin-top:8px;display:inline-block">Visit request pending</span>`
+     :`<button class="btn sm" style="margin-top:10px" data-a="visitRequest" data-id="${n.id}">Request to visit</button>
+       <div class="tiny muted" style="margin-top:6px">They must approve before you join them there.</div>`}
+   </div>`;
+ })()}
  <div class="profile-actions">
  ${(()=>{const st=friendStatus(n.id);
    if(!n.met) return '';
@@ -2699,6 +2760,18 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     document.querySelectorAll('.wa-voice').forEach(b=>b.classList.remove('playing'));
     if(el&&el.classList){el.classList.add('playing');setTimeout(()=>el.classList.remove('playing'),sec*1000)}
     flush();break}
+
+  
+  case 'dailyPlaceOpen':UI.dailyPlaceForm={loc:(myDailyPlace()&&myDailyPlace().loc)||G.p.loc||'market',note:(myDailyPlace()&&myDailyPlace().note)||''};UI.gi.dailyPlaceNote=UI.dailyPlaceForm.note||'';UI.modal={t:'dailyPlace'};render();break;
+  case 'dailyPlaceLoc':if(!UI.dailyPlaceForm)UI.dailyPlaceForm={};UI.dailyPlaceForm.loc=d.v;render();break;
+  case 'dailyPlaceSave':{
+    const loc=(UI.dailyPlaceForm&&UI.dailyPlaceForm.loc)||G.p.loc||'market';
+    const note=UI.gi.dailyPlaceNote||(UI.dailyPlaceForm&&UI.dailyPlaceForm.note)||'';
+    if(setDailyPlace(loc,note)){UI.modal=null;delete UI.gi.dailyPlaceNote;commit()} else {flush();render()}
+  }break;
+  case 'dailyPlaceClear':run(clearDailyPlace);UI.modal=null;break;
+  case 'visitRequest':run(requestVisit,d.id,'');break;
+  case 'visitAns':run(answerVisitReq,d.id,d.y==='1');break;
 
   case 'peopleFilter':UI.peopleFilter=d.v;render();break;
   case 'tabAjo':UI.tab='ajo';render();break;

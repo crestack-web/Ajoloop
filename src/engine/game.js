@@ -1268,6 +1268,8 @@ function initPlaces(){
   if(!G.friendReqs) G.friendReqs=[];
   if(!G.treatReqs) G.treatReqs=[];
   if(!G.p.nearbyOptIn) G.p.nearbyOptIn=false;
+if(!G.visitReqs) G.visitReqs=[];
+if(G.p.dailyPlace==null) G.p.dailyPlace=null;
   // Seed a few NPC businesses once
   // Top-up seed Kano businesses (new installs + older saves)
   {
@@ -1401,6 +1403,111 @@ function nearbyPeople(){
   const a=G.p.home.area;
   return G.npcs.filter(n=>n.met&&!G.blk.includes(n.id)&&(n.area===a||(n.spots&&n.homeArea===a)||(bizByOwner(n.id)&&bizByOwner(n.id).area===a)));
 }
+
+/* ---- Daily place & visit requests (friends, approval only) ---- */
+function setDailyPlace(locId, placeNote){
+  if(!LOCS[locId]) return no('Unknown place.');
+  if(locId==='ajo') return no('Pick a public place friends can visit.');
+  placeNote=String(placeNote||'').trim().slice(0,120);
+  G.p.dailyPlace={
+    loc:locId,
+    note:placeNote,
+    day:G.day,
+    hour:G.hour,
+    visible:true
+  };
+  if(G.p.loc!==locId) travel(locId);
+  note('You checked in at '+LOCS[locId].n+(placeNote?(' — '+placeNote):'')+'. Friends can request to visit.','good');
+  fx('Checked in · '+LOCS[locId].ic,'warm');
+  return true;
+}
+function clearDailyPlace(){
+  if(!G.p.dailyPlace) return no('No daily place set.');
+  G.p.dailyPlace=null;
+  note('Daily place cleared. Friends will not see where you are.','ajo');
+  return true;
+}
+function dailyPlaceFresh(dp){
+  if(!dp||!dp.loc) return false;
+  // Valid for the same game day
+  return dp.day===G.day;
+}
+function myDailyPlace(){
+  const dp=G.p.dailyPlace;
+  return dailyPlaceFresh(dp)?dp:null;
+}
+/** Friend-facing daily place for an NPC (simulated from their spots / location) */
+function npcDailyPlace(n){
+  if(!n||!n.met) return null;
+  // Only show to friends / close
+  if(!isFriend(n.id)&&n.rel<60) return null;
+  const loc=npcLoc(n);
+  if(!loc||!LOCS[loc]||loc==='home') return null;
+  return {loc, note:'', day:G.day, visible:true, sim:true};
+}
+function requestVisit(toId, msg){
+  const n=npc(toId);
+  if(!n) return no('Person not found.');
+  if(!n.met) return no('Meet them first.');
+  if(!isFriend(toId)&&n.rel<60) return no('Only friends (or close people) can request a visit.');
+  const place=npcDailyPlace(n);
+  if(!place) return no('They have not shared a place today.');
+  if(!G.visitReqs) G.visitReqs=[];
+  if(G.visitReqs.some(r=>r.from==='player'&&r.to===toId&&r.st==='pending'&&r.day===G.day))
+    return no('Visit request already pending.');
+  msg=String(msg||'').trim().slice(0,140);
+  const req={id:'vr'+G.nid++,from:'player',to:toId,loc:place.loc,day:G.day,hour:G.hour,msg,st:'pending'};
+  G.visitReqs.push(req);
+  note('Visit request sent to '+n.n+' at '+LOCS[place.loc].n+'. Waiting for approval.','ajo');
+  fx('Visit requested','warm');
+  // NPC auto-decide after a beat (relationship-based)
+  const ok=Math.random()<clamp(.35+n.rel/120+(G.p.trust-40)/100,.2,.9);
+  if(ok){
+    req.st='accepted';
+    note(n.n+' accepted your visit at '+LOCS[place.loc].n+'. You can go there now.','good');
+    fx(n.n+' said yes','good');
+    rel(toId,2,'Let you visit');
+  } else {
+    req.st='declined';
+    note(n.n+' declined the visit for now.','ajo');
+    fx('Not this time','cold');
+  }
+  return true;
+}
+/** Incoming: friend wants to visit player's daily place */
+function requestVisitFromNpc(fromId){
+  const n=npc(fromId); if(!n||!n.met) return false;
+  const place=myDailyPlace(); if(!place) return false;
+  if(!G.visitReqs) G.visitReqs=[];
+  if(G.visitReqs.some(r=>r.from===fromId&&r.to==='player'&&r.st==='pending'&&r.day===G.day)) return false;
+  G.visitReqs.push({id:'vr'+G.nid++,from:fromId,to:'player',loc:place.loc,day:G.day,hour:G.hour,msg:'Can I join you?',st:'pending'});
+  note(n.n+' wants to visit you at '+LOCS[place.loc].n+'. Approve or decline.','ajo');
+  return true;
+}
+function answerVisitReq(rid, yes){
+  if(!G.visitReqs) return no('No requests.');
+  const r=G.visitReqs.find(x=>x.id===rid);
+  if(!r||r.st!=='pending') return no('Request not found.');
+  if(r.to!=='player') return no('Only the host can decide.');
+  if(!yes){
+    r.st='declined';
+    note('You declined a visit request.','ajo');
+    fx('Declined','cold');
+    return true;
+  }
+  r.st='accepted';
+  const n=npc(r.from);
+  note((n?n.n:'Someone')+' can visit you at '+LOCS[r.loc].n+'.','good');
+  fx('Visit approved','good');
+  if(n) rel(r.from,2,'Welcomed a visit');
+  return true;
+}
+function pendingVisitIn(){return (G.visitReqs||[]).filter(r=>r.to==='player'&&r.st==='pending')}
+function pendingVisitOut(){return (G.visitReqs||[]).filter(r=>r.from==='player'&&r.st==='pending')}
+function acceptedVisitToday(toId){
+  return (G.visitReqs||[]).some(r=>r.from==='player'&&r.to===toId&&r.st==='accepted'&&r.day===G.day);
+}
+
 
 /* ---- Custom spots (community hangouts) ---- */
 const SPOT_ICS=['📍','🕌','🏟️','🌳','☕','🛒','🏫','🏥','🚏','🎵'];
