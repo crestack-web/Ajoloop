@@ -451,6 +451,94 @@ export const api = {
     ]);
     return { kyc, banks: banks || [] };
   },
+
+  async ajoCreate({ name, size, amount, freqDays, purpose, vis }) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/ajo/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ name, size, amount, freqDays, purpose, vis }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'Could not create circle' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
+
+  async ajoJoin({ circleId, code, reason }) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/ajo/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ circleId, code, reason }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'Could not join' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
+
+  async ajoContribute({ circleId, cycle }) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/ajo/contribute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ circleId, cycle }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'Contribution failed' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
+
+  async ajoList() {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/ajo/list', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'Could not load circles' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
+
+  async ajoInviteCode({ circleId, maxUses, ttlDays }) {
+    if (!supabase) return { error: 'Online mode not configured' };
+    const session = await this.getSession();
+    if (!session?.access_token) return { error: 'Sign in required' };
+    try {
+      const res = await fetch('/api/ajo/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ circleId, maxUses, ttlDays }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || 'Could not create invite' };
+      return data;
+    } catch (e) {
+      return { error: e.message || 'Network error' };
+    }
+  },
 };
 
 export default api;

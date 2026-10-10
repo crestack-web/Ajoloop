@@ -3058,15 +3058,38 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'ajoChatBack':UI.ajoTab='home';UI.modal={t:'ajo',id:d.id};render();break;
   case 'ajoNew':UI.modal={t:'ajoNew'};render();break;
   case 'anset':UI.ajoNew[d.k]=(d.k==='purpose'?d.v:+d.v);if(d.k==='size')delete UI.gi.ajoSize;if(d.k==='amt')delete UI.gi.ajoAmt;if(d.k==='freq')delete UI.gi.ajoFreq;render();break;
-  case 'ajoCreate':case 'ajoMake':{const nameEl=document.getElementById('f-ajo');const f=UI.ajoNew;if(nameEl&&nameEl.value)f.name=nameEl.value;
+  case 'ajoCreate':case 'ajoMake':{
+    const nameEl=document.getElementById('f-ajo');const f=UI.ajoNew;if(nameEl&&nameEl.value)f.name=nameEl.value;
     const sizeEl=document.getElementById('f-ajo-size'),amtEl=document.getElementById('f-ajo-amt'),freqEl=document.getElementById('f-ajo-freq');
     const size=sizeEl&&sizeEl.value!==''?+sizeEl.value:(UI.gi.ajoSize!==undefined?+UI.gi.ajoSize:f.size);
     const amt=amtEl&&amtEl.value!==''?+amtEl.value:(UI.gi.ajoAmt!==undefined?+UI.gi.ajoAmt:f.amt);
     const freq=freqEl&&freqEl.value!==''?+freqEl.value:(UI.gi.ajoFreq!==undefined?+UI.gi.ajoFreq:f.freq);
     f.size=size;f.amt=amt;f.freq=freq;
-    const id=createAjo((f.name||'Kano Hustlers').trim(),size,amt,freq,{purpose:f.purpose||'general',reason:UI.gi.ajoReason||''});
-    if(id){UI.ajoTab='home';UI.modal={t:'ajo',id};['ajoSize','ajoAmt','ajoFreq','ajoReason'].forEach(k=>delete UI.gi[k])}
-    commit();break}
+    const name=(f.name||'Kano Hustlers').trim();
+    const purpose=f.purpose||'general';
+    const reason=UI.gi.ajoReason||'';
+    (async()=>{
+      if(typeof api!=='undefined'&&api.online&&api.userId){
+        fx('Creating circle…','warm');flush();
+        const res=await api.ajoCreate({name,size,amount:amt,freqDays:freq,purpose,vis:'public'});
+        if(res.error){fx(res.error,'warn');flush();return}
+        // Mirror into local game state for UI continuity
+        const id=createAjo(name,size,amt,freq,{purpose,reason});
+        if(id){
+          const a=ajoOf(id);
+          if(a&&res.circle){a.cloudId=res.circle.id;a.cloud=true}
+          UI.ajoTab='home';UI.modal={t:'ajo',id};
+          ['ajoSize','ajoAmt','ajoFreq','ajoReason'].forEach(k=>delete UI.gi[k]);
+          commit();
+          fx('Circle saved online','good');
+        } else {flush();render()}
+      } else {
+        const id=createAjo(name,size,amt,freq,{purpose,reason});
+        if(id){UI.ajoTab='home';UI.modal={t:'ajo',id};['ajoSize','ajoAmt','ajoFreq','ajoReason'].forEach(k=>delete UI.gi[k])}
+        commit();
+      }
+    })();
+  }break
   case 'ajoRequest':UI.modal={t:'ajoJoin',id:d.id};UI.gi.ajoJoinReason='';render();break;
   case 'ajoRequestSend':{
     const reason=UI.gi.ajoJoinReason||'';
@@ -3091,9 +3114,33 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
     const el=document.getElementById('f-ajo-code');
     const code=(el&&el.value)||UI.gi.ajoCode||'';
     const reason=UI.gi.ajoCodeReason||'';
-    const id=redeemAjoCode(code,reason);
-    if(id){UI.gi.ajoCode='';UI.gi.ajoCodeReason='';UI.modal={t:'ajo',id};UI.ajoTab='home';commit()}
-    else {flush();render()}
+    (async()=>{
+      if(typeof api!=='undefined'&&api.online&&api.userId){
+        fx('Joining with code…','warm');flush();
+        const res=await api.ajoJoin({code,reason});
+        if(res.error){fx(res.error,'warn');flush();return}
+        // Local mirror for UX
+        const id=redeemAjoCode(code,reason);
+        if(id){
+          const a=ajoOf(id);
+          if(a&&res.circle){a.cloudId=res.circle.id;a.cloud=true}
+        } else if(res.circle){
+          // code may only exist online — create local stub
+          const c=res.circle;
+          const id=createAjo(c.name,c.size,+c.amount,c.freq_days,{purpose:c.purpose||'general',reason});
+          const a=ajoOf(id);
+          if(a){a.cloudId=c.id;a.cloud=true;a.members=['player']}
+          UI.modal={t:'ajo',id};UI.ajoTab='home';
+        }
+        UI.gi.ajoCode='';UI.gi.ajoCodeReason='';
+        commit();
+        fx('Joined circle online','good');
+      } else {
+        const id=redeemAjoCode(code,reason);
+        if(id){UI.gi.ajoCode='';UI.gi.ajoCodeReason='';UI.modal={t:'ajo',id};UI.ajoTab='home';commit()}
+        else {flush();render()}
+      }
+    })();
   }break;
 
   case 'ajoCat':UI.acat=d.v||'';render();break;
@@ -3240,7 +3287,27 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   }break;
   case 'ajoClaim':if(claimAjoPayout(d.id,UI.gi.ajoUseReason||'')){delete UI.gi.ajoUseReason}commit();break;
 
-  case 'pay':run(payAjo,d.id);break;
+  case 'pay':{
+    const a=ajoOf(d.id);
+    (async()=>{
+      if(a&&a.cloudId&&typeof api!=='undefined'&&api.online&&api.userId){
+        fx('Recording contribution…','warm');flush();
+        const res=await api.ajoContribute({circleId:a.cloudId,cycle:a.cycle});
+        if(res.error){fx(res.error,'warn');flush();return}
+        if(typeof res.balance==='number') G.p.cash=Math.floor(res.balance);
+        // Mark local cycle paid without double-spend if cash already debited remotely
+        if(!cyc(a,'player')){
+          a.contribs.push({cycle:a.cycle,m:'player',st:'paid',day:G.day,ref:res.reference||null,cloud:true});
+          if(typeof ensureRoundPot==='function') ensureRoundPot(a);
+        }
+        try{await api.syncWalletToGame()}catch(e){}
+        commit();
+        fx('Contribution confirmed · '+fmt(res.amount||a.amt),'good');
+      } else {
+        run(payAjo,d.id);
+      }
+    })();
+  }break;
   case 'debt':run(payDebt,+d.id);break;
   case 'reset':if(!UI.confirmReset){UI.confirmReset=true;render()}else{Store.clear();Account.clear();G=null;UI.confirmReset=false;UI.modal=null;UI.tab='life';UI.authMode=null;UI.regStep=1;UI.form={name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''};render()}break;
   case 'g_open':

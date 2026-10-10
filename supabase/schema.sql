@@ -287,3 +287,4 @@ on conflict (user_id) do nothing;
 insert into public.game_states (user_id, state)
 select id, '{}'::jsonb from public.profiles
 on conflict (user_id) do nothing;
+\n-- See also: supabase/migrations/002_ajo_core.sql
