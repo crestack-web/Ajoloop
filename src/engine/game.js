@@ -1049,6 +1049,8 @@ function nearestArea(lat,lng){
 function personMapCoords(entity){
   // entity: player object or npc
   if(entity===G.p||(entity&&entity===G.p)){
+    if(G.p.lat!=null&&G.p.lng!=null) return {lat:G.p.lat,lng:G.p.lng};
+    if(G.p.home&&G.p.home.lat!=null&&G.p.home.lng!=null) return {lat:G.p.home.lat,lng:G.p.home.lng};
     const loc=G.p.loc, L=LOCS[loc];
     let base;
     if(L&&L.area) base=areaCoords(L.area);
@@ -1178,11 +1180,26 @@ function initPlaces(){
   const areaCycle=allAreas();
   G.npcs.forEach((n,i)=>{ if(!n.homeArea) n.homeArea=areaCycle[i%areaCycle.length]; });
 }
-function setHome(area,label,style){
+function setHome(area,label,style,extra){
+  extra=extra||{};
   if(!GANO_AREAS_HAS(area)) return fx('Pick a real Kano area.','warn');
-  G.p.home={area,label:(label||'').slice(0,40),style:style||'compound',done:true};
+  const lat=extra.lat!=null?+extra.lat:null;
+  const lng=extra.lng!=null?+extra.lng:null;
+  const address=(extra.address||'').trim().slice(0,120)||null;
+  G.p.home={
+    area,
+    label:(label||'').slice(0,40),
+    style:style||'compound',
+    done:true,
+    lat:isFinite(lat)?lat:null,
+    lng:isFinite(lng)?lng:null,
+    address,
+    detected:!!extra.detected
+  };
   G.p.area=area; G.p.shareArea=true;
-  note('Home set in '+area+(label?(' · '+label):'')+'. Neighbours in this area can discover you when you opt in.');
+  // Keep player map pin at home coords when known
+  if(isFinite(lat)&&isFinite(lng)){G.p.lat=lat;G.p.lng=lng}
+  note('Home set in '+area+(address?(' · '+address):(label?(' · '+label):''))+'. Neighbours in this area can discover you when you opt in.');
   return true;
 }
 function GANO_AREAS_HAS(a){return !!(KANO_MAP.areas[a]||G_AREAS.includes(a))}
