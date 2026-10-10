@@ -1,4 +1,48 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}
+/* logo readable on dark and light */
+.logo img{
+  width:44px;height:44px;object-fit:contain;border-radius:12px;
+  background:#fff;padding:4px;
+  box-shadow:0 0 0 1px var(--line), 0 4px 14px rgba(0,0,0,.18);
+}
+.logo{gap:12px;font-size:22px}
+:root:not([data-theme="light"]) .logo img,
+:root[data-theme="dark"] .logo img{
+  background:#fff;
+  box-shadow:0 0 0 1px rgba(255,255,255,.25), 0 6px 18px rgba(0,0,0,.45);
+}
+:root[data-theme="light"] .logo img,
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]) .logo img{
+    background:#fff;
+    box-shadow:0 0 0 1px var(--line), 0 4px 12px rgba(29,22,80,.12);
+  }
+}
+
+/* community photos */
+.photos{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.photos li{margin:0;border-radius:18px;overflow:hidden;background:var(--surface);box-shadow:0 0 0 1px var(--line);min-height:0}
+.photos li:nth-child(1){grid-column:span 3;grid-row:span 2}
+.photos li:nth-child(2){grid-column:span 3}
+.photos li:nth-child(3){grid-column:span 3}
+.photos li:nth-child(4){grid-column:span 3}
+.photos li:nth-child(5){grid-column:span 3}
+.photos figure{margin:0;height:100%;display:flex;flex-direction:column}
+.photos img{display:block;width:100%;height:100%;object-fit:cover;aspect-ratio:4/3;min-height:180px}
+.photos li:nth-child(1) img{min-height:280px;aspect-ratio:4/5}
+.photos figcaption{padding:12px 14px;font-size:14px;color:var(--mut);line-height:1.4;border-top:1px solid var(--line);background:var(--surface)}
+.photos figcaption b{display:block;color:var(--fg);font-family:var(--display);font-size:16px;margin-bottom:2px}
+@media (max-width:820px){
+  .photos{grid-template-columns:1fr 1fr}
+  .photos li:nth-child(1),.photos li:nth-child(2),.photos li:nth-child(3),.photos li:nth-child(4),.photos li:nth-child(5){grid-column:span 1;grid-row:auto}
+  .photos li:nth-child(1){grid-column:span 2}
+}
+@media (max-width:560px){
+  .photos{grid-template-columns:1fr}
+  .photos li:nth-child(1){grid-column:span 1}
+}
+
+</style></head><body>
 <title>Welcome to Ajo Loop</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -122,7 +166,7 @@ section{padding-block:clamp(40px,7vw,88px);border-top:1px solid var(--line)}
 <div class="wrap">
   <header class="bar">
     <div class="logo">
-      <img src="/logo.png" alt="AjoLoop" width="36" height="36" style="width:36px;height:36px;object-fit:contain;border-radius:8px">
+      <img src="/logo.png" alt="AjoLoop" width="44" height="44">
       Ajo Loop
     </div>
     <a href="/" class="tag" style="text-decoration:none">Open the app →</a>
@@ -198,6 +242,46 @@ section{padding-block:clamp(40px,7vw,88px);border-top:1px solid var(--line)}
         </ul>
         <p class="note">Rotating savings circles are not only African. Similar groups exist in Asia and Latin America under other names. Africa is where this one comes from for us.</p>
       </div>
+    </section>
+
+    
+    <section id="community">
+      <div class="head">
+        <h2>Community in the open</h2>
+        <p>Ajo is people meeting in ordinary places — the street stall, the café, the night table, the shared pot. These are the moments the loop is made of.</p>
+      </div>
+      <ul class="photos">
+        <li>
+          <figure>
+            <img src="/welcome/street-corn.jpg" alt="Two women laughing while roasting corn by the roadside" loading="lazy" width="800" height="1000">
+            <figcaption><b>Street side</b>A hard day gets lighter when someone shares the heat and the joke.</figcaption>
+          </figure>
+        </li>
+        <li>
+          <figure>
+            <img src="/welcome/cafe-friends.jpg" alt="Friends sharing a meal at a café" loading="lazy" width="800" height="600">
+            <figcaption><b>Table talk</b>Belonging starts with a seat and a name someone remembers.</figcaption>
+          </figure>
+        </li>
+        <li>
+          <figure>
+            <img src="/welcome/night-table.jpg" alt="Couple at a night street food table" loading="lazy" width="800" height="600">
+            <figcaption><b>After dark</b>The neighbourhood stays open when people keep showing up.</figcaption>
+          </figure>
+        </li>
+        <li>
+          <figure>
+            <img src="/welcome/shared-meal.jpg" alt="Friends sharing a communal meal outdoors" loading="lazy" width="800" height="600">
+            <figcaption><b>Shared pot</b>One table, many plates — the same idea as the circle.</figcaption>
+          </figure>
+        </li>
+        <li>
+          <figure>
+            <img src="/welcome/street-food.jpg" alt="Street food gathering with a host speaking to the crowd" loading="lazy" width="800" height="600">
+            <figcaption><b>Gathered</b>When people gather, trust has somewhere to grow.</figcaption>
+          </figure>
+        </li>
+      </ul>
     </section>
 
     <section class="mission" id="mission">
