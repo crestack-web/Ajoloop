@@ -446,6 +446,12 @@ function setAjoVis(id,vis){
 }
 
 function createAjo(name,size,amt,freq){if(!atAjo())return false;if(blocked())return no('You are blocked from forming a new Ajo for '+(G.p.blockedUntil-G.day)+' day(s).');if(G.p.trust<30)return no('People will not join an Ajo run by someone with Trust below 30.');if(myAjos().length>=2)return no('You can only be in 2 Ajo groups at once.');
+ size=clamp(parseInt(size)||5,3,20);
+ amt=clamp(parseInt(amt)||5000,500,500000);
+ freq=clamp(parseInt(freq)||7,1,60);
+ if(size<3)return no('A circle needs at least 3 members.');
+ if(amt<500)return no('Contribution must be at least ₦500.');
+ if(freq<1)return no('Frequency must be at least 1 day.');
  const a={id:'p'+G.nid++,name:name||'Kano Hustlers',host:'player',size,amt,freq,members:['player'],status:'open',startDay:null,cycle:0,order:[],prio:[],req:null,nom:null,contribs:[],payouts:[],invited:false,inv:{},mode:'traditional',feePct:AJO_FEE_PCT,stones:{},rolled:false,feeTaken:0,vis:'public',joinReqs:[],chat:[],activity:[]};
  G.ajos.unshift(a);miles('ajohost','Started your own Ajo');ajoAct(a,'system','Circle created. Public discovery is on — people can request to join.');note('Ajo created. Invite your people or wait for public requests. Round 1 goes to you. Fee '+Math.round(AJO_FEE_PCT*100)+'% on first pot only.','ajo');return a.id}
 function invite(aid,nid){const a=ajoOf(aid),n=npc(nid);if(a.status!=='open'||a.host!=='player')return false;if(!n.met)return no('Meet '+n.n+' first.');if(a.inv[nid]===G.day)return no(n.n+' already answered today.');a.inv[nid]=G.day;
