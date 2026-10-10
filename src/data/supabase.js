@@ -1,12 +1,13 @@
 /**
- * Supabase client — only created when env is configured.
+ * Supabase client — created when URL + anon key are available.
+ * Env is resolved in vite.config.js from VITE_* or SUPABASE_* names.
  */
 import { createClient } from '@supabase/supabase-js';
 
 const url = (import.meta.env.VITE_SUPABASE_URL || '').trim();
 const anon = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
-export const hasSupabase = !!(url && anon);
+export const hasSupabase = !!(url && anon && url.startsWith('http'));
 
 export const supabase = hasSupabase
   ? createClient(url, anon, {
@@ -18,5 +19,10 @@ export const supabase = hasSupabase
       },
     })
   : null;
+
+if (typeof console !== 'undefined') {
+  if (hasSupabase) console.info('[AjoLoop] Backend connected:', url.replace(/^https?:\/\//, '').split('.')[0] + '.supabase.co');
+  else console.info('[AjoLoop] Offline mode — set SUPABASE_PROJECT_URL + SUPABASE_ANON_KEY (or VITE_*) and redeploy');
+}
 
 export default supabase;
