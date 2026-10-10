@@ -355,7 +355,7 @@ function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length;
  return `<header class="hud"><div class="r1"><div class="day"><img class="logo-hud" src="/logo.png" alt="AjoLoop">
  <span style="display:block;font-weight:800;font-size:15px">${esc(p.name)}</span>
  <span class="muted" style="font-size:12px;font-weight:700">${p.username?'@'+esc(p.username)+' · ':''}📍 ${esc(area)}</span></div>
- <div class="center"><span class="cash-label">Demo wallet</span><div class="cash sm" id="cash">${fmt(p.cash)}</div></div>
+ <div class="center"><span class="cash-label">Balance</span><div class="cash sm" id="cash">${fmt(p.cash)}</div></div>
  <button class="bell" data-a="notes" aria-label="Notifications">🔔${unread?`<b>${unread}</b>`:''}${dueAjo?'<i class="dot" style="top:2px;right:2px"></i>':''}</button></div>
  <div class="r2" style="grid-template-columns:1fr 1fr auto">
   <div class="stat-tap" data-a="statHint" data-k="trust"><div class="mini">Trust</div><div class="row sp"><b style="color:${col(p.trust)}">${Math.round(p.trust)}</b><span class="tiny muted">${trustTier(p.trust)}</span></div>${bar(p.energy>0?p.trust:p.trust,col(p.trust))}</div>
@@ -411,16 +411,21 @@ function lifeView(){const p=G.p,j=JOBS.find(x=>x.id===p.job),met=G.npcs.filter(n
  const showSetup=!G.p.onboarded||(next&&!G.p.onboarded);
  return `
  <section class="card gift-strip-card">
-  <div class="row sp"><b>🎁 Community gifts</b><span class="stars-pill sm">⭐ ${(G.p.stars|0)}</span></div>
-  <div class="muted sm" style="margin:4px 0 8px">Free gym, salon & spa sessions — AjoLoop covers partner spots.</div>
-  <div class="row" style="gap:8px">
-    <button class="btn sm" style="flex:1" data-a="giftReadyOpen">Open gifts</button>
-    <button class="btn sm ghost" style="flex:1" data-a="giftWheelOpen">🎡 Spin</button>
-  </div>
+  <div class="row sp"><b>To attend</b><span class="stars-pill sm">${(typeof pendingExperiences==='function'?pendingExperiences():[]).length} waiting</span></div>
+  <div class="muted sm" style="margin:4px 0 8px">Unlocked experiences at real places near you — not free virtual loot. Show up to complete them.</div>
+  ${(()=>{const pe=typeof pendingExperiences==='function'?pendingExperiences():[];
+    if(!pe.length) return `<div class="tiny muted">Nothing pending. Unlock a gym, salon, spa or meetup when you are active in the community.</div>
+    <div class="row" style="gap:8px;margin-top:8px"><button class="btn sm" style="flex:1" data-a="giftsOpen">View list</button><button class="btn sm ghost" style="flex:1" data-a="giftWheelOpen">Unlock more</button></div>`;
+    return pe.slice(0,3).map(x=>`<div class="pending-exp row sp" style="margin-top:8px">
+      <div><span style="margin-right:6px">${x.ic||'📍'}</span><b>${esc(x.n)}</b>
+      <div class="tiny muted">Still to attend${x.bizId&&bizById(x.bizId)?' · '+esc(bizById(x.bizId).name):''}</div></div>
+      <button class="btn sm green" data-a="giftAttend" data-i="${x.slot}">I went</button>
+    </div>`).join('')+`<div class="row" style="gap:8px;margin-top:10px"><button class="btn sm ghost" style="flex:1" data-a="giftsOpen">All pending</button><button class="btn sm ghost" style="flex:1" data-a="giftWheelOpen">Unlock more</button></div>`;
+  })()}
  </section>
  <section class="card journey-card">
   <b>Your path on AjoLoop</b>
-  <div class="muted sm" style="margin:6px 0 10px;line-height:1.45">The game is building a life with people you can trust — not a virtual world.</div>
+  <div class="muted sm" style="margin:6px 0 10px;line-height:1.45">Build real connections around you — places, people, groups, then Ajo when trust is there.</div>
   <div class="journey-steps">
    <button class="journey-step" data-a="tab" data-v="people"><span class="js-n">1</span><span class="js-t">Meet</span><span class="js-d">People & friends</span></button>
    <button class="journey-step" data-a="tab" data-v="town"><span class="js-n">2</span><span class="js-t">Experience</span><span class="js-d">Places & businesses</span></button>
@@ -1223,29 +1228,28 @@ function giftsHubSheet(){
   ensureGifts();
   const stars=G.p.stars|0;
   const slots=G.p.giftSlots||[];
-  const filled=slots.filter(Boolean).length;
-  const wellness=typeof wellnessNearby==='function'?wellnessNearby():(G.bizs||[]).filter(b=>b.cat==='Wellness'||b.wellness);
-  const claimBtns=slots.map((s,i)=>{
-    if(!s) return `<div class="gift-slot empty"><span class="gs-n">${i+1}</span><span class="gs-l">Empty</span></div>`;
-    return `<button type="button" class="gift-slot filled" data-a="giftClaim" data-i="${i}">
-      <span class="gs-ic">${s.ic}</span><span class="gs-t">${esc(s.n)}</span>
-      <span class="gs-v">${s.value?('₦'+s.value.toLocaleString()+' covered'):'Claim'}</span>
-    </button>`;
-  }).join('');
+  const pending=slots.map((s,i)=>s&&s.status==='pending'?{...s,slot:i}:null).filter(Boolean);
+  const wellness=typeof wellnessNearby==='function'?wellnessNearby():[];
   return `<div class="gift-hub">
-  <div class="gift-hero"><div class="big">🎁</div><h2>Community gifts</h2>
-  <p class="muted sm">Earn stars by meeting people and showing up. Spin for free wellness perks — AjoLoop covers partner gym, salon, spa & yoga sessions.</p>
-  <div class="stars-pill">⭐ ${stars} community stars</div>
+  <div class="gift-hero"><div class="big">📍</div><h2>Experiences to attend</h2>
+  <p class="muted sm">These are real bookings at partner places. Unlocking is not the same as going — mark <b>I went</b> after you show up. Trust grows when you attend.</p>
+  <div class="stars-pill">Activity ${stars}</div>
   </div>
-  <div class="gift-progress"><b>${filled}/6 free gifts</b><div class="muted tiny">Fill slots from the wheel, then claim when you are ready.</div>
-  <div class="gift-slots">${claimBtns}</div></div>
-  <button class="btn" style="width:100%;margin-top:12px" data-a="giftWheelOpen">🎡 Spin the community wheel</button>
-  <div class="section-label" style="margin-top:16px">Nearby wellness</div>
-  ${wellness.length?wellness.map(b=>`<button type="button" class="g-card" data-a="bizOpen" data-id="${b.id}" style="width:100%;margin:0 0 8px">
+  <div class="section-label">Waiting for you · ${pending.length}</div>
+  ${pending.length?pending.map(s=>`<div class="card" style="margin-bottom:8px">
+    <div class="row sp"><b>${s.ic||''} ${esc(s.n)}</b><span class="pill wait">To attend</span></div>
+    <div class="muted sm" style="margin:6px 0">${esc(s.d||'')}</div>
+    ${s.bizId&&bizById(s.bizId)?`<div class="tiny muted">${esc(bizById(s.bizId).name)} · ${esc(bizById(s.bizId).area)}</div>
+    <button class="btn sm ghost" style="margin-top:8px" data-a="bizOpen" data-id="${s.bizId}">View place</button>`:''}
+    <button class="btn green" style="width:100%;margin-top:8px" data-a="giftAttend" data-i="${s.slot}">I attended this</button>
+  </div>`).join(''):'<div class="card empty"><div class="muted sm">No pending experiences. Unlock one when you are active — then go in person.</div></div>'}
+  <button class="btn" style="width:100%;margin-top:12px" data-a="giftWheelOpen">Unlock an experience</button>
+  <div class="section-label" style="margin-top:16px">Partner places</div>
+  ${wellness.map(b=>`<button type="button" class="g-card" data-a="bizOpen" data-id="${b.id}" style="width:100%;margin:0 0 8px">
     <div class="g-av">${b.ic||'🧘'}</div>
-    <div class="meta"><b>${esc(b.name)}</b><div class="l">${esc(b.area)} · ${esc(b.cat)}${b.label?' · '+esc(b.label):''}</div></div>
-  </button>`).join(''):'<div class="muted sm">Wellness partners will appear as you explore.</div>'}
-  <div class="tiny muted" style="margin-top:12px">Gifts are partner-covered experiences inside AjoLoop — not Temu merchandise. Demo covers the cost in-app.</div>
+    <div class="meta"><b>${esc(b.name)}</b><div class="l">${esc(b.area)} · ${esc(b.cat)}</div></div>
+  </button>`).join('')||'<div class="muted sm">Explore Places for partners near you.</div>'}
+  <div class="tiny muted" style="margin-top:12px">Not free virtual money. These are commitments to show up at real spots in your area.</div>
   </div>`;
 }
 function giftWheelSheet(){
@@ -1254,8 +1258,8 @@ function giftWheelSheet(){
   const spinning=UI.giftSpinning;
   return `<div class="gift-wheel-wrap">
   <button class="x" data-a="giftsOpen" aria-label="Back" style="position:absolute;right:12px;top:12px">✕</button>
-  <h2 class="center">Spin for FREE community gifts</h2>
-  <p class="muted sm center">With active participation · ${spinsLeft} spin${spinsLeft===1?'':'s'} left today</p>
+  <h2 class="center">Unlock a real experience</h2>
+  <p class="muted sm center">Based on community activity · ${spinsLeft} spin${spinsLeft===1?'':'s'} left today</p>
   <div class="wheel-stage">
     <div class="wheel-pointer">▼</div>
     <div class="wheel ${spinning?'spinning':''}" id="ajo-wheel">
@@ -1271,14 +1275,14 @@ function giftWheelSheet(){
     </div>
   </div>
   <button class="btn" style="width:100%;margin-top:16px" data-a="giftSpin" ${spinning?'disabled':''}>Spin (${spinsLeft} left)</button>
-  <p class="tiny muted center" style="margin-top:10px">First spin free each day. Later spins cost 25 ⭐. Win gym, salon, spa or yoga — AjoLoop covers the partner session.</p>
+  <p class="tiny muted center" style="margin-top:10px">First unlock free each day. Later ones need activity points. You still must attend the place — unlocking is only the booking.</p>
   ${UI.giftResult?`<div class="gift-result card">${esc(UI.giftResult)}</div>`:''}
   </div>`;
 }
 function giftReadySheet(){
   return `<div class="gift-ready">
   <div class="ready-text">ARE YOU<br>READY?</div>
-  <p class="muted sm center" style="margin-top:16px">Spin for free wellness gifts at partner gyms, salons and spas near you. AjoLoop covers selected sessions when you claim.</p>
+  <p class="muted sm center" style="margin-top:16px">Unlock bookings at partner places near you. They stay on your list until you attend. Showing up builds trust — not free virtual cash.</p>
   <button class="btn" style="width:100%;margin-top:18px" data-a="giftReadyGo">Let&apos;s go</button>
   <button class="btn ghost" style="width:100%;margin-top:8px" data-a="close">Maybe later</button>
   </div>`;
@@ -2570,8 +2574,9 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
       commit();
     },1800);
   }break;
-  case 'giftClaim':{
-    if(claimGiftSlot(+d.i)){UI.modal={t:'gifts'};commit()} else {flush();render()}
+  case 'giftClaim':
+  case 'giftAttend':{
+    if(attendExperience(+d.i)){UI.modal={t:'gifts'};commit()} else {flush();render()}
   }break;
 
   default:if(a&&a.indexOf('g_')===0){try{gClick(a,d)}catch(err){fx('Could not open that.','warn');flush()}}
