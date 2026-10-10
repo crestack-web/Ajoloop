@@ -396,7 +396,7 @@ function hud(){const p=G.p,unread=G.notes.filter(n=>!n.read).length;
  return `<header class="hud"><div class="r1"><div class="day"><img class="logo-hud" src="/logo.png" alt="AjoLoop">
  <span style="display:block;font-weight:800;font-size:15px">${esc(p.name)}</span>
  <span class="muted" style="font-size:12px;font-weight:700">${p.username?'@'+esc(p.username)+' · ':''}📍 ${esc(area)}</span></div>
- <div class="center"><span class="cash-label">Balance</span><div class="cash sm" id="cash">${fmt(p.cash)}</div></div>
+ <button type="button" class="center cash-tap" data-a="topUpOpen" style="background:none;border:0;color:inherit;padding:0;cursor:pointer"><span class="cash-label">Balance · Top up</span><div class="cash sm" id="cash">${fmt(p.cash)}</div></button>
  <button class="bell" data-a="notes" aria-label="Notifications">🔔${unread?`<b>${unread}</b>`:''}${dueAjo?'<i class="dot" style="top:2px;right:2px"></i>':''}</button></div>
  <div class="r2" style="grid-template-columns:1fr 1fr auto">
   <div class="stat-tap" data-a="statHint" data-k="trust"><div class="mini">Trust</div><div class="row sp"><b style="color:${col(p.trust)}">${Math.round(p.trust)}</b><span class="tiny muted">${trustTier(p.trust)}</span></div>${bar(p.energy>0?p.trust:p.trust,col(p.trust))}</div>
@@ -1224,7 +1224,7 @@ function ajoCard(a){const st={open:'Gathering',stones:a.rolled?'Order set':'Pick
 
 function moreView(){const seg=[['ledger','Money'],['rep','Trust & Rep'],['journey','Journey'],['shop','Shop'],['gstats','Groups'],['settings','Settings']];
  return `<div class="seg">${seg.map(([k,l])=>`<button data-a="more" data-v="${k}" class="${UI.more===k?'on':''}">${l}</button>`).join('')}</div>`+({ledger:ledgerV,rep:repV,journey:journeyV,shop:shopV,gstats:gstatsV,settings:settingsV}[UI.more])()}
-function ledgerV(){return `<section class="card">${G.tx.length?G.tx.slice(0,40).map(t=>`<div class="tx"><div><b>${esc(t.label)}</b><div class="tiny muted">Day ${t.day} · ${t.cat}</div></div><span class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${fmt(t.amount)}</span></div>`).join(''):'<div class="muted">No transactions yet.</div>'}</section>`}
+function ledgerV(){return `<div class="px" style="margin:8px 0 12px"><button class="btn" data-a="topUpOpen">＋ Top up balance</button></div><section class="card">${G.tx.length?G.tx.slice(0,40).map(t=>`<div class="tx"><div><b>${esc(t.label)}</b><div class="tiny muted">Day ${t.day} · ${t.cat}</div></div><span class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${fmt(t.amount)}</span></div>`).join(''):'<div class="muted">No transactions yet.</div>'}</section>`}
 function repV(){const mk=(arr,l)=>`<section class="card"><b>${l}</b>${arr.length?arr.slice(0,12).map(h=>`<div class="tx"><div>${esc(h.why)}<div class="tiny muted">Day ${h.day} → ${h.v}</div></div><span class="${h.d>0?'pos':'neg'}">${h.d>0?'+':''}${h.d}</span></div>`).join(''):'<div class="muted sm" style="margin-top:6px">Nothing yet.</div>'}</section>`;return mk(G.th,'🤝 Trust history')+mk(G.rh,'⭐ Reputation history')}
 function spark(arr,c,l){if(arr.length<2)return `<div class="muted sm">${l}: more days needed</div>`;const w=300,h=60,mx=Math.max(...arr,1),mn=Math.min(...arr,0),r=mx-mn||1;const pts=arr.map((v,i)=>`${(i/(arr.length-1)*w).toFixed(1)},${(h-4-(v-mn)/r*(h-8)).toFixed(1)}`).join(' ');return `<div style="margin:10px 0"><div class="row sp sm"><b>${l}</b><span class="muted">${arr[arr.length-1].toLocaleString('en-US')}</span></div><svg viewBox="0 0 ${w} ${h}" width="100%" height="60" preserveAspectRatio="none"><polyline fill="none" stroke="${c}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="${pts}"/></svg></div>`}
 function journeyV(){const s=G.snap.concat([{day:G.day,nw:netWorth(),trust:Math.round(G.p.trust),rep:Math.round(G.p.rep)}]);const ms=Object.values(G.mile).sort((a,b)=>b.day-a.day);
@@ -1329,6 +1329,24 @@ function giftReadySheet(){
   </div>`;
 }
 
+
+function topUpSheet(){
+  const bal=G.p.cash|0;
+  const amts=[1000,2000,5000,10000,20000,50000];
+  return `<h2>Top up balance</h2>
+  <div class="muted sm" style="margin:4px 0 12px">Add funds so you can pay Ajo contributions and join activities. Demo top-ups credit this device instantly.</div>
+  <div class="card" style="text-align:center;margin-bottom:12px">
+    <div class="tiny muted">Current balance</div>
+    <div class="cash" style="font-size:28px;margin-top:4px">${fmt(bal)}</div>
+  </div>
+  <label class="l">Quick amounts</label>
+  <div class="opts">${amts.map(a=>`<button data-a="topUpAmt" data-v="${a}" class="${+(UI.topUpAmt||0)===a?'on':''}">${fmt(a)}</button>`).join('')}</div>
+  <label class="l">Custom amount (₦)</label>
+  <div class="field"><input type="number" id="f-topup" min="100" max="500000" step="100" placeholder="e.g. 7500" value="${UI.topUpAmt||''}"></div>
+  <button class="btn" style="width:100%;margin-top:14px" data-a="topUpGo">Top up now</button>
+  <div class="tiny muted" style="margin-top:10px">Online payments (card, transfer, USSD) will plug in here when the payment partner is connected. For now this is demo credit.</div>`;
+}
+
 function sheetHtml(){let h='';
  if(G.ev)return wrap(eventSheet(),true);
  const m=UI.modal;if(!m)return '';
@@ -1338,6 +1356,7 @@ function sheetHtml(){let h='';
  if(m.t==='gifts')h=giftsHubSheet();
  if(m.t==='giftWheel')h=giftWheelSheet();
  if(m.t==='giftReady')h=giftReadySheet();
+ if(m.t==='topup')h=topUpSheet();
  return wrap(h)}
 function wrap(h,lock){return `<div class="back" ${lock?'':'data-a="closeBack"'}><div class="sheet" id="sheet">${lock?'':'<button class="x" data-a="close" aria-label="Close">✕</button>'}${h}</div></div>`}
 
@@ -1779,14 +1798,27 @@ function ajoSheet(a){if(!a)return'<div class="muted">Not found</div>';
 
  if(st==='active'){
   const d=dueDay(a),rec=a.order[a.cycle],paid=!!cyc(a,'player');
+  const pend=a.pendingPayout&&!a.pendingPayout.claimed?a.pendingPayout:null;
   h+=`
   <section class="card"><b>Round ${a.cycle+1} of ${a.size}</b>
    <div class="row sp" style="margin-top:8px"><span class="muted sm">Due</span><b>Day ${d}</b></div>
    <div class="row sp"><span class="muted sm">Receives pot</span><b>${nm(rec)}${a.cycle===0?' · organizer':''}</b></div>
-   ${a.members.includes('player')&&!paid&&!(a.cycle===0&&a.host==='player')?`<button class="btn" style="margin-top:12px" data-a="pay" data-id="${a.id}">Pay ${fmt(a.amt)}</button>`:''}
-   ${a.cycle===0&&a.host==='player'?`<div class="pill ok" style="margin-top:10px">Organizer — no contribution this round</div>`:''}
+   <div class="row sp"><span class="muted sm">Contribution</span><b>${fmt(a.amt)}</b></div>
+   ${a.members.includes('player')&&!paid&&!(a.cycle===0&&a.host==='player')?`<button class="btn" style="margin-top:12px" data-a="pay" data-id="${a.id}">Pay contribution ${fmt(a.amt)}</button>
+   <div class="tiny muted" style="margin-top:6px">Need cash? <button class="btn sm ghost" data-a="topUpOpen">Top up balance</button></div>`:''}
+   ${a.cycle===0&&a.host==='player'&&!pend?`<div class="pill ok" style="margin-top:10px">Organizer — no contribution this round</div>`:''}
    ${paid?`<div class="pill ok" style="margin-top:10px">You paid this round</div>`:''}
   </section>`;
+  if(pend){
+   h+=`<section class="card" style="border:2px solid var(--danfo,#ffc928)">
+    <b>💰 Your pot is ready</b>
+    <div class="muted sm" style="margin:8px 0">Round ${(pend.cycle||0)+1} · Claim to move money into your balance.</div>
+    <div class="money-row"><span class="label">Pot for you</span><span class="val gold">${fmt(pend.amt)}</span></div>
+    ${pend.fee?`<div class="money-row"><span class="label">Platform fee taken</span><span class="val">${fmt(pend.fee)}</span></div>`:''}
+    ${pend.ded?`<div class="money-row"><span class="label">Credits deducted</span><span class="val">${fmt(pend.ded)}</span></div>`:''}
+    <button class="btn green" style="width:100%;margin-top:12px" data-a="ajoClaim" data-id="${a.id}">Claim payout ${fmt(pend.amt)}</button>
+   </section>`;
+  }
   if(a.order.length){h+=`<section class="card"><b>Order</b>${a.order.map((m,i)=>`<div class="row sp sm" style="margin-top:6px"><span class="${i===a.cycle?'':'muted'}">${i+1}. ${nm(m)} ${stoneOf(a,m)?stoneOf(a,m).ic:''}</span>${i<a.cycle?'<span class="pill ok">Paid out</span>':i===a.cycle?'<span class="pill wait">Current</span>':''}</div>`).join('')}</section>`}
  }
 
@@ -2597,6 +2629,16 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
   case 'req':run(reqPriority,d.id,d.r);break;
   case 'vote':run(voteNom,d.id,d.y==='1');break;
   case 'start':case 'ajoStart':run(startAjo,d.id);break;
+  
+  case 'topUpOpen':UI.topUpAmt=5000;UI.modal={t:'topup'};render();break;
+  case 'topUpAmt':UI.topUpAmt=+d.v;render();break;
+  case 'topUpGo':{
+    const el=document.getElementById('f-topup');
+    const amt=el&&el.value!==''?+el.value:(UI.topUpAmt||0);
+    if(topUp(amt)){UI.modal=null;commit()} else {flush();render()}
+  }break;
+  case 'ajoClaim':run(claimAjoPayout,d.id);break;
+
   case 'pay':run(payAjo,d.id);break;
   case 'debt':run(payDebt,+d.id);break;
   case 'reset':if(!UI.confirmReset){UI.confirmReset=true;render()}else{Store.clear();Account.clear();G=null;UI.confirmReset=false;UI.modal=null;UI.tab='life';UI.authMode=null;UI.regStep=1;UI.form={name:'',username:'',age:24,gender:'Male',interests:[],businessStatus:''};render()}break;
