@@ -1906,105 +1906,102 @@ const Store={async load(){try{if(window.storage){const r=await window.storage.ge
  async save(){if(!G)return;const s=JSON.stringify(G);Store.mem=s;try{if(window.storage){await window.storage.set(KEY,s,false);return}}catch(e){}try{localStorage.setItem(KEY,s)}catch(e){}},
  async clear(){Store.mem=null;try{if(window.storage)await window.storage.delete(KEY,false)}catch(e){}try{localStorage.removeItem(KEY)}catch(e){}}};
 
-/* ---- Community gifts (AjoLoop-covered wellness perks) ---- */
+
+/* ---- Unlocked experiences (real places to attend — not free virtual loot) ---- */
 const GIFT_CATALOG=[
-  {id:'gym_day',ic:'🏋️',n:'Gym day pass',d:'Full day at FitKano Gym — AjoLoop covers it.',value:3000,bizId:'bz_fitkano',kind:'wellness'},
-  {id:'salon_glow',ic:'💇',n:'Salon glow-up',d:'Style session at Rukayya\'s Salon on us.',value:4000,bizId:'bz_ruksalon',kind:'wellness'},
-  {id:'spa_hour',ic:'🧖',n:'Spa hour',d:'Calm Waters Spa — one hour rest package.',value:5000,bizId:'bz_calmspa',kind:'wellness'},
-  {id:'yoga_intro',ic:'🧘',n:'Yoga intro',d:'Sunrise Yoga Park class for you + a friend.',value:2000,bizId:'bz_yogapark',kind:'wellness'},
-  {id:'stars_boost',ic:'⭐',n:'+80 community stars',d:'Extra stars toward your next free gift.',value:0,bizId:null,kind:'stars',stars:80},
-  {id:'trust_nudge',ic:'🤝',n:'Trust nudge',d:'+3 Trust for showing up for yourself.',value:0,bizId:null,kind:'trust',trust:3},
-  {id:'meal_treat',ic:'🍲',n:'Neighbourhood meal',d:'AjoLoop covers a plate at a partner kitchen.',value:1500,bizId:'bz_fatima',kind:'food'},
-  {id:'cash_token',ic:'₦',n:'₦1,000 demo credit',d:'Small top-up to your demo wallet.',value:1000,bizId:null,kind:'cash',cash:1000}
+  {id:'gym_day',ic:'🏋️',n:'Gym session',d:'Booked day access at FitKano Gym. Show up to use it.',value:3000,bizId:'bz_fitkano',kind:'experience'},
+  {id:'salon_glow',ic:'💇',n:'Salon appointment',d:'Style session at Rukayya\'s Salon. Attend to complete.',value:4000,bizId:'bz_ruksalon',kind:'experience'},
+  {id:'spa_hour',ic:'🧖',n:'Spa visit',d:'One hour at Calm Waters Spa. Mark attended after you go.',value:5000,bizId:'bz_calmspa',kind:'experience'},
+  {id:'yoga_intro',ic:'🧘',n:'Yoga class',d:'Sunrise Yoga Park intro — bring a friend if you like.',value:2000,bizId:'bz_yogapark',kind:'experience'},
+  {id:'meetup_food',ic:'🍲',n:'Food meetup invite',d:'Partner kitchen plate for a real meetup with someone nearby.',value:1500,bizId:'bz_fatima',kind:'experience'},
+  {id:'group_hangout',ic:'🏘️',n:'Group hangout pass',d:'Reserved spot for a community hangout at a partner place.',value:0,bizId:null,kind:'hangout'}
 ];
 const WHEEL_SLICES=[
-  {label:'FREE',gift:'gym_day',w:12},
-  {label:'5% OFF',gift:null,w:18},
-  {label:'Salon',gift:'salon_glow',w:10},
-  {label:'10% OFF',gift:null,w:18},
-  {label:'Spa',gift:'spa_hour',w:8},
-  {label:'20% OFF',gift:null,w:14},
-  {label:'Stars',gift:'stars_boost',w:12},
-  {label:'Yoga',gift:'yoga_intro',w:8}
+  {label:'Gym',gift:'gym_day',w:14},
+  {label:'Salon',gift:'salon_glow',w:14},
+  {label:'Spa',gift:'spa_hour',w:12},
+  {label:'Yoga',gift:'yoga_intro',w:12},
+  {label:'Meetup',gift:'meetup_food',w:14},
+  {label:'Hangout',gift:'group_hangout',w:12},
+  {label:'Try again',gift:null,w:22}
 ];
 function ensureGifts(){
   if(!G||!G.p)return;
   if(G.p.stars==null)G.p.stars=0;
   if(!G.p.giftSlots)G.p.giftSlots=[null,null,null,null,null,null];
   if(!G.p.giftsClaimed)G.p.giftsClaimed=[];
-  if(G.p.spinDay!==G.day){G.p.spinDay=G.day;G.p.spinsToday=0}
+  if(!G.p.pendingExperiences)G.p.pendingExperiences=[];
+  if(G.p.spinsToday==null)G.p.spinsToday=0;
+  if(G.p.spinDay==null)G.p.spinDay=0;
+  if(G.p.giftIntro==null)G.p.giftIntro=false;
+  (G.p.giftSlots||[]).forEach((s)=>{if(s&&!s.status)s.status='pending'});
 }
 function earnStars(n,why){
   ensureGifts();
   n=Math.max(0,Math.floor(n||0));
   if(!n)return;
   G.p.stars+=n;
-  fx('+'+n+' ⭐ community stars'+(why?(' · '+why):''),'good');
+  fx('+'+n+' activity'+(why?(' · '+why):''),'good');
 }
 function giftById(id){return GIFT_CATALOG.find(g=>g.id===id)}
-function openGiftSlots(){return (G.p.giftSlots||[]).filter(x=>!x).length}
+function pendingExperiences(){
+  ensureGifts();
+  return (G.p.giftSlots||[]).map((s,i)=>s&&s.status==='pending'?Object.assign({},s,{slot:i}):null).filter(Boolean);
+}
 function placeGiftInSlot(giftId){
   ensureGifts();
   const g=giftById(giftId);if(!g)return false;
   const slots=G.p.giftSlots;
   const i=slots.findIndex(x=>!x);
-  if(i<0)return no('All 6 gift slots are full — claim one first.');
-  slots[i]={id:g.id,ic:g.ic,n:g.n,d:g.d,value:g.value,bizId:g.bizId,kind:g.kind,stars:g.stars,trust:g.trust,cash:g.cash,wonDay:G.day};
-  note('Gift unlocked: '+g.n+' — AjoLoop can cover this at a partner spot.','good');
+  if(i<0)return no('You already have 6 experiences waiting. Attend one first.');
+  slots[i]={id:g.id,ic:g.ic,n:g.n,d:g.d,value:g.value,bizId:g.bizId,kind:g.kind,status:'pending',unlockedDay:G.day};
+  note('Unlocked: '+g.n+' — still to attend. Open Home to see what is waiting.','ajo');
+  fx('To attend: '+g.n,'warm');
   return true;
 }
-function claimGiftSlot(idx){
+function attendExperience(idx){
   ensureGifts();
   const slot=G.p.giftSlots[idx];
-  if(!slot)return no('That gift slot is empty.');
-  // Apply effect — AjoLoop covers cost (no player cash)
-  if(slot.kind==='cash'&&slot.cash){
-    earn(slot.cash,'AjoLoop gift credit','gift');
-  } else if(slot.kind==='stars'&&slot.stars){
-    G.p.stars+=slot.stars;
-  } else if(slot.kind==='trust'&&slot.trust){
-    addTrust(slot.trust,'Claimed community gift');
-  } else if(slot.bizId){
-    const b=bizById(slot.bizId);
-    if(b){b.visits=(b.visits||0)+1;G.p.mood=clamp((G.p.mood||50)+6);G.p.energy=clamp((G.p.energy||50)+4)}
-    fx('AjoLoop covered '+slot.n+(b?(' at '+b.name):''),'good');
-    note('You claimed '+slot.n+'. Partner spot was covered by AjoLoop — show this in the app.','ajo');
-  } else {
-    fx('Gift claimed: '+slot.n,'good');
-  }
-  G.p.giftsClaimed.unshift({...slot,claimedDay:G.day});
+  if(!slot||slot.status!=='pending')return no('Nothing pending in that slot.');
+  const b=slot.bizId?bizById(slot.bizId):null;
+  slot.status='attended';
+  slot.attendedDay=G.day;
+  if(b){b.visits=(b.visits||0)+1}
+  addTrust(2,'Attended '+slot.n);
+  addRep(1,'Showed up for a booked experience');
+  G.p.giftsClaimed.unshift(Object.assign({},slot));
   if(G.p.giftsClaimed.length>20)G.p.giftsClaimed.length=20;
   G.p.giftSlots[idx]=null;
-  earnStars(15,'Claimed a community gift');
-  miles('gift','Claimed your first AjoLoop gift');
+  earnStars(20,'Attended '+slot.n);
+  note('You attended '+slot.n+(b?(' at '+b.name):'')+'. Trust grows when you show up.','good');
+  fx('Attended · '+slot.n,'good');
+  miles('attend','Showed up for a real experience');
   return true;
 }
+function claimGiftSlot(idx){return attendExperience(idx)}
 function spinCommunityWheel(){
   ensureGifts();
-  if(G.p.spinsToday>=3)return no('Come back tomorrow for more spins (3 per day).');
-  // Need a little activity: 20 stars or first spin free
+  if(G.p.spinDay!==G.day){G.p.spinDay=G.day;G.p.spinsToday=0}
+  if(G.p.spinsToday>=2)return no('Come back tomorrow — 2 unlocks per day.');
   const free=G.p.spinsToday===0;
-  if(!free&&G.p.stars<25)return no('Need 25 ⭐ community stars to spin again. Meet people, visit places, or join a group.');
-  if(!free){G.p.stars-=25}
+  if(!free&&G.p.stars<40)return no('Need 40 activity points for another unlock. Meet people, visit places, join groups.');
+  if(!free)G.p.stars-=40;
   G.p.spinsToday++;
-  // Weighted pick
   const total=WHEEL_SLICES.reduce((s,x)=>s+x.w,0);
   let r=Math.random()*total,pick=WHEEL_SLICES[0];
   for(const s of WHEEL_SLICES){r-=s.w;if(r<=0){pick=s;break}}
   let result={slice:pick.label,giftId:pick.gift,msg:''};
   if(pick.gift){
-    if(placeGiftInSlot(pick.gift)) result.msg='You won: '+giftById(pick.gift).n;
-    else result.msg='Won '+pick.label+' but slots are full.';
+    if(placeGiftInSlot(pick.gift)) result.msg='Unlocked: '+giftById(pick.gift).n+' — still to attend.';
+    else result.msg='Your list is full. Attend one first.';
   } else {
-    // small consolation stars
-    earnStars(10,'Wheel bonus');
-    result.msg=pick.label+' — keep building community for bigger gifts.';
+    earnStars(8,'Kept showing up');
+    result.msg='No new booking this time — keep building activity.';
   }
   return result;
 }
 function wellnessNearby(){
-  const area=(G.p.home&&G.p.home.area)||G.p.area;
-  return (G.bizs||[]).filter(b=>!b.closed&&(b.wellness||b.cat==='Wellness')&&(!area||b.area===area||true));
+  return (G.bizs||[]).filter(b=>!b.closed&&(b.wellness||b.cat==='Wellness'));
 }
 
 //#ENGINE-END
