@@ -1,8 +1,8 @@
 {
   "name": "ajoloop",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Ajoloop \u2014 Build trust, community, and traditional Ajo circles.",
+  "description": "Ajoloop \u2014 Meet people, share experiences, build trust, support your circle.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,9 @@
     "test:all": "npm run test && npm run test:smoke",
     "export:legacy": "node scripts/export-legacy-html.js",
     "ci": "npm run test:all && npm run build && npm run export:legacy"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
   },
   "devDependencies": {
     "vite": "^5.4.11"
